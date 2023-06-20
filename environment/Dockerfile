@@ -6,3 +6,13 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG GIT_ASKPASS
 ARG GIT_ACCESS_TOKEN
 COPY git-askpass /
+
+# Creating a new conda environment for argschema python bug
+RUN conda create -n dispatcher python=3.8
+
+# Make RUN commands use the new environment:
+SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
+RUN conda install -c conda-forge awscli
+RUN pip install -U --no-cache-dir \
+    aind-codeocean-api==0.2.2 \
+    python-dotenv==0.21.1
