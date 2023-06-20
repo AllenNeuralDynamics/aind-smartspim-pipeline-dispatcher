@@ -7,6 +7,7 @@ import sys
 import time
 from glob import glob
 from pathlib import Path
+from typing import Union
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.credentials import CodeOceanCredentials
@@ -25,6 +26,8 @@ logging.basicConfig(
 logging.disable("DEBUG")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+PathLike = Union[str, Path]
 
 
 def wait_for_data_availability(
@@ -97,23 +100,21 @@ def make_data_viewable(co_client: CodeOceanClient, response_contents: dict):
     logger.info(f"Data asset viewable to everyone: {update_data_perm_response}")
 
 
-def run():
+def dispatch(processing_manifest_path: PathLike):
     """
-    Run function that loads a smartspim configuration,
-    creates a data asset in code ocean and creates
-    new smartspim configurations for each dataset channel
+    Creates multiple processing manifest jsons using
+    the original processing manifest. This is done to
+    use the flatten connection and instantiate multiple
+    computations to process each channel in parallel.
+
+    Parameters
+    ----------
+    processing_manifest_path: PathLike
+        Path where the processing manifest json is
+        located.
     """
 
-    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
-    load_env_file = load_dotenv(dotenv_path=dotenv_path)
-    print(f"Load env file status: {load_env_file}")
-
-    processing_manifest_path = os.path.abspath("../data/processing_manifest.json")
     processing_manifest = utils.read_json_as_dict(processing_manifest_path)
-
-    # parameters = sys.argv[1:]
-    # sys.argv = [sys.argv[0]]
-    # processing_manifest = json.loads(parameters[0])
 
     logger.info(f"Provided processing manifest: {processing_manifest}")
 
@@ -128,12 +129,15 @@ def run():
     dataset_to_register = processing_manifest["stitching"]["s3_path"]
     dataset_to_register = dataset_to_register.split("/")[-1]
 
+    smartspim_fused_tags = ["smartspim", "processed"]
+
+    # Register the fused smartspim dataset
     data_asset_reg_response = co_client.register_data_asset(
         asset_name=dataset_to_register,
         mount=dataset_to_register,
         bucket="aind-open-data",
         prefix=dataset_to_register,
-        tags=["smartspim", "processed"],
+        tags=smartspim_fused_tags,
     )
 
     response_contents = data_asset_reg_response.json()
@@ -164,6 +168,126 @@ def run():
             f"{results_folder}/processing_manifest_{channel_to_process}.json",
             copy_processing_manifest,
         )
+
+
+def clean_up(processing_manifest_path: PathLike):
+    """
+    Moves all the data to the aind-open-data bucket in
+    AWS.
+
+    Parameters
+    ----------
+    processing_manifest_path: PathLike
+        Path where the processing manifest json is
+        located.
+    """
+
+    if not os.path.exists(processing_manifest_path):
+        raise ValueError("Processing manifest path does not exist!")
+
+    pipeline_config = utils.read_json_as_dict(processing_manifest_path)
+
+    # Defining paths
+    data_folder = os.path.abspath("../data")
+    results_folder = os.path.abspath("../results")
+
+    logger.info(f"Data folder: {os.listdir(data_folder)}")
+
+    # Variables from processing manifest
+    bucket = "aind-open-data"
+
+    ccf_folders = glob(f"{data_folder}/ccf_*")
+    cell_folders = glob(f"{data_folder}/cell_*")
+    quantification_folders = glob(f"{data_folder}/quant_*")
+
+    logger.info(f"CCF folders: {ccf_folders}")
+    logger.info(f"Cell folders: {cell_folders}")
+    logger.info(f"Quantification folders: {quantification_folders}")
+
+    # Defining s3 outputs
+    s3_path = pipeline_config["stitching"]["s3_path"]
+    ccf_s3_output = f"{s3_path}/processed/CCF_Atlas_Registration"
+    cell_s3_output = f"{s3_path}/processed/Cell_Segmentation"
+    quantification_s3_output = f"{s3_path}/processed/Quantification"
+
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    # Moving data to the CCF folder
+    for ccf_folder in ccf_folders:
+        channel_name = re.search(regex_channels, ccf_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    # Moving data to the cell folder
+    for cell_folder in cell_folders:
+        channel_name = re.search(regex_channels, cell_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    # Moving data to the quantification folder
+    for quantification_folder in quantification_folders:
+        channel_name = re.search(regex_channels, quantification_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    utils.save_string_to_txt(
+        f"Results of CCF saved in: {ccf_s3_output}",
+        f"{results_folder}/output_ccf.txt",
+    )
+
+    utils.save_string_to_txt(
+        f"Results of cell segmentation saved in: {cell_s3_output}",
+        f"{results_folder}/output_cell.txt",
+    )
+
+    utils.save_string_to_txt(
+        f"Results of quantification saved in: {quantification_s3_output}",
+        f"{results_folder}/output_quantification.txt",
+    )
+
+
+def run():
+    """
+    Run function allows the smartspim pipeline to execute
+    in parallel. It receives an input parameter related to
+    the capsule mode:
+
+    - "dispatch": This mode dispatches multiple instances of
+    the downstream capsules.
+
+    - "clean": This mode cleans up all the results from the
+    downstream capsules because our data is being copied to the
+    aind-open-data bucket.
+    """
+
+    mode = str(sys.argv[1:]).casefold()
+    sys.argv = [sys.argv[0]]
+
+    processing_manifest_path = os.path.abspath("../data/processing_manifest.json")
+
+    # Loading .env file, this file must be placed with
+    # the code ocean domain and token
+    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
+    load_env_file = load_dotenv(dotenv_path=dotenv_path)
+    logger.info(f"Load env file status: {load_env_file}")
+
+    if mode == "dispatch":
+        dispatch(processing_manifest_path)
+
+    elif mode == "clean":
+        clean_up(processing_manifest_path)
+
+    else:
+        raise NotImplementedError(f"The mode {mode} has not been implemented")
 
 
 if __name__ == "__main__":
