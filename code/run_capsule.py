@@ -120,7 +120,6 @@ def dispatch(processing_manifest_path: PathLike):
     logger.info(f"Provided processing manifest: {processing_manifest}")
 
     results_folder = os.path.abspath("../results")
-    data_folder = os.path.abspath("../data")
 
     codeocean_domain = os.getenv("CODEOCEAN_DOMAIN")
     co_token = os.getenv("CODEOCEAN_TOKEN")
