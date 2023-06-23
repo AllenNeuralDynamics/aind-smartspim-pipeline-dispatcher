@@ -269,7 +269,8 @@ def run():
     aind-open-data bucket.
     """
 
-    mode = str(sys.argv[1:]).casefold()
+    mode = str(sys.argv[1:])
+    mode = mode.replace("[", "").replace("]", "").casefold()
     sys.argv = [sys.argv[0]]
 
     processing_manifest_path = os.path.abspath("../data/processing_manifest.json")
@@ -280,10 +281,10 @@ def run():
     load_env_file = load_dotenv(dotenv_path=dotenv_path)
     logger.info(f"Load env file status: {load_env_file}")
 
-    if mode == "dispatch":
+    if "dispatch" in mode:
         dispatch(processing_manifest_path)
 
-    elif mode == "clean":
+    elif "clean" in mode:
         clean_up(processing_manifest_path)
 
     else:
