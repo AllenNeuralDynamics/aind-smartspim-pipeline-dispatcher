@@ -206,9 +206,9 @@ def clean_up(processing_manifest_path: PathLike):
 
     # Defining s3 outputs
     s3_path = pipeline_config["stitching"]["s3_path"]
-    ccf_s3_output = f"{s3_path}/processed/CCF_Atlas_Registration"
-    cell_s3_output = f"{s3_path}/processed/Cell_Segmentation"
-    quantification_s3_output = f"{s3_path}/processed/Quantification"
+    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
+    cell_s3_output = f"{s3_path}/image_cell_segmentation"
+    quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
     regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
 
