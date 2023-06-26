@@ -121,8 +121,8 @@ def dispatch(processing_manifest_path: PathLike):
 
     results_folder = os.path.abspath("../results")
 
-    codeocean_domain = os.getenv("CODEOCEAN_DOMAIN")
-    co_token = os.getenv("CODEOCEAN_TOKEN")
+    codeocean_domain = os.getenv("API_KEY")
+    co_token = os.getenv("API_SECRET")
     co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
 
     # Getting path in S3
@@ -277,9 +277,9 @@ def run():
 
     # Loading .env file, this file must be placed with
     # the code ocean domain and token
-    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
-    load_env_file = load_dotenv(dotenv_path=dotenv_path)
-    logger.info(f"Load env file status: {load_env_file}")
+    # dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
+    # load_env_file = load_dotenv(dotenv_path=dotenv_path)
+    # logger.info(f"Load env file status: {load_env_file}")
 
     if "dispatch" in mode:
         dispatch(processing_manifest_path)
