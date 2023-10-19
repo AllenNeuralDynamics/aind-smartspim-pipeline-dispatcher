@@ -16,4 +16,4 @@ RUN conda install -c conda-forge awscli
 RUN pip install -U --no-cache-dir \
     aind-codeocean-api==0.2.2 \
     python-dotenv==0.21.1 \
-    aind-data-schema==0.15.9
+    aind-data-schema==0.15.11
