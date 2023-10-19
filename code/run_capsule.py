@@ -98,7 +98,7 @@ def make_data_viewable(co_client: CodeOceanClient, response_contents: dict):
     logger.info(f"Data asset viewable to everyone: {update_data_perm_response}")
 
 
-def dispatch(processing_manifest: dict, results_folder: PathLike):
+def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     """
     Creates multiple processing manifest jsons using
     the original processing manifest. This is done to
@@ -113,6 +113,9 @@ def dispatch(processing_manifest: dict, results_folder: PathLike):
 
     results_folder: str
         Path pointing to the results folder
+
+    bucket: str
+        Bucket name where the data is stored
     """
 
     logger.info(f"Provided processing manifest: {processing_manifest}")
@@ -131,7 +134,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike):
     data_asset_reg_response = co_client.register_data_asset(
         asset_name=dataset_to_register,
         mount=dataset_to_register,
-        bucket="aind-open-data",
+        bucket=bucket,
         prefix=dataset_to_register,
         tags=smartspim_fused_tags,
     )
@@ -377,7 +380,26 @@ def copy_intermediate_data(
         It includes the "s3://" prefix.
     """
 
-    # TODO Create intermediate general processing json
+    stitch_processings = []
+    fuse_processings = []
+    for stitch_folder in stitch_folders:
+        stitch_processings.append(glob(f"{stitch_folder}/*processing*.json"))
+
+    stitch_processings = []
+    for fuse_folder in fuse_folders:
+        fuse_processings.append(glob(f"{fuse_folder}/*processing*.json"))
+
+    processing_paths = destripe_files + stitch_processings + fuse_processings
+
+    output_filename = utils.compile_processing_jsons(
+        processing_paths=processing_paths,
+        output_general_processing=output_dispatch_metadata,
+        processor_full_name="Camilo Laiton",
+        pipeline_version="1.5.0",
+    )
+
+    logger.info(f"Compiled processing.json in path {output_filename}")
+
     s3_path = f"s3://{bucket_path}/{new_dataset_name}"
 
     # Copying derived metadata
@@ -568,7 +590,11 @@ def run():
         # Setting the stitching path in pipeline config
         pipeline_config["stitching"]["s3_path"] = s3_path
 
-        dispatch(processing_manifest=pipeline_config, results_folder=results_folder)
+        dispatch(
+            processing_manifest=pipeline_config,
+            results_folder=results_folder,
+            bucket=bucket_path,
+        )
 
         utils.save_dict_as_json(
             f"{results_folder}/modified_processing_manifest.json",
