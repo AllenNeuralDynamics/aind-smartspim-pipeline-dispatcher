@@ -1,6 +1,5 @@
 """ Main script that works as a dispatcher in code ocean """
 
-import json
 import logging
 import os
 import re
@@ -8,11 +7,9 @@ import sys
 import time
 from glob import glob
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 from aind_codeocean_api.codeocean import CodeOceanClient
-from aind_codeocean_api.credentials import CodeOceanCredentials
-from dotenv import load_dotenv
 from utils import utils
 
 logging.basicConfig(
@@ -101,7 +98,7 @@ def make_data_viewable(co_client: CodeOceanClient, response_contents: dict):
     logger.info(f"Data asset viewable to everyone: {update_data_perm_response}")
 
 
-def dispatch(processing_manifest_path: PathLike):
+def dispatch(processing_manifest: dict, results_folder: PathLike):
     """
     Creates multiple processing manifest jsons using
     the original processing manifest. This is done to
@@ -110,16 +107,15 @@ def dispatch(processing_manifest_path: PathLike):
 
     Parameters
     ----------
-    processing_manifest_path: PathLike
-        Path where the processing manifest json is
-        located.
+    processing_manifest: dict
+        Dictionary with the processing manifest
+        metadata
+
+    results_folder: str
+        Path pointing to the results folder
     """
 
-    processing_manifest = utils.read_json_as_dict(processing_manifest_path)
-
     logger.info(f"Provided processing manifest: {processing_manifest}")
-
-    results_folder = os.path.abspath("../results")
 
     codeocean_domain = os.getenv("API_KEY")
     co_token = os.getenv("API_SECRET")
@@ -146,55 +142,69 @@ def dispatch(processing_manifest_path: PathLike):
     # Making the created data asset available for everyone
     make_data_viewable(co_client, response_contents)
 
-    # Getting channel name
-    channels_to_process = processing_manifest["segmentation"]["channels"]
+    # Creating processing manifests for channels to register
+    register_channels = processing_manifest["registration"]["channels"]
 
-    for channel_to_process in channels_to_process:
+    for channel_to_register in register_channels:
         copy_processing_manifest = processing_manifest.copy()
 
         copy_processing_manifest["registration"]["input_data"] = "../data/fused"
-        copy_processing_manifest["registration"]["channel"] = channel_to_process
+        copy_processing_manifest["registration"]["channel"] = channel_to_register
+
+        utils.save_dict_as_json(
+            f"{results_folder}/registration_processing_manifest_{channel_to_register}.json",
+            copy_processing_manifest,
+        )
+
+    # Creating processing manifests for channels to segment and quantify
+    segment_channels = processing_manifest["segmentation"]["channels"]
+
+    for channel_to_segment in segment_channels:
+        copy_processing_manifest = processing_manifest.copy()
 
         copy_processing_manifest["segmentation"]["input_data"] = "../data/fused"
-        copy_processing_manifest["segmentation"]["channel"] = channel_to_process
+        copy_processing_manifest["segmentation"]["channel"] = channel_to_segment
 
         # Creating quantification parameters
         copy_processing_manifest["quantification"] = {}
         copy_processing_manifest["quantification"]["fused_folder"] = "../data/fused"
-        copy_processing_manifest["quantification"]["channel"] = channel_to_process
+        copy_processing_manifest["quantification"]["channel"] = channel_to_segment
         copy_processing_manifest["quantification"]["save_path"] = "../results/"
 
         utils.save_dict_as_json(
-            f"{results_folder}/processing_manifest_{channel_to_process}.json",
+            f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
             copy_processing_manifest,
         )
 
 
-def clean_up(processing_manifest_path: PathLike):
+def clean_up(
+    processing_manifest: dict,
+    data_folder: PathLike,
+    results_folder: PathLike,
+):
     """
     Moves all the data to the aind-open-data bucket in
     AWS.
 
     Parameters
     ----------
-    processing_manifest_path: PathLike
-        Path where the processing manifest json is
-        located.
+    processing_manifest: dict
+        Dictionary with the processing manifest
+        metadata
+
+    data_folder: str
+        Path pointing to the data folder
+
+    results_folder: str
+        Path pointing to the results folder
+
+    bucket: str
+        Bucket name
     """
-
-    if not os.path.exists(processing_manifest_path):
-        raise ValueError("Processing manifest path does not exist!")
-
-    pipeline_config = utils.read_json_as_dict(processing_manifest_path)
-
-    # Defining paths
-    data_folder = os.path.abspath("../data")
-    results_folder = os.path.abspath("../results")
-
     logger.info(f"Data folder: {os.listdir(data_folder)}")
 
-    # Variables from processing manifest
-    bucket = "aind-open-data"
+    # # Variables from processing manifest
+    # bucket = "aind-open-data"
 
     ccf_folders = glob(f"{data_folder}/ccf_*")
     cell_folders = glob(f"{data_folder}/cell_*")
@@ -205,7 +215,7 @@ def clean_up(processing_manifest_path: PathLike):
     logger.info(f"Quantification folders: {quantification_folders}")
 
     # Defining s3 outputs
-    s3_path = pipeline_config["stitching"]["s3_path"]
+    s3_path = processing_manifest["stitching"]["s3_path"]
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
     cell_s3_output = f"{s3_path}/image_cell_segmentation"
     quantification_s3_output = f"{s3_path}/image_cell_quantification"
@@ -255,6 +265,236 @@ def clean_up(processing_manifest_path: PathLike):
     )
 
 
+def get_data_config(
+    data_folder: PathLike,
+    processing_manifest_path: str = "processing_manifest.json",
+    data_description_path: str = "data_description.json",
+) -> Tuple:
+    """
+    Returns the first smartspim dataset found
+    in the data folder
+
+    Parameters
+    -----------
+    data_folder: str
+        Path to the folder that contains the data
+
+    processing_manifest_path: str
+        Path for the processing manifest
+
+    data_description_path: str
+        Path for the data description
+
+    Returns
+    -----------
+    Tuple[Dict, str]
+        Dict: Empty dictionary if the path does not exist,
+        dictionary with the data otherwise.
+
+        Str: Empty string if the processing manifest
+        was not found
+    """
+
+    # Returning first smartspim dataset found
+    # Doing this because of Code Ocean, ideally we would have
+    # a single dataset in the pipeline
+
+    processing_manifest_path = Path(f"{data_folder}/{processing_manifest_path}")
+    data_description_path = Path(f"{data_folder}/{data_description_path}")
+
+    if not processing_manifest_path.exists():
+        raise ValueError(
+            f"Please, check processing manifest path: {processing_manifest_path}"
+        )
+
+    if not data_description_path.exists():
+        raise ValueError(
+            f"Please, check data description path: {data_description_path}"
+        )
+
+    derivatives_dict = utils.read_json_as_dict(str(processing_manifest_path))
+    data_description_dict = utils.read_json_as_dict(str(data_description_path))
+
+    smartspim_dataset = data_description_dict["name"]
+
+    return derivatives_dict, smartspim_dataset
+
+
+def copy_intermediate_data(
+    output_dispatch_metadata: PathLike,
+    destripe_files: PathLike,
+    stitch_folders: PathLike,
+    fuse_folders: PathLike,
+    new_dataset_name: str,
+    bucket_path: str,
+    results_folder: PathLike,
+    logger: logging.Logger,
+) -> str:
+    """
+    Copies the destripe, stitch and fusion metadata
+    to the destination bucket to make it available
+    to scientists as soon as possible.
+
+    Parameters
+    ----------
+    output_dispatch_metadata: PathLike
+        Path where the new metadata (derived)
+        for the processed dataset is located
+
+    destripe_files: PathLike
+        Metadata files generated in the
+        parallel destriping step
+
+    stitch_folders: PathLike
+        Stitch folders generated in the
+        stitch step.
+
+    fuse_folders: PathLike
+        Fuse folders generated in the
+        parallel fusion step.
+
+    new_dataset_name: str
+        New dataset name where the data will
+        be copied following the aind conventions
+        e.g., s3://{bucket_path}/{new_dataset_name}
+
+    bucket_path: str
+        S3 path where the data will be moved.
+        Do not include 's3://' since this is
+        automatically added.
+
+    results_folder: PathLike
+        Results folder path in Code Ocean
+
+    logger: logging.Logger
+        Logging object
+
+    Returns
+    -------
+    str
+        Path where the data was moved.
+        e.g., s3://{bucket_path}/{new_dataset_name}
+        It includes the "s3://" prefix.
+    """
+
+    # TODO Create intermediate general processing json
+    s3_path = f"s3://{bucket_path}/{new_dataset_name}"
+
+    # Copying derived metadata
+    output_dispatch_metadata = Path(output_dispatch_metadata)
+    for out in utils.execute_command_helper(
+        f"aws s3 cp --recursive {s3_path} {output_dispatch_metadata}"
+    ):
+        logger.info(out)
+
+    # Copying out fused data
+    output_fusion = "image_tile_fusing"
+    dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
+    dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
+
+    for fuse_folder in fuse_folders:
+        logger.info(f"Copying data from {fuse_folder} to {s3_path}/{output_fusion}")
+        fuse_folder = Path(fuse_folder)
+        source_zarr = fuse_folder.joinpath("OMEZarr")
+        source_metadata = fuse_folder.joinpath("metadata")
+
+        if source_zarr.exists():
+            for out in utils.execute_command_helper(
+                f"aws s3 cp --recursive {source_zarr} {dest_zarr_path}"
+            ):
+                logger.info(out)
+
+        else:
+            raise ValueError(f"Folder {source_zarr} does not exist!")
+
+        if source_metadata.exists():
+            for out in utils.execute_command_helper(
+                f"aws s3 cp --recursive {source_metadata} {dest_metadata_path}/{fuse_folder.name}"
+            ):
+                logger.info(out)
+
+        else:
+            raise ValueError(f"Folder {source_metadata} does not exist!")
+
+    # Copying stitch metadata
+    for stitch_folder in stitch_folders:
+        logger.info(f"Copying data from {stitch_folder} to {dest_metadata_path}")
+        stitch_folder = Path(stitch_folder)
+        source_metadata = stitch_folder.joinpath("metadata")
+
+        if source_metadata.exists():
+            for out in utils.execute_command_helper(
+                f"aws s3 cp --recursive {source_metadata} {dest_metadata_path}/{stitch_folder.name}"
+            ):
+                logger.info(out)
+
+        else:
+            raise ValueError(f"Folder {source_metadata} does not exist!")
+
+    utils.save_string_to_txt(
+        f"Stitched dataset saved in: {s3_path}",
+        f"{results_folder}/output_stitching.txt",
+    )
+
+    return s3_path
+
+
+def create_derived_stitched_metadata(
+    data_folder: PathLike, results_folder: PathLike, logger: logging.Logger
+) -> Tuple[PathLike, str]:
+    """
+    Creates the derived metadata following
+    AIND conventions.
+
+    Parameters
+    ----------
+    data_folder: PathLike
+        Path to the code ocean data folder
+
+    results_folder: PathLike
+        Path to the code ocean results folder
+
+    logger: logging.Logger
+        Logging object
+
+    Returns
+    -------
+    Tuple[PathLike, str]
+        The first position of the tuple
+        corresponds to the path where the
+        metadata was created while the
+        second position has the new name
+        of the dataset
+    """
+    logger.info("Generating derived data description")
+    raw_metadata_path = data_folder.joinpath("input_aind_metadata")
+    output_dispatch_metadata = f"{results_folder}/output_aind_metadata"
+    utils.create_folder(output_dispatch_metadata)
+
+    new_dataset_name = utils.generate_data_description(
+        raw_data_description_path=raw_metadata_path.joinpath("data_description.json"),
+        dest_data_description=output_dispatch_metadata,
+        process_name="stitched",
+    )
+
+    logger.info("Copying all available raw SmartSPIM metadata")
+
+    # This is the AIND metadata
+    found_metadata = utils.copy_available_metadata(
+        input_path=raw_metadata_path,
+        output_path=output_dispatch_metadata,
+        ignore_files=[
+            "data_description.json",  # Ignoring data description since we're generating it above
+            "processing.json",  # This is generated with all the steps
+        ],
+    )
+
+    logger.info(f"Copied metadata from {data_folder}: {found_metadata}")
+    logger.info(f"Metadata in folder: {os.listdir(output_dispatch_metadata)}")
+
+    return output_dispatch_metadata, new_dataset_name
+
+
 def run():
     """
     Run function allows the smartspim pipeline to execute
@@ -269,11 +509,29 @@ def run():
     aind-open-data bucket.
     """
 
+    # Absolute paths of common Code Ocean folders
+    data_folder = Path(os.path.abspath("../data"))
+    results_folder = Path(os.path.abspath("../results"))
+
     mode = str(sys.argv[1:])
     mode = mode.replace("[", "").replace("]", "").casefold()
     sys.argv = [sys.argv[0]]
 
-    processing_manifest_path = os.path.abspath("../data/processing_manifest.json")
+    # It is assumed that these files
+    # will be in the data folder
+    required_input_elements = [
+        f"{data_folder}/processing_manifest.json",
+        f"{data_folder}/data_description.json",
+    ]
+
+    missing_files = utils.validate_capsule_inputs(required_input_elements)
+
+    if len(missing_files):
+        raise ValueError(
+            f"We miss the following files in the capsule input: {missing_files}"
+        )
+
+    pipeline_config, dataset_name = get_data_config(data_folder=data_folder)
 
     # Loading .env file, this file must be placed with
     # the code ocean domain and token
@@ -282,10 +540,47 @@ def run():
     # logger.info(f"Load env file status: {load_env_file}")
 
     if "dispatch" in mode:
-        dispatch(processing_manifest_path)
+        # Creating new metadata for stitched dataset
+        output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
+            data_folder=data_folder, results_folder=results_folder, logger=logger
+        )
+
+        # Looking for files
+        destripe_files = glob(f"{data_folder}/image_destriping_*")
+        stitch_folders = glob(f"{data_folder}/stitch_*")
+        fuse_folders = glob(f"{data_folder}/fusion_*")
+
+        bucket_path = (
+            "aind-msma-morphology-data/test_data/SmartSPIM/"  # "aind-open-data"
+        )
+
+        s3_path = copy_intermediate_data(
+            output_dispatch_metadata=output_dispatch_metadata,
+            destripe_files=destripe_files,
+            stitch_folders=stitch_folders,
+            fuse_folders=fuse_folders,
+            new_dataset_name=new_dataset_name,
+            bucket_path=bucket_path,
+            results_folder=results_folder,
+            logger=logger,
+        )
+
+        # Setting the stitching path in pipeline config
+        pipeline_config["stitching"]["s3_path"] = s3_path
+
+        dispatch(processing_manifest=pipeline_config, results_folder=results_folder)
+
+        utils.save_dict_as_json(
+            f"{results_folder}/modified_processing_manifest.json",
+            pipeline_config,
+        )
 
     elif "clean" in mode:
-        clean_up(processing_manifest_path)
+        clean_up(
+            processing_manifest=pipeline_config,
+            data_folder=data_folder,
+            results_folder=results_folder,
+        )
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
