@@ -569,8 +569,8 @@ def run():
 
         # Looking for files
         destripe_files = glob(f"{data_folder}/image_destriping_*")
-        stitch_folders = glob(f"{data_folder}/stitch_*")
-        fuse_folders = glob(f"{data_folder}/fusion_*")
+        stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
+        fuse_folders = glob(f"{data_folder}/fused/fusion_*")
 
         bucket_path = (
             "aind-msma-morphology-data/test_data/SmartSPIM/"  # "aind-open-data"
