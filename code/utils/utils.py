@@ -554,7 +554,7 @@ def compile_processing_jsons(
     """
     data_processes = []
     for processing_path in processing_paths:
-        curr_processing = read_json_as_dict(processing_path)
+        curr_processing = read_json_as_dict(str(processing_path))
         curr_processing_obj = parse_obj_as(Processing, curr_processing)
         data_processes.append(*curr_processing_obj.processing_pipeline.data_processes)
 
