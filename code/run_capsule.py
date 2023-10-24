@@ -553,7 +553,10 @@ def run():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
-    pipeline_config, dataset_name = get_data_config(data_folder=data_folder)
+    pipeline_config, dataset_name = get_data_config(
+        data_folder=data_folder,
+        data_description_path="input_aind_metadata/data_description.json"
+    )
 
     # Loading .env file, this file must be placed with
     # the code ocean domain and token
