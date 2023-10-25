@@ -383,13 +383,24 @@ def copy_intermediate_data(
     stitch_processings = []
     fuse_processings = []
     for stitch_folder in stitch_folders:
-        stitch_processings.append(glob(f"{stitch_folder}/*processing*.json"))
+        processing_jsons = [
+            p
+            for p in glob(f"{stitch_folder}/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        stitch_processings.append(processing_jsons)
 
     stitch_processings = []
     for fuse_folder in fuse_folders:
-        fuse_processings.append(glob(f"{fuse_folder}/*processing*.json"))
+        processing_jsons = [
+            p
+            for p in glob(f"{fuse_folder}/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        fuse_processings.append(processing_jsons)
 
     processing_paths = destripe_files + stitch_processings + fuse_processings
+    logger.info(f"Processing paths: {processing_paths}")
 
     output_filename = utils.compile_processing_jsons(
         processing_paths=processing_paths,
@@ -555,7 +566,7 @@ def run():
 
     pipeline_config, dataset_name = get_data_config(
         data_folder=data_folder,
-        data_description_path="input_aind_metadata/data_description.json"
+        data_description_path="input_aind_metadata/data_description.json",
     )
 
     # Loading .env file, this file must be placed with
