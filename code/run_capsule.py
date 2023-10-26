@@ -385,7 +385,7 @@ def copy_intermediate_data(
     for stitch_folder in stitch_folders:
         processing_jsons = [
             p
-            for p in glob(f"{stitch_folder}/*processing*.json")
+            for p in glob(f"{stitch_folder}/metadata/*processing*.json")
             if "manifest" not in str(p)
         ]
         stitch_processings.append(processing_jsons)
@@ -394,12 +394,17 @@ def copy_intermediate_data(
     for fuse_folder in fuse_folders:
         processing_jsons = [
             p
-            for p in glob(f"{fuse_folder}/*processing*.json")
+            for p in glob(f"{fuse_folder}/metadata/*processing*.json")
             if "manifest" not in str(p)
         ]
         fuse_processings.append(processing_jsons)
 
-    processing_paths = destripe_files + stitch_processings + fuse_processings
+    # Flattening list
+    processing_paths = list()
+    for sub_list in stitch_processings + fuse_processings:
+        processing_paths += sub_list
+
+    processing_paths = destripe_files + processing_paths
     logger.info(f"Processing paths: {processing_paths}")
 
     output_filename = utils.compile_processing_jsons(
