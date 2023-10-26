@@ -382,6 +382,7 @@ def copy_intermediate_data(
 
     stitch_processings = []
     fuse_processings = []
+
     for stitch_folder in stitch_folders:
         processing_jsons = [
             p
@@ -390,7 +391,6 @@ def copy_intermediate_data(
         ]
         stitch_processings.append(processing_jsons)
 
-    stitch_processings = []
     for fuse_folder in fuse_folders:
         processing_jsons = [
             p
