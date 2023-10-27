@@ -592,7 +592,7 @@ def run():
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
 
         bucket_path = (
-            "aind-msma-morphology-data/test_data/SmartSPIM/"  # "aind-open-data"
+            "aind-msma-morphology-data/test_data/SmartSPIM"  # "aind-open-data"
         )
 
         s3_path = copy_intermediate_data(
@@ -607,7 +607,7 @@ def run():
         )
 
         # Setting the stitching path in pipeline config
-        pipeline_config["stitching"]["s3_path"] = s3_path
+        pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
 
         dispatch(
             processing_manifest=pipeline_config,
