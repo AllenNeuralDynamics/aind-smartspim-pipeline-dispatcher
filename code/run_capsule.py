@@ -7,9 +7,10 @@ import sys
 import time
 from glob import glob
 from pathlib import Path
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 from aind_codeocean_api.codeocean import CodeOceanClient
+from ng_link import NgState
 from utils import utils
 
 logging.basicConfig(
@@ -474,7 +475,7 @@ def copy_intermediate_data(
         f"{results_folder}/output_stitching.txt",
     )
 
-    return s3_path
+    return s3_path, dest_zarr_path
 
 
 def create_derived_stitched_metadata(
@@ -531,6 +532,88 @@ def create_derived_stitched_metadata(
     logger.info(f"Metadata in folder: {os.listdir(output_dispatch_metadata)}")
 
     return output_dispatch_metadata, new_dataset_name
+
+
+def create_ng_link(self, config: dict, s3_channel_paths: List[str]) -> str:
+    """
+    Creates the neuroglancer link for the processed dataset
+
+    Parameters
+    -------------
+
+    config: dict
+        Image configuration necessary to build the
+        neuroglancer link
+
+    s3_channel_paths: List[str]
+        S3 paths for each of the channels
+
+    Returns
+    -------------
+    str:
+        Path where the neuroglancer config json
+        was generated
+    """
+
+    dimensions = {
+        "z": {
+            "voxel_size": config["z_res"],
+            "unit": "microns",
+        },
+        "y": {
+            "voxel_size": config["y_res"],
+            "unit": "microns",
+        },
+        "x": {
+            "voxel_size": config["x_res"],
+            "unit": "microns",
+        },
+        "t": {"voxel_size": 0.001, "unit": "seconds"},
+    }
+
+    colors = []
+    for channel_str in s3_channel_paths:
+        channel_str = Path(channel_str).name
+        channel: int = int(channel_str.split("_")[-1])
+        hex_val: int = utils.wavelength_to_hex(channel)
+        hex_str = f"#{str(hex(hex_val))[2:]}"
+
+        colors.append(hex_str)
+
+    # Creating layer per channel
+    layers = []
+    for idx in range(len(s3_channel_paths)):
+        channel_name = Path(s3_channel_paths[idx]).name
+
+        layers.append(
+            {
+                "source": s3_channel_paths[idx],
+                "type": "image",
+                # use channel idx when source is the same
+                # in zarr to change channel otherwise 0
+                "channel": 0,
+                "name": channel_name,
+                "shader": {
+                    "color": colors[idx],
+                    "emitter": "RGB",
+                    "vec": "vec3",
+                },
+                "shaderControls": {"normalized": {"range": [0, 200]}},  # Optional
+            }
+        )
+
+    neuroglancer_link = NgState(
+        input_config={"dimensions": dimensions, "layers": layers},
+        mount_service="s3",
+        bucket_path=config["bucket_path"],
+        output_json=config["output_folder"],
+        base_url=config["ng_base_url"],
+        json_name="neuroglancer_config.json",
+    )
+
+    neuroglancer_link.save_state_as_json()
+
+    return self.__output_jsons_path
 
 
 def run():
@@ -595,7 +678,7 @@ def run():
             "aind-msma-morphology-data/test_data/SmartSPIM"  # "aind-open-data"
         )
 
-        s3_path = copy_intermediate_data(
+        s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
             destripe_files=destripe_files,
             stitch_folders=stitch_folders,
@@ -605,6 +688,34 @@ def run():
             results_folder=results_folder,
             logger=logger,
         )
+
+        # Getting S3 paths for channels
+        s3_paths_for_channels = []
+        for fuse_folder in fuse_folders:
+            channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
+            # f"{s3_path}/{output_fusion}/OMEZarr"
+            s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}.zarr")
+
+        axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
+            "resolution"
+        ]
+        output_json = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "z_res": axes_resolution[2]["resolution"],
+                "y_res": axes_resolution[1]["resolution"],
+                "x_res": axes_resolution[0]["resolution"],
+            },
+            s3_channel_paths=s3_paths_for_channels,
+        )
+
+        # Copying neuroglancer config out
+        for out in utils.execute_command_helper(
+            f"aws s3 cp --recursive {output_json} {s3_path}"
+        ):
+            logger.info(out)
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
