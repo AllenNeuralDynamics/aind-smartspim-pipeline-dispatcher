@@ -534,7 +534,7 @@ def create_derived_stitched_metadata(
     return output_dispatch_metadata, new_dataset_name
 
 
-def create_ng_link(self, config: dict, s3_channel_paths: List[str]) -> str:
+def create_ng_link(config: dict, s3_channel_paths: List[str]) -> str:
     """
     Creates the neuroglancer link for the processed dataset
 
