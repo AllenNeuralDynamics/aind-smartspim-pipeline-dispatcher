@@ -573,7 +573,7 @@ def create_ng_link(config: dict, s3_channel_paths: List[str]) -> str:
 
     colors = []
     for channel_str in s3_channel_paths:
-        channel_str = Path(channel_str).name
+        channel_str = Path(channel_str).stem
         channel: int = int(channel_str.split("_")[-1])
         hex_val: int = utils.wavelength_to_hex(channel)
         hex_str = f"#{str(hex(hex_val))[2:]}"
