@@ -752,6 +752,9 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
         )
 
+        data_results = glob(f"{results_folder}/*")
+        print(f"Data in {results_folder}: {data_results}")
+
         # Copying neuroglancer config out
         for out in utils.execute_command_helper(
             f"aws s3 cp --recursive {output_json} {s3_path}"
