@@ -757,7 +757,7 @@ def run():
 
         # Copying neuroglancer config out
         for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {output_json} {s3_path}"
+            f"aws s3 cp --recursive {output_json} {s3_path}/{output_json.name}"
         ):
             logger.info(out)
 
