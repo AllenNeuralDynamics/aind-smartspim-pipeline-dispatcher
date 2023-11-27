@@ -654,7 +654,7 @@ def create_ng_link(config: dict, s3_channel_paths: List[str]) -> str:
 
     neuroglancer_link.save_state_as_json()
 
-    return f"{config['output_folder']}/neuroglancer_config.json"
+    return Path(f"{config['output_folder']}/neuroglancer_config.json")
 
 
 def run():
