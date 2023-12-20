@@ -167,7 +167,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
 
     # Getting path in S3
-    dataset_to_register = processing_manifest["stitching"]["s3_path"]
+    dataset_to_register = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
     dataset_to_register = dataset_to_register.split("/")[-1]
 
     smartspim_fused_tags = ["smartspim", "processed"]
