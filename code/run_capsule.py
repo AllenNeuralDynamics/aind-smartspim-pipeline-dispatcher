@@ -469,7 +469,7 @@ def copy_intermediate_data(
     # Copying derived metadata
     output_dispatch_metadata = Path(output_dispatch_metadata)
     for out in utils.execute_command_helper(
-        f"aws s3 cp --recursive {s3_path} {output_dispatch_metadata}"
+        f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
     ):
         logger.info(out)
 
