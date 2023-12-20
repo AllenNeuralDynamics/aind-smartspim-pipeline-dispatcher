@@ -1,5 +1,6 @@
 """ Main script that works as a dispatcher in code ocean """
 
+import json
 import logging
 import os
 import re
@@ -167,7 +168,9 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
 
     # Getting path in S3
-    dataset_to_register = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
+    dataset_to_register = processing_manifest["pipeline_processing"]["stitching"][
+        "s3_path"
+    ]
     dataset_to_register = dataset_to_register.split("/")[-1]
 
     smartspim_fused_tags = ["smartspim", "processed"]
@@ -416,10 +419,13 @@ def copy_intermediate_data(
 
     Returns
     -------
-    str
-        Path where the data was moved.
-        e.g., s3://{bucket_path}/{new_dataset_name}
-        It includes the "s3://" prefix.
+    Tuple[str, str]
+        The first position is the path where the dataset
+        was moved. e.g., s3://{bucket_path}/{new_dataset_name}
+        It includes the "s3://" prefix. The second position
+        is the folder inside that path where the Zarrs
+        were moved.
+        e.g., s3://{bucket_path}/{new_dataset_name}/{output_fusion}/OMEZarr
     """
 
     stitch_processings = []
@@ -575,7 +581,9 @@ def create_derived_stitched_metadata(
     return output_dispatch_metadata, new_dataset_name
 
 
-def create_ng_link(config: dict, s3_channel_paths: List[str]) -> str:
+def create_ng_link(
+    config: dict, s3_channel_paths: List[str], s3_dataset_path: str
+) -> str:
     """
     Creates the neuroglancer link for the processed dataset
 
@@ -588,6 +596,9 @@ def create_ng_link(config: dict, s3_channel_paths: List[str]) -> str:
 
     s3_channel_paths: List[str]
         S3 paths for each of the channels
+
+    s3_dataset_path: str
+        S3 path where the dataset is stored
 
     Returns
     -------------
@@ -652,9 +663,18 @@ def create_ng_link(config: dict, s3_channel_paths: List[str]) -> str:
         json_name="neuroglancer_config.json",
     )
 
-    neuroglancer_link.save_state_as_json()
+    # Modifying output path in s3 for when the data is moved
+    json_state = neuroglancer_link.state
+    json_state[
+        "ng_link"
+    ] = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
 
-    return Path(f"{config['output_folder']}/neuroglancer_config.json")
+    ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
+
+    with open(ng_output_path, "w") as outfile:
+        json.dump(json_state, outfile, indent=2)
+
+    return Path(ng_output_path)
 
 
 def run():
@@ -750,6 +770,7 @@ def run():
                 "x_res": axes_resolution[0]["resolution"],
             },
             s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
         )
 
         data_results = glob(f"{results_folder}/*")
