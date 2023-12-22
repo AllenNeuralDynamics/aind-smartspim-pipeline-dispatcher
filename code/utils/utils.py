@@ -9,9 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
-from aind_data_schema import DerivedDataDescription
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.data_description import (Funding, Institution,
+from aind_data_schema.core.data_description import (DerivedDataDescription,
+                                                    Funding, Institution,
                                                     Modality, Platform)
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
