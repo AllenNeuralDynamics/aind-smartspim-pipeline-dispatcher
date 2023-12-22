@@ -11,11 +11,11 @@ from typing import Any, List, Optional, Union
 
 from aind_data_schema import DerivedDataDescription
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.data_description import (Funding, Institution, Modality,
-                                               Platform)
-from aind_data_schema.processing import (DataProcess, PipelineProcess,
-                                         Processing)
-from pydantic import parse_obj_as
+from aind_data_schema.core.data_description import (Funding, Institution,
+                                                    Modality, Platform)
+from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
+                                              Processing)
+from pydantic import TypeAdapter
 
 # IO types
 PathLike = Union[str, Path]
@@ -555,7 +555,9 @@ def compile_processing_jsons(
     data_processes = []
     for processing_path in processing_paths:
         curr_processing = read_json_as_dict(str(processing_path))
-        curr_processing_obj = parse_obj_as(Processing, curr_processing)
+        processing_adapter = TypeAdapter(Processing)
+        curr_processing_obj = processing_adapter.validate_python(curr_processing)
+
         for data_process in curr_processing_obj.processing_pipeline.data_processes:
             data_processes.append(data_process)
 
