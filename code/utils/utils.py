@@ -397,20 +397,23 @@ def generate_data_description(
 
     f = open(raw_data_description_path, "r")
     data = json.load(f)
-
-    institution = data["institution"]
     if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
         institution = data["institution"]["abbreviation"]
 
-    funding_sources = [Funding.parse_obj(fund) for fund in data["funding_source"]]
+    investigators = data["investigators"] if len(data["investigators"]) else ["Unknown"]
+    # from_data_description
+    funding_adapter = TypeAdapter(Funding)
+    funding_sources = [
+        funding_adapter.validate_python(fund) for fund in data["funding_source"]
+    ]
     derived = DerivedDataDescription(
         creation_time=datetime.now(),
         input_data_name=data["name"],
         process_name=process_name,
-        institution=Institution[institution],
+        institution=Institution.from_abbreviation(institution),
         funding_source=funding_sources,
         group=data["group"],
-        investigators=data["investigators"],
+        investigators=investigators,
         platform=Platform.SMARTSPIM,
         project_name=data["project_name"],
         restrictions=data["restrictions"],
