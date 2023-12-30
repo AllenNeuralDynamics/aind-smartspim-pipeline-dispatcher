@@ -576,8 +576,9 @@ def create_derived_stitched_metadata(
         ],
     )
 
-    logger.info(f"Copied metadata from {data_folder}: {found_metadata}")
-    logger.info(f"Metadata in folder: {os.listdir(output_dispatch_metadata)}")
+    logger.info(f"Copied metadata from {raw_metadata_path}: {found_metadata}")
+    logger.info(f"Metadata in raw metadata folder {raw_metadata_path}: {os.listdir(raw_metadata_path)}")
+    logger.info(f"Metadata in folder {output_dispatch_metadata}: {os.listdir(output_dispatch_metadata)}")
 
     return output_dispatch_metadata, new_dataset_name
 
