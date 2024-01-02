@@ -14,7 +14,7 @@ RUN conda create -n dispatcher python=3.8
 SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
 RUN conda install -c conda-forge awscli
 RUN pip install -U --no-cache-dir \
-    aind-codeocean-api==0.2.2 \
+    aind-codeocean-api==0.3.0 \
     python-dotenv==0.21.1 \
     aind-data-schema==0.22.1 \
     aind-ng-link==1.0.6
