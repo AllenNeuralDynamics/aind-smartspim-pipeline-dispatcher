@@ -210,19 +210,6 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
     if pipeline_config:
 
-        register_channels = pipeline_config["registration"]["channels"]
-
-        for channel_to_register in register_channels:
-            copy_pipeline_config = pipeline_config.copy()
-
-            copy_pipeline_config["registration"]["input_data"] = "../data/fused"
-            copy_pipeline_config["registration"]["channel"] = channel_to_register
-
-            utils.save_dict_as_json(
-                f"{results_folder}/registration_processing_manifest_{channel_to_register}.json",
-                copy_pipeline_config,
-            )
-
         # Creating processing manifests for channels to segment and quantify
         segment_channels = pipeline_config["segmentation"]["channels"]
 
@@ -273,11 +260,9 @@ def clean_up(
     # # Variables from processing manifest
     # bucket = "aind-open-data"
 
-    ccf_folders = glob(f"{data_folder}/ccf_*")
     cell_folders = glob(f"{data_folder}/cell_*")
     quantification_folders = glob(f"{data_folder}/quant_*")
 
-    logger.info(f"CCF folders: {ccf_folders}")
     logger.info(f"Cell folders: {cell_folders}")
     logger.info(f"Quantification folders: {quantification_folders}")
 
@@ -288,15 +273,6 @@ def clean_up(
     quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
     regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
-
-    # Moving data to the CCF folder
-    for ccf_folder in ccf_folders:
-        channel_name = re.search(regex_channels, ccf_folder).group()
-
-        for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
-        ):
-            print(out)
 
     # Moving data to the cell folder
     for cell_folder in cell_folders:
@@ -315,11 +291,6 @@ def clean_up(
             f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
         ):
             print(out)
-
-    utils.save_string_to_txt(
-        f"Results of CCF saved in: {ccf_s3_output}",
-        f"{results_folder}/output_ccf.txt",
-    )
 
     utils.save_string_to_txt(
         f"Results of cell segmentation saved in: {cell_s3_output}",
@@ -392,6 +363,7 @@ def copy_intermediate_data(
     destripe_files: PathLike,
     stitch_folders: PathLike,
     fuse_folders: PathLike,
+    ccf_folders: PathLike,
     new_dataset_name: str,
     bucket_path: str,
     results_folder: PathLike,
@@ -419,6 +391,10 @@ def copy_intermediate_data(
     fuse_folders: PathLike
         Fuse folders generated in the
         parallel fusion step.
+
+    ccf_folders: PathLike
+        CCF registration folders generated
+        in the pipeline.
 
     new_dataset_name: str
         New dataset name where the data will
@@ -449,6 +425,7 @@ def copy_intermediate_data(
 
     stitch_processings = []
     fuse_processings = []
+    ccf_processings = []
 
     for stitch_folder in stitch_folders:
         processing_jsons = [
@@ -466,9 +443,18 @@ def copy_intermediate_data(
         ]
         fuse_processings.append(processing_jsons)
 
+    for ccf_folder in ccf_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{ccf_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        ccf_processings.append(processing_jsons)
+
     # Flattening list
     processing_paths = list()
-    for sub_list in stitch_processings + fuse_processings:
+    combined_processing_list = stitch_processings + fuse_processings + ccf_processings
+    for sub_list in combined_processing_list:
         processing_paths += sub_list
 
     processing_paths = destripe_files + processing_paths
@@ -535,6 +521,18 @@ def copy_intermediate_data(
 
         else:
             raise ValueError(f"Folder {source_metadata} does not exist!")
+
+    # Copying ccf data
+    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    for ccf_folder in ccf_folders:
+        channel_name = re.search(regex_channels, ccf_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+        ):
+            logger.info(out)
 
     utils.save_string_to_txt(
         f"Stitched dataset saved in: {s3_path}",
@@ -758,6 +756,7 @@ def run():
         destripe_files = glob(f"{data_folder}/image_destriping_*")
         stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
+        ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
         bucket_path = (
             "aind-msma-morphology-data/test_data/SmartSPIM"  # "aind-open-data"
@@ -768,6 +767,7 @@ def run():
             destripe_files=destripe_files,
             stitch_folders=stitch_folders,
             fuse_folders=fuse_folders,
+            ccf_folders=ccf_folders,
             new_dataset_name=new_dataset_name,
             bucket_path=bucket_path,
             results_folder=results_folder,
