@@ -12,7 +12,6 @@ from typing import List, Tuple, Union
 
 from aind_codeocean_api.codeocean import CodeOceanClient
 from ng_link import NgState
-
 from utils import utils
 
 logging.basicConfig(
@@ -577,8 +576,12 @@ def create_derived_stitched_metadata(
     )
 
     logger.info(f"Copied metadata from {raw_metadata_path}: {found_metadata}")
-    logger.info(f"Metadata in raw metadata folder {raw_metadata_path}: {os.listdir(raw_metadata_path)}")
-    logger.info(f"Metadata in folder {output_dispatch_metadata}: {os.listdir(output_dispatch_metadata)}")
+    logger.info(
+        f"Metadata in raw metadata folder {raw_metadata_path}: {os.listdir(raw_metadata_path)}"
+    )
+    logger.info(
+        f"Metadata in folder {output_dispatch_metadata}: {os.listdir(output_dispatch_metadata)}"
+    )
 
     return output_dispatch_metadata, new_dataset_name
 
