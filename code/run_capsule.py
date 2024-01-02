@@ -206,38 +206,42 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     make_data_viewable(co_client, response_contents)
 
     # Creating processing manifests for channels to register
-    register_channels = processing_manifest["registration"]["channels"]
+    pipeline_config = processing_manifest.get("pipeline_processing")
 
-    for channel_to_register in register_channels:
-        copy_processing_manifest = processing_manifest.copy()
+    if pipeline_config:
 
-        copy_processing_manifest["registration"]["input_data"] = "../data/fused"
-        copy_processing_manifest["registration"]["channel"] = channel_to_register
+        register_channels = pipeline_config["registration"]["channels"]
 
-        utils.save_dict_as_json(
-            f"{results_folder}/registration_processing_manifest_{channel_to_register}.json",
-            copy_processing_manifest,
-        )
+        for channel_to_register in register_channels:
+            copy_pipeline_config = pipeline_config.copy()
 
-    # Creating processing manifests for channels to segment and quantify
-    segment_channels = processing_manifest["segmentation"]["channels"]
+            copy_pipeline_config["registration"]["input_data"] = "../data/fused"
+            copy_pipeline_config["registration"]["channel"] = channel_to_register
 
-    for channel_to_segment in segment_channels:
-        copy_processing_manifest = processing_manifest.copy()
+            utils.save_dict_as_json(
+                f"{results_folder}/registration_processing_manifest_{channel_to_register}.json",
+                copy_pipeline_config,
+            )
 
-        copy_processing_manifest["segmentation"]["input_data"] = "../data/fused"
-        copy_processing_manifest["segmentation"]["channel"] = channel_to_segment
+        # Creating processing manifests for channels to segment and quantify
+        segment_channels = pipeline_config["segmentation"]["channels"]
 
-        # Creating quantification parameters
-        copy_processing_manifest["quantification"] = {}
-        copy_processing_manifest["quantification"]["fused_folder"] = "../data/fused"
-        copy_processing_manifest["quantification"]["channel"] = channel_to_segment
-        copy_processing_manifest["quantification"]["save_path"] = "../results/"
+        for channel_to_segment in segment_channels:
+            copy_pipeline_config = pipeline_config.copy()
 
-        utils.save_dict_as_json(
-            f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
-            copy_processing_manifest,
-        )
+            copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
+            copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
+
+            # Creating quantification parameters
+            copy_pipeline_config["quantification"] = {}
+            copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
+            copy_pipeline_config["quantification"]["channel"] = channel_to_segment
+            copy_pipeline_config["quantification"]["save_path"] = "../results/"
+
+            utils.save_dict_as_json(
+                f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
+                copy_pipeline_config,
+            )
 
 
 def clean_up(
