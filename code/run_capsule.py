@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import List, Tuple, Union
 
 from aind_codeocean_api.codeocean import CodeOceanClient
+from aind_codeocean_api.models.data_assets_requests import (
+    CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
 from utils import utils
 
@@ -175,17 +177,30 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
     smartspim_fused_tags = ["smartspim", "processed"]
 
-    # Register the fused smartspim dataset
-    data_asset_reg_response = co_client.register_data_asset(
-        asset_name=dataset_to_register,
-        mount=dataset_to_register,
+    # Registering AWS data asset
+    aws_source = Sources.AWS(
         bucket=bucket,
         prefix=dataset_to_register,
+        keep_on_external_storage=True,
+        public=True,
+    )
+    source = Source(aws=aws_source)
+
+    create_data_asset_request = CreateDataAssetRequest(
+        name=dataset_to_register,
         tags=smartspim_fused_tags,
+        mount=dataset_to_register,
+        source=source,
+        custom_metadata=None,
     )
 
+    input_json_data = json.loads(create_data_asset_request.json_string)
+
+    # Register the fused smartspim dataset
+    data_asset_reg_response = co_client.create_data_asset(request=input_json_data)
+
     response_contents = data_asset_reg_response.json()
-    logger.info(f"Created data asset in Code Ocean: {response_contents}")
+    print(f"Created data asset in Code Ocean: {response_contents}")
 
     # Making the created data asset available for everyone
     make_data_viewable(co_client, response_contents)
@@ -793,7 +808,7 @@ def run():
         dispatch(
             processing_manifest=pipeline_config,
             results_folder=results_folder,
-            bucket=bucket_path,
+            bucket="aind-msma-morphology-data",
         )
 
         utils.save_dict_as_json(
