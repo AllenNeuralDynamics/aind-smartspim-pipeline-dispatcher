@@ -454,9 +454,7 @@ def copy_available_metadata(
     """
 
     # We get all the valid filenames from the aind core model
-    metadata_to_find = [
-        cls.default_filename() for cls in AindCoreModel.__subclasses__()
-    ]
+    metadata_to_find = [cl for cl in os.listdir(input_path) if cl.endswith(".json")]
     print("Metadata to find: ", metadata_to_find)
     # Making sure the paths are pathlib objects
     input_path = Path(input_path)
