@@ -200,16 +200,18 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     data_asset_reg_response = co_client.create_data_asset(request=input_json_data)
 
     response_contents = data_asset_reg_response.json()
-    print(f"Created data asset in Code Ocean: {response_contents}")
+    logger.info(f"Created data asset in Code Ocean: {response_contents}")
 
     # Making the created data asset available for everyone
     make_data_viewable(co_client, response_contents)
+
+    logger.info(f"Processing manifest: {processing_manifest}")
 
     # Creating processing manifests for channels to register
     pipeline_config = processing_manifest.get("pipeline_processing")
 
     if pipeline_config:
-
+        logger.info("Creating segmentation and quantification parameters")
         # Creating processing manifests for channels to segment and quantify
         segment_channels = pipeline_config["segmentation"]["channels"]
 
