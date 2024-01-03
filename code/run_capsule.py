@@ -266,9 +266,51 @@ def clean_up(
     logger.info(f"Cell folders: {cell_folders}")
     logger.info(f"Quantification folders: {quantification_folders}")
 
+    # Reading segmentation processings
+    segmentation_processing = []
+    for cell_folder in cell_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{cell_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        segmentation_processing.append(processing_jsons)
+
+    # Reading quantification processings
+    quantification_processing = []
+    for quant_folder in quantification_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{quant_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        quantification_processing.append(processing_jsons)
+
+    # Building from previous processing json
+    processing_paths = [f"{data_folder}/processing.json"]
+    combined_processing_list = segmentation_processing + quantification_processing
+    for sub_list in combined_processing_list:
+        processing_paths += sub_list
+
+    output_filename = utils.compile_processing_jsons(
+        processing_paths=processing_paths,
+        output_general_processing=results_folder,
+        processor_full_name="Camilo Laiton",
+        pipeline_version="1.5.0",
+    )
+
+    logger.info(f"Compiled processing.json in path {output_filename}")
+
+    # Moving data out
+
+    # Copying final processing manifest
+    for out in utils.execute_command_helper(
+        f"aws s3 mv {results_folder}/processing.json {s3_path}/processing.json"
+    ):
+        print(out)
+
     # Defining s3 outputs
     s3_path = processing_manifest["stitching"]["s3_path"]
-    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
     cell_s3_output = f"{s3_path}/image_cell_segmentation"
     quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
