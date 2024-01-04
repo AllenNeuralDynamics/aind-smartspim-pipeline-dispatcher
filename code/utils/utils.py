@@ -421,7 +421,9 @@ def generate_data_description(
         subject_id=data["subject_id"],
     )
 
-    derived.write_standard_file(output_directory=dest_data_description)
+    # derived.write_standard_file(output_directory=dest_data_description)
+    with open(f"{dest_data_description}/data_description.json", "w") as f:
+        f.write(derived.model_dump_json())
 
     return derived.name
 
