@@ -772,6 +772,12 @@ def run():
         f"{data_folder}/input_aind_metadata/data_description.json",
     ]
 
+    if "clean" in mode:
+        required_input_elements = [
+            f"{data_folder}/modified_processing_manifest.json",
+            f"{data_folder}/input_aind_metadata/data_description.json",
+        ]
+
     missing_files = utils.validate_capsule_inputs(required_input_elements)
 
     if len(missing_files):
