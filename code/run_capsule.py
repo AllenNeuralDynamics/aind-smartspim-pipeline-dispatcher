@@ -779,6 +779,8 @@ def run():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
+    logger.info(f"Data in data folder: {os.listdir(data_folder)}")
+
     pipeline_config, dataset_name = get_data_config(
         data_folder=data_folder,
         data_description_path="input_aind_metadata/data_description.json",
@@ -842,7 +844,7 @@ def run():
         )
 
         data_results = glob(f"{results_folder}/*")
-        print(f"Data in {results_folder}: {data_results}")
+        logger.info(f"Data in {results_folder}: {data_results}")
 
         # Copying neuroglancer config out
         for out in utils.execute_command_helper(
@@ -865,6 +867,7 @@ def run():
         )
 
     elif "clean" in mode:
+        logger.info("Starting cleaning...")
         clean_up(
             processing_manifest=pipeline_config,
             data_folder=data_folder,
