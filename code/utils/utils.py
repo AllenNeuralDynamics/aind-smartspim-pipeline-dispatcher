@@ -5,12 +5,47 @@ import json
 import os
 import shutil
 import subprocess
-from datetime import date, datetime, time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+from aind_data_schema.base import AindCoreModel
+from aind_data_schema.core.data_description import (DerivedDataDescription,
+                                                    Funding, Institution,
+                                                    Modality, Platform)
+from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
+                                              Processing)
+from pydantic import TypeAdapter
+
 # IO types
 PathLike = Union[str, Path]
+
+
+def copy_file(input_filename: PathLike, output_filename: PathLike):
+    """
+    Copies a file to an output path
+
+    Parameters
+    ----------
+    input_filename: PathLike
+        Path where the file is located
+
+    output_filename: PathLike
+        Path where the file will be copied
+    """
+
+    try:
+        shutil.copy(input_filename, output_filename)
+
+    except shutil.SameFileError:
+        raise shutil.SameFileError(
+            f"The filename {input_filename} already exists in the output path."
+        )
+
+    except PermissionError:
+        raise PermissionError(
+            "Not able to copy the file. Please, check the permissions in the output path."
+        )
 
 
 def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
@@ -280,7 +315,7 @@ def check_type_helper(value: Any, val_type: type) -> bool:
         from the variable data, False otherwise.
     """
 
-    if type(value) != val_type:
+    if not isinstance(type(value), val_type):
         return False
 
     return True
@@ -303,3 +338,234 @@ def generate_timestamp(time_format: str = "%Y-%m-%d_%H-%M-%S") -> str:
         moment in string format.
     """
     return datetime.now().strftime(time_format)
+
+
+def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
+    """
+    Validates input elemts for a capsule in
+    Code Ocean.
+
+    Parameters
+    -----------
+    input_elements: List[str]
+        Input elements for the capsule. This
+        could be sets of files or folders.
+
+    Returns
+    -----------
+    List[str]
+        List of missing files
+    """
+
+    missing_inputs = []
+    for required_input_element in input_elements:
+        required_input_element = Path(required_input_element)
+
+        if not required_input_element.exists():
+            missing_inputs.append(str(required_input_element))
+
+    return missing_inputs
+
+
+def generate_data_description(
+    raw_data_description_path: PathLike,
+    dest_data_description: PathLike,
+    process_name: Optional[str] = "stitched",
+):
+    """
+    Generates data description for the output folder.
+
+    Parameters
+    -------------
+
+    raw_data_description_path: PathLike
+        Path where the data description file is located.
+
+    dest_data_description: PathLike
+        Path where the new data description will be placed.
+
+    process_name: str
+        Process name of the new dataset
+
+
+    Returns
+    -------------
+    str
+        New folder name for the fused
+        data
+    """
+
+    f = open(raw_data_description_path, "r")
+    data = json.load(f)
+    if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
+        institution = data["institution"]["abbreviation"]
+
+    investigators = data["investigators"] if len(data["investigators"]) else ["Unknown"]
+    # from_data_description
+    funding_adapter = TypeAdapter(Funding)
+    funding_sources = [
+        funding_adapter.validate_python(fund) for fund in data["funding_source"]
+    ]
+    derived = DerivedDataDescription(
+        creation_time=datetime.now(),
+        input_data_name=data["name"],
+        process_name=process_name,
+        institution=Institution.from_abbreviation(institution),
+        funding_source=funding_sources,
+        group=data["group"],
+        investigators=investigators,
+        platform=Platform.SMARTSPIM,
+        project_name=data["project_name"],
+        restrictions=data["restrictions"],
+        modality=[Modality.SPIM],
+        subject_id=data["subject_id"],
+    )
+
+    # derived.write_standard_file(output_directory=dest_data_description)
+    with open(f"{dest_data_description}/data_description.json", "w") as f:
+        f.write(derived.model_dump_json())
+
+    return derived.name
+
+
+def copy_available_metadata(
+    input_path: PathLike, output_path: PathLike, ignore_files: List[str]
+) -> List[PathLike]:
+    """
+    Copies all the valid metadata from the aind-data-schema
+    repository that exists in a given path.
+
+    Parameters
+    -----------
+    input_path: PathLike
+        Path where the metadata is located
+
+    output_path: PathLike
+        Path where we will copy the found
+        metadata
+
+    ignore_files: List[str]
+        List with the filenames of the metadata
+        that we need to ignore from the aind-data-schema
+
+    Returns
+    --------
+    List[PathLike]
+        List with the metadata files that
+        were copied
+    """
+
+    # We get all the valid filenames from the aind core model
+    metadata_to_find = [cl for cl in os.listdir(input_path) if cl.endswith(".json")]
+    print("Metadata to find: ", metadata_to_find)
+    # Making sure the paths are pathlib objects
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+
+    found_metadata = []
+
+    for metadata_filename in metadata_to_find:
+        metadata_filename = input_path.joinpath(metadata_filename)
+
+        if metadata_filename.exists() and metadata_filename.name not in ignore_files:
+            found_metadata.append(metadata_filename)
+
+            # Copying file to output path
+            output_filename = output_path.joinpath(metadata_filename.name)
+            copy_file(metadata_filename, output_filename)
+
+    return found_metadata
+
+
+def generate_processing(
+    data_processes: List[DataProcess],
+    dest_processing: str,
+    processor_full_name: str,
+    pipeline_version: str,
+) -> str:
+    """
+    Generates data description for the output folder.
+
+    Parameters
+    ------------------------
+
+    data_processes: List[dict]
+        List with the processes aplied in the pipeline.
+
+    dest_processing: PathLike
+        Path where the processing file will be placed.
+
+    processor_full_name: str
+        Person in charged of running the pipeline
+        for this data asset
+
+    pipeline_version: str
+        Terastitcher pipeline version
+
+    Returns
+    -------
+    str
+        Path where the processing json was saved
+    """
+    # flake8: noqa: E501
+    processing_pipeline = PipelineProcess(
+        data_processes=data_processes,
+        processor_full_name=processor_full_name,
+        pipeline_version=pipeline_version,
+        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+    )
+
+    processing = Processing(
+        processing_pipeline=processing_pipeline,
+        notes="This processing was generated by compiling independent processing jsons for every step",
+    )
+
+    processing.write_standard_file(output_directory=dest_processing)
+
+    return dest_processing
+
+
+def compile_processing_jsons(
+    processing_paths: List[str],
+    output_general_processing: str,
+    processor_full_name: str,
+    pipeline_version: str,
+) -> str:
+    """
+    processing_paths: List[str]
+        Paths where the processing jsons are located.
+        The order of the list determines which data
+        process goes first into the final processing.json
+
+    output_general_processing: str
+        Path where we will output the general processing
+        json
+
+    processor_full_name: str
+        Person in charged to run the pipeline
+
+    pipeline_version: str
+        Pipeline version
+
+    Returns
+    -------
+    str:
+        Path where the processing json was saved
+    """
+    data_processes = []
+    for processing_path in processing_paths:
+        curr_processing = read_json_as_dict(str(processing_path))
+        processing_adapter = TypeAdapter(Processing)
+        curr_processing_obj = processing_adapter.validate_python(curr_processing)
+
+        for data_process in curr_processing_obj.processing_pipeline.data_processes:
+            data_processes.append(data_process)
+
+    output_filename = generate_processing(
+        data_processes=data_processes,
+        dest_processing=str(output_general_processing),
+        processor_full_name=processor_full_name,
+        pipeline_version=pipeline_version,
+    )
+
+    return output_filename

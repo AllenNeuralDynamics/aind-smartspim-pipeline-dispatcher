@@ -1,7 +1,0 @@
-environment_version: 1
-credentials:
-- type: api-key
-  id: jVA2Ba2JNV1lZb
-  description: Pipeline - Code Ocean API
-  key: API_KEY
-  secret: API_SECRET
