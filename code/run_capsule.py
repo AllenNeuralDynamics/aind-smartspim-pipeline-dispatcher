@@ -781,11 +781,6 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
-    pipeline_config, dataset_name = get_data_config(
-        data_folder=data_folder,
-        data_description_path="input_aind_metadata/data_description.json",
-    )
-
     # Loading .env file, this file must be placed with
     # the code ocean domain and token
     # dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
@@ -793,6 +788,11 @@ def run():
     # logger.info(f"Load env file status: {load_env_file}")
 
     if "dispatch" in mode:
+        pipeline_config, dataset_name = get_data_config(
+            data_folder=data_folder,
+            data_description_path="input_aind_metadata/data_description.json",
+        )
+
         # Creating new metadata for stitched dataset
         output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
             data_folder=data_folder, results_folder=results_folder, logger=logger
@@ -868,6 +868,12 @@ def run():
 
     elif "clean" in mode:
         logger.info("Starting cleaning...")
+        pipeline_config, dataset_name = get_data_config(
+            data_folder=data_folder,
+            data_description_path="input_aind_metadata/data_description.json",
+            processing_manifest_path="modified_processing_manifest.json",
+        )
+
         clean_up(
             processing_manifest=pipeline_config,
             data_folder=data_folder,
