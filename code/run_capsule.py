@@ -305,18 +305,18 @@ def clean_up(
 
     # Moving data out
 
-    # Copying final processing manifest
-    for out in utils.execute_command_helper(
-        f"aws s3 mv {results_folder}/processing.json {s3_path}/processing.json"
-    ):
-        print(out)
-
     # Defining s3 outputs
     s3_path = processing_manifest["stitching"]["s3_path"]
     cell_s3_output = f"{s3_path}/image_cell_segmentation"
     quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
     regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    # Copying final processing manifest
+    for out in utils.execute_command_helper(
+        f"aws s3 mv {results_folder}/processing.json {s3_path}/processing.json"
+    ):
+        print(out)
 
     # Moving data to the cell folder
     for cell_folder in cell_folders:
