@@ -289,11 +289,13 @@ def clean_up(
         quantification_processing.append(processing_jsons)
 
     # Building from previous processing json
-    processing_paths = (
-        [f"{data_folder}/output_aind_metadata/processing.json"]
-        + segmentation_processing
-        + quantification_processing
-    )
+    processing_paths = list()
+    combined_processing_list = [f"{data_folder}/output_aind_metadata/processing.json"] + segmentation_processing + quantification_processing
+    for sub_list in combined_processing_list:
+        processing_paths += sub_list
+
+    processing_paths = destripe_files + processing_paths
+
     logger.info(f"Compiling processing paths: {processing_paths}")
     output_filename = utils.compile_processing_jsons(
         processing_paths=processing_paths,
