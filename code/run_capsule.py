@@ -306,7 +306,7 @@ def clean_up(
     # Moving data out
 
     # Defining s3 outputs
-    s3_path = processing_manifest["stitching"]["s3_path"]
+    s3_path = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
     cell_s3_output = f"{s3_path}/image_cell_segmentation"
     quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
