@@ -289,11 +289,12 @@ def clean_up(
         quantification_processing.append(processing_jsons)
 
     # Building from previous processing json
-    processing_paths = [f"{data_folder}/output_aind_metadata/processing.json"]
-    combined_processing_list = segmentation_processing + quantification_processing
-    for sub_list in combined_processing_list:
-        processing_paths += sub_list
-
+    processing_paths = (
+        [f"{data_folder}/output_aind_metadata/processing.json"]
+        + segmentation_processing
+        + quantification_processing
+    )
+    logger.info(f"Compiling processing paths: {processing_paths}")
     output_filename = utils.compile_processing_jsons(
         processing_paths=processing_paths,
         output_general_processing=results_folder,
@@ -304,7 +305,6 @@ def clean_up(
     logger.info(f"Compiled processing.json in path {output_filename}")
 
     # Moving data out
-
     # Defining s3 outputs
     s3_path = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
     cell_s3_output = f"{s3_path}/image_cell_segmentation"
@@ -810,9 +810,7 @@ def run():
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-        bucket_path = (
-            "aind-msma-morphology-data/test_data/SmartSPIM"  # "aind-open-data"
-        )
+        bucket_path = "aind-open-data"
 
         s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
@@ -864,7 +862,7 @@ def run():
         dispatch(
             processing_manifest=pipeline_config,
             results_folder=results_folder,
-            bucket="aind-msma-morphology-data",
+            bucket=bucket_path,
         )
 
         utils.save_dict_as_json(
