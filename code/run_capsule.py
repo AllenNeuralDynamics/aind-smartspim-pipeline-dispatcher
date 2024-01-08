@@ -294,8 +294,6 @@ def clean_up(
     for sub_list in combined_processing_list:
         processing_paths += sub_list
 
-    processing_paths = destripe_files + processing_paths
-
     logger.info(f"Compiling processing paths: {processing_paths}")
     output_filename = utils.compile_processing_jsons(
         processing_paths=processing_paths,
