@@ -290,7 +290,7 @@ def clean_up(
 
     # Building from previous processing json
     processing_paths = list()
-    combined_processing_list = [f"{data_folder}/output_aind_metadata/processing.json"] + segmentation_processing + quantification_processing
+    combined_processing_list = [[f"{data_folder}/output_aind_metadata/processing.json"]] + segmentation_processing + quantification_processing
     for sub_list in combined_processing_list:
         processing_paths += sub_list
 
