@@ -404,10 +404,11 @@ def get_data_config(
 
 def copy_intermediate_data(
     output_dispatch_metadata: PathLike,
-    destripe_files: PathLike,
-    stitch_folders: PathLike,
-    fuse_folders: PathLike,
-    ccf_folders: PathLike,
+    destripe_files: List[PathLike],
+    flatfield_channels: List[PathLike],
+    stitch_folders: List[PathLike],
+    fuse_folders: List[PathLike],
+    ccf_folders: List[PathLike],
     new_dataset_name: str,
     bucket_path: str,
     results_folder: PathLike,
@@ -424,19 +425,22 @@ def copy_intermediate_data(
         Path where the new metadata (derived)
         for the processed dataset is located
 
-    destripe_files: PathLike
+    destripe_files: List[PathLike]
         Metadata files generated in the
         parallel destriping step
 
-    stitch_folders: PathLike
+    flatfield_channels: List[PathLike]
+        Flatfields applied to the dataset
+
+    stitch_folders: List[PathLike]
         Stitch folders generated in the
         stitch step.
 
-    fuse_folders: PathLike
+    fuse_folders: List[PathLike]
         Fuse folders generated in the
         parallel fusion step.
 
-    ccf_folders: PathLike
+    ccf_folders: List[PathLike]
         CCF registration folders generated
         in the pipeline.
 
@@ -526,6 +530,15 @@ def copy_intermediate_data(
     output_fusion = "image_tile_fusing"
     dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
+
+    for flatfield_channel in flatfield_channels:
+        logger.info(
+            f"Copying data from {flatfield_channel} to {dest_metadata_path}/flatfield_correction"
+        )
+        for out in utils.execute_command_helper(
+            f"aws s3 cp --recursive {flatfield_channel} {dest_metadata_path}/flatfield_correction"
+        ):
+            logger.info(out)
 
     for fuse_folder in fuse_folders:
         logger.info(f"Copying data from {fuse_folder} to {s3_path}/{output_fusion}")
@@ -806,6 +819,7 @@ def run():
 
         # Looking for files
         destripe_files = glob(f"{data_folder}/image_destriping_*")
+        flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
         stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
@@ -815,6 +829,7 @@ def run():
         s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
             destripe_files=destripe_files,
+            flatfield_channels=flatfield_channels,
             stitch_folders=stitch_folders,
             fuse_folders=fuse_folders,
             ccf_folders=ccf_folders,
