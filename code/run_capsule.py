@@ -532,11 +532,12 @@ def copy_intermediate_data(
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
 
     for flatfield_channel in flatfield_channels:
+        flatfield_channel_name = Path(flatfield_channel)
         logger.info(
-            f"Copying data from {flatfield_channel} to {dest_metadata_path}/flatfield_correction/{flatfield_channel}"
+            f"Copying data from {flatfield_channel} to {dest_metadata_path}/flatfield_correction/{flatfield_channel_name}"
         )
         for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {flatfield_channel} {dest_metadata_path}/flatfield_correction/{flatfield_channel}"
+            f"aws s3 cp --recursive {flatfield_channel} {dest_metadata_path}/flatfield_correction/{flatfield_channel_name}"
         ):
             logger.info(out)
 
