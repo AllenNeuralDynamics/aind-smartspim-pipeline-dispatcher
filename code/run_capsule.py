@@ -532,7 +532,7 @@ def copy_intermediate_data(
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
 
     for flatfield_channel in flatfield_channels:
-        flatfield_channel_name = Path(flatfield_channel)
+        flatfield_channel_name = Path(flatfield_channel).name
         logger.info(
             f"Copying data from {flatfield_channel} to {dest_metadata_path}/flatfield_correction/{flatfield_channel_name}"
         )
