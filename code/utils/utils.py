@@ -3,6 +3,7 @@ Utility functions
 """
 import json
 import os
+import requests
 import shutil
 import subprocess
 from datetime import datetime
@@ -569,3 +570,79 @@ def compile_processing_jsons(
     )
 
     return output_filename
+
+class AlertBot:
+    """Class to handle sending alerts and messages in MS Teams."""
+
+    def __init__(self, url: Optional[str] = None):
+        self.url = url
+
+    @staticmethod
+    def _create_body_text(message: str, extra_text: Optional[str]) -> dict:
+        """
+        Parse strings into appropriate format to send to ms teams channel.
+        Check here:
+          https://learn.microsoft.com/en-us/microsoftteams/platform/
+          task-modules-and-cards/cards/cards-reference#adaptive-card
+        Parameters
+        ----------
+        message : str
+          The main message content
+        extra_text : Optional[str]
+          Additional text to send in card body
+
+        Returns
+        -------
+        dict
+
+        """
+        body: list = [
+            {"type": "TextBlock", "size": "Medium", "weight": "Bolder", "text": message}
+        ]
+        if extra_text is not None:
+            body.append({"type": "TextBlock", "text": extra_text})
+        contents = {
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": {
+                        "type": "AdaptiveCard",
+                        "body": body,
+                        "$schema": (
+                            "http://adaptivecards.io/schemas/adaptive-card.json"
+                        ),
+                        "version": "1.0",
+                    },
+                }
+            ],
+        }
+        return contents
+
+    def send_message(
+        self, message: str, extra_text: Optional[str] = None
+    ) -> Optional[requests.Response]:
+        """
+        Sends a message. If the url is None, the message will only be printed.
+        Otherwise, the message will be sent via requests.post
+        Parameters
+        ----------
+        message : str
+          The main message content
+        extra_text : Optional[str]
+          Additional text to send in card body
+
+        Returns
+        -------
+        Optional[requests.Response]
+          If the url is None, only print and return None. Otherwise, post
+          message to url and return the response.
+
+        """
+        if self.url is None:
+            print(message) if not extra_text else print(message, extra_text)
+            return None
+        else:
+            contents = self._create_body_text(message, extra_text)
+            response = requests.post(self.url, json=contents)
+            return response

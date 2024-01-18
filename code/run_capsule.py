@@ -345,6 +345,11 @@ def clean_up(
         f"Results of quantification saved in: {quantification_s3_output}",
         f"{results_folder}/output_quantification.txt",
     )
+    
+    alert_bot = utils.AlertBot(
+        url = 'https://alleninstitute.webhook.office.com/webhookb2/3ef49174-15a1-4758-9b1b-392664d7bb4a@32669cd6-737f-4b39-8bdd-d6951120d3fc/IncomingWebhook/017ed57da30048f9a9a9926a09e6a793/96494f5c-2fcb-43c5-875a-200715d9d359'
+    )
+    alert_bot.send_message(f"Finished processing dataset: {processing_manifest['name']}")
 
 
 def get_data_config(
@@ -893,7 +898,9 @@ def run():
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
         )
-
+        
+        pipeline_config['name'] = dataset_name
+        
         clean_up(
             processing_manifest=pipeline_config,
             data_folder=data_folder,
