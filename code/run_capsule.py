@@ -345,6 +345,11 @@ def clean_up(
         f"Results of quantification saved in: {quantification_s3_output}",
         f"{results_folder}/output_quantification.txt",
     )
+    
+    alert_bot = utils.AlertBot(
+        url = '***REMOVED***'
+    )
+    alert_bot.send_message(f"Finished processing dataset: {processing_manifest['name']}")
 
 
 def get_data_config(
@@ -893,7 +898,9 @@ def run():
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
         )
-
+        
+        pipeline_config['name'] = dataset_name
+        
         clean_up(
             processing_manifest=pipeline_config,
             data_folder=data_folder,
