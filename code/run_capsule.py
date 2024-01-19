@@ -347,7 +347,7 @@ def clean_up(
     )
     
     alert_bot = utils.AlertBot(
-        url = 'https://alleninstitute.webhook.office.com/webhookb2/3ef49174-15a1-4758-9b1b-392664d7bb4a@32669cd6-737f-4b39-8bdd-d6951120d3fc/IncomingWebhook/017ed57da30048f9a9a9926a09e6a793/96494f5c-2fcb-43c5-875a-200715d9d359'
+        url = 'https://alleninstitute.webhook.office.com/webhookb2/3ef49174-15a1-4758-9b1b-392664d7bb4a@32669cd6-737f-4b39-8bdd-d6951120d3fc/IncomingWebhook/90499b09ab9c42ec967e3a43387cabdb/96494f5c-2fcb-43c5-875a-200715d9d359'
     )
     alert_bot.send_message(f"Finished processing dataset: {processing_manifest['name']}")
 
