@@ -1,15 +1,16 @@
 """
 Utility functions
 """
+
 import json
 import os
-import requests
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+import requests
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DerivedDataDescription,
                                                     Funding, Institution,
@@ -571,10 +572,19 @@ def compile_processing_jsons(
 
     return output_filename
 
+
 class AlertBot:
     """Class to handle sending alerts and messages in MS Teams."""
 
     def __init__(self, url: Optional[str] = None):
+        """
+        Class constructor
+
+        Parameters
+        ----------
+        url: Optional[str] = None
+            URL to teams channel
+        """
         self.url = url
 
     @staticmethod

@@ -13,6 +13,7 @@ from typing import List, Tuple, Union
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
+from dotenv import load_dotenv
 from ng_link import NgState
 from utils import utils
 
@@ -237,6 +238,7 @@ def clean_up(
     processing_manifest: dict,
     data_folder: PathLike,
     results_folder: PathLike,
+    alert_bot_link: str,
 ):
     """
     Moves all the data to the aind-open-data bucket in
@@ -256,6 +258,9 @@ def clean_up(
 
     bucket: str
         Bucket name
+
+    alert_bot_link: str
+        Link to Team's channel for SmartSPIM notifications
     """
     logger.info(f"Data folder: {os.listdir(data_folder)}")
 
@@ -290,7 +295,11 @@ def clean_up(
 
     # Building from previous processing json
     processing_paths = list()
-    combined_processing_list = [[f"{data_folder}/output_aind_metadata/processing.json"]] + segmentation_processing + quantification_processing
+    combined_processing_list = (
+        [[f"{data_folder}/output_aind_metadata/processing.json"]]
+        + segmentation_processing
+        + quantification_processing
+    )
     for sub_list in combined_processing_list:
         processing_paths += sub_list
 
@@ -345,11 +354,11 @@ def clean_up(
         f"Results of quantification saved in: {quantification_s3_output}",
         f"{results_folder}/output_quantification.txt",
     )
-    
-    alert_bot = utils.AlertBot(
-        url = '***REMOVED***'
+
+    alert_bot = utils.AlertBot(url=alert_bot_link)
+    alert_bot.send_message(
+        f"Finished processing dataset: {processing_manifest['name']}"
     )
-    alert_bot.send_message(f"Finished processing dataset: {processing_manifest['name']}")
 
 
 def get_data_config(
@@ -750,9 +759,9 @@ def create_ng_link(
 
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state[
-        "ng_link"
-    ] = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+    json_state["ng_link"] = (
+        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+    )
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
@@ -806,11 +815,13 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
-    # Loading .env file, this file must be placed with
-    # the code ocean domain and token
-    # dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
-    # load_env_file = load_dotenv(dotenv_path=dotenv_path)
-    # logger.info(f"Load env file status: {load_env_file}")
+    # Loading .env file
+    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
+    load_env_file = load_dotenv(dotenv_path=dotenv_path)
+    logger.info(f"Load env file status: {load_env_file}")
+
+    # Getting teams notification channel link
+    alert_bot_link = os.environ["ALERT_BOT_LINK"]
 
     if "dispatch" in mode:
         pipeline_config, dataset_name = get_data_config(
@@ -898,13 +909,14 @@ def run():
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
         )
-        
-        pipeline_config['name'] = dataset_name
-        
+
+        pipeline_config["name"] = dataset_name
+
         clean_up(
             processing_manifest=pipeline_config,
             data_folder=data_folder,
             results_folder=results_folder,
+            alert_bot_link=alert_bot_link,
         )
 
     else:
