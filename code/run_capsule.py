@@ -793,6 +793,16 @@ def run():
     mode = mode.replace("[", "").replace("]", "").casefold()
     sys.argv = [sys.argv[0]]
 
+    # Loading .env file
+    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
+    load_env_file = load_dotenv(dotenv_path=dotenv_path)
+    logger.info(f"Load env file status: {load_env_file}")
+
+    # Getting teams notification channel link
+    alert_bot_link = os.environ["ALERT_BOT_LINK"]
+
+    logger.info(f"Alert bot link: {alert_bot_link}")
+
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
@@ -814,14 +824,6 @@ def run():
         )
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
-
-    # Loading .env file
-    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
-    load_env_file = load_dotenv(dotenv_path=dotenv_path)
-    logger.info(f"Load env file status: {load_env_file}")
-
-    # Getting teams notification channel link
-    alert_bot_link = os.environ["ALERT_BOT_LINK"]
 
     if "dispatch" in mode:
         pipeline_config, dataset_name = get_data_config(
