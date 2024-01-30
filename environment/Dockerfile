@@ -18,4 +18,4 @@ RUN pip install -U --no-cache-dir \
     python-dotenv==0.21.1 \
     aind-data-schema==0.22.1 \
     aind-ng-link==1.0.6 \
-    python-dotenv==1.0.0
+    python-dotenv==0.21.1
