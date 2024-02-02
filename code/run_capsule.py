@@ -794,12 +794,12 @@ def run():
     sys.argv = [sys.argv[0]]
 
     # Loading .env file
-    dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
-    load_env_file = load_dotenv(dotenv_path=dotenv_path)
-    logger.info(f"Load env file status: {load_env_file}")
+    # dotenv_path = Path(os.path.dirname(os.path.realpath(__file__))) / ".env"
+    # load_env_file = load_dotenv(dotenv_path=dotenv_path)
+    # logger.info(f"Load env file status: {load_env_file}")
 
     # Getting teams notification channel link
-    alert_bot_link = os.environ["ALERT_BOT_LINK"]
+    alert_bot_link = os.environ["CUSTOM_KEY"]
 
     logger.info(f"Alert bot link: {alert_bot_link}")
 
