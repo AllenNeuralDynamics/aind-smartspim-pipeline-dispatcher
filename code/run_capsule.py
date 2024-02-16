@@ -180,7 +180,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
     # Extract the data asset info
     if len(found_pattern):
-        dataset_to_register = dataset_to_register.split("/")[-1]
+        dataset_to_register = found_pattern[0]
 
         smartspim_fused_tags = ["smartspim", "processed"]
 
