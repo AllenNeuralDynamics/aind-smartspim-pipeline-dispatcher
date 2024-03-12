@@ -537,12 +537,17 @@ def copy_intermediate_data(
     processing_paths = destripe_files + processing_paths
     logger.info(f"Processing paths: {processing_paths}")
 
-    output_filename = utils.compile_processing_jsons(
-        processing_paths=processing_paths,
-        output_general_processing=output_dispatch_metadata,
-        processor_full_name="Camilo Laiton",
-        pipeline_version="1.5.0",
-    )
+    try:
+        output_filename = utils.compile_processing_jsons(
+            processing_paths=processing_paths,
+            output_general_processing=output_dispatch_metadata,
+            processor_full_name="Camilo Laiton",
+            pipeline_version="1.5.0",
+        )
+
+    except Exception as e:
+        print(f"Error while compiling processing manifests: {e}")
+        output_filename = None
 
     logger.info(f"Compiled processing.json in path {output_filename}")
 
