@@ -763,8 +763,15 @@ def create_ng_link(
             }
         )
 
+    input_configs = {
+        "dimensions": dimensions,
+        "layers": layers,
+        "crossSectionOrientation": [0.5, 0.5, 0.5, -0.5],
+        "crossSectionScale": 15
+    }
+
     neuroglancer_link = NgState(
-        input_config={"dimensions": dimensions, "layers": layers},
+        input_config=input_configs,
         mount_service="s3",
         bucket_path=config["bucket_path"],
         output_json=config["output_folder"],
