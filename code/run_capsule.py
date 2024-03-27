@@ -767,7 +767,7 @@ def create_ng_link(
         "dimensions": dimensions,
         "layers": layers,
         "crossSectionOrientation": [0.5, 0.5, 0.5, -0.5],
-        "crossSectionScalse": 15
+        "crossSectionScale": 15
     }
 
     neuroglancer_link = NgState(
