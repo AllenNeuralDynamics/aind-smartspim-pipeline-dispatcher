@@ -231,6 +231,9 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
         # Creating processing manifests for channels to segment and quantify
         segment_channels = pipeline_config["segmentation"]["channels"]
 
+        if not len(segment_channels):
+            raise BaseException("Stopping pipeline, no segmentation channels.")
+
         for channel_to_segment in segment_channels:
             copy_pipeline_config = pipeline_config.copy()
 
@@ -247,6 +250,9 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
                 f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
                 copy_pipeline_config,
             )
+
+    else:
+        raise BaseException("Stopping pipeline, pipeline configuration.")
 
 
 def clean_up(
@@ -537,12 +543,17 @@ def copy_intermediate_data(
     processing_paths = destripe_files + processing_paths
     logger.info(f"Processing paths: {processing_paths}")
 
-    output_filename = utils.compile_processing_jsons(
-        processing_paths=processing_paths,
-        output_general_processing=output_dispatch_metadata,
-        processor_full_name="Camilo Laiton",
-        pipeline_version="1.5.0",
-    )
+    try:
+        output_filename = utils.compile_processing_jsons(
+            processing_paths=processing_paths,
+            output_general_processing=output_dispatch_metadata,
+            processor_full_name="Camilo Laiton",
+            pipeline_version="1.5.0",
+        )
+
+    except Exception as e:
+        print(f"Error while compiling processing manifests: {e}")
+        output_filename = None
 
     logger.info(f"Compiled processing.json in path {output_filename}")
 
