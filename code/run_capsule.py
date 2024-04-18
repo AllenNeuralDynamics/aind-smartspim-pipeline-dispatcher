@@ -785,7 +785,7 @@ def create_ng_link(
         input_config=input_configs,
         mount_service="s3",
         bucket_path=config["bucket_path"],
-        output_json=config["output_folder"],
+        output_dir=config["output_folder"],
         base_url=config["ng_base_url"],
         json_name="neuroglancer_config.json",
     )
