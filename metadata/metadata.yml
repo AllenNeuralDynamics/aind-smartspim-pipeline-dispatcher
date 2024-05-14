@@ -1,5 +1,5 @@
 metadata_version: 1
-name: aind-smartspim-pipeline-dispatcher
+name: aind-smartspim-pipeline-dispatcher_test
 description: A capsule to dispatch downstream processing in the SmartSPIM pipeline.
 tags:
 - SmartSPIM
