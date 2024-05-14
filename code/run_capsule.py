@@ -230,6 +230,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
         logger.info("Creating segmentation and quantification parameters")
         # Creating processing manifests for channels to segment and quantify
         segment_channels = pipeline_config["segmentation"]["channels"]
+        background_channel = processing_manifest["pipeline_processing"]["registration"]["channels"][0]
 
         if not len(segment_channels):
             raise BaseException("Stopping pipeline, no segmentation channels.")
@@ -239,6 +240,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
             copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
             copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
+            copy_pipeline_config["segmentation"]["background_channel"] = background_channel
 
             # Creating quantification parameters
             copy_pipeline_config["quantification"] = {}
