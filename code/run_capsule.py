@@ -230,7 +230,9 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
         logger.info("Creating segmentation and quantification parameters")
         # Creating processing manifests for channels to segment and quantify
         segment_channels = pipeline_config["segmentation"]["channels"]
-        background_channel = processing_manifest["pipeline_processing"]["registration"]["channels"][0]
+        background_channel = processing_manifest["pipeline_processing"]["registration"][
+            "channels"
+        ][0]
 
         if not len(segment_channels):
             raise BaseException("Stopping pipeline, no segmentation channels.")
@@ -240,7 +242,9 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
             copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
             copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
-            copy_pipeline_config["segmentation"]["background_channel"] = background_channel
+            copy_pipeline_config["segmentation"][
+                "background_channel"
+            ] = background_channel
 
             # Creating quantification parameters
             copy_pipeline_config["quantification"] = {}
@@ -780,7 +784,7 @@ def create_ng_link(
         "dimensions": dimensions,
         "layers": layers,
         "crossSectionOrientation": [0.5, 0.5, 0.5, -0.5],
-        "crossSectionScale": 15
+        "crossSectionScale": 15,
     }
 
     neuroglancer_link = NgState(
@@ -794,9 +798,9 @@ def create_ng_link(
 
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state["ng_link"] = (
-        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
-    )
+    json_state[
+        "ng_link"
+    ] = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
