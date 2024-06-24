@@ -778,6 +778,9 @@ def create_ng_link(
                 # in zarr to change channel otherwise 0
                 "channel": 0,
                 "name": channel_name,
+                "opacity": 1,
+                "blend": "additive",
+                "tab": "rendering",
                 "shader": {
                     "color": colors[idx],
                     "emitter": "RGB",
@@ -787,7 +790,9 @@ def create_ng_link(
             }
         )
 
+    subject_id = Path(s3_dataset_path).name.split('_')[1]
     input_configs = {
+        "title": subject_id,
         "dimensions": dimensions,
         "layers": layers,
         "crossSectionOrientation": [0.5, 0.5, 0.5, -0.5],
