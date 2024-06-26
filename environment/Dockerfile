@@ -17,5 +17,5 @@ RUN pip install -U --no-cache-dir \
     aind-codeocean-api==0.4.2 \
     python-dotenv==0.21.1 \
     aind-data-schema==0.22.1 \
-    aind-ng-link==1.0.15 \
+    aind-ng-link==1.0.16 \
     python-dotenv==0.21.1
