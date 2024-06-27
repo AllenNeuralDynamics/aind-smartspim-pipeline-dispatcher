@@ -106,19 +106,19 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
     """
 
     color_map = {
-        460: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
-        490: 0X92FF42,  # CHARTREUSE,   EGFP
-        520: 0XE4FE41,  # CHARTREUSE, SYFP2
-        540: 0XF3D038,  # MUSTARD, mBanana
-        560: 0XEAB032,  # XANTHOUS, mOrange
-        580: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
-        600: 0XED1C24,  # RED, mCherry
-        640: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
+        500: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
+        530: 0X92FF42,  # CHARTREUSE,   EGFP
+        540: 0XE4FE41,  # CHARTREUSE, SYFP2
+        560: 0XF3D038,  # MUSTARD, mBanana
+        580: 0XEAB032,  # XANTHOUS, mOrange
+        600: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
+        630: 0XED1C24,  # RED, mCherry
+        680: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
         700: 0XA81F1F,  # FIRE BRICK, mPlum
     }
 
     for ub, hex_val in color_map.items():
-        if wavelength < ub:  # Exclusive
+        if wavelength <= ub:  # Inclusive
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
 
@@ -805,7 +805,7 @@ def create_ng_link(
     colors = []
     for channel_str in s3_channel_paths:
         channel_str = Path(channel_str).stem
-        channel: int = int(channel_str.split("_")[1])
+        channel: int = int(channel_str.split("_")[-1])
         hex_val: int = wavelength_to_hex_alternate(channel)
         hex_str = f"#{str(hex(hex_val))[2:]}"
 
