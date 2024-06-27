@@ -80,9 +80,7 @@ def wavelength_to_hex(wavelength: int) -> int:
 def wavelength_to_hex_alternate(wavelength: int) -> int:
     """
     Converts wavelengths to hex value, taking fpbase.org spectra viewer
-    as a guide. Using an input wavelength that corresponds to the excitation
-    for proteins covering the visible range will give the emission color
-    used on that site.
+    as a guide.
     Fluorescent proteins querried:
     mTFP1,
     EGFP,
