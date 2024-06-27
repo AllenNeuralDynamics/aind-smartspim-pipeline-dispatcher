@@ -77,6 +77,52 @@ def wavelength_to_hex(wavelength: int) -> int:
     return hex_val  # hex_val is set to the last color in for loop
 
 
+def wavelength_to_hex_alternate(wavelength: int) -> int:
+    """
+    Converts wavelengths to hex value, taking fpbase.org spectra viewer
+    as a guide. Using an input wavelength that corresponds to the excitation
+    for proteins covering the visible range will give the emission color
+    used on that site.
+    Fluorescent proteins querried:
+    mTFP1,
+    EGFP,
+    SYFP2,
+    mbanana,
+    morange,
+    mtomato,
+    mcherry,
+    mraspberry,
+    mplum
+
+    Parameters
+    ------------------------
+    wavelength: int
+        Integer value representing wavelength.
+
+    Returns
+    ------------------------
+    int:
+        Hex value color.
+    """
+
+    color_map = {
+        460: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
+        490: 0X92FF42,  # CHARTREUSE,   EGFP
+        520: 0XE4FE41,  # CHARTREUSE, SYFP2
+        540: 0XF3D038,  # MUSTARD, mBanana
+        560: 0XEAB032,  # XANTHOUS, mOrange
+        580: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
+        600: 0XED1C24,  # RED, mCherry
+        640: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
+        700: 0XA81F1F,  # FIRE BRICK, mPlum
+    }
+
+    for ub, hex_val in color_map.items():
+        if wavelength < ub:  # Exclusive
+            return hex_val
+    return hex_val  # hex_val is set to the last color in for loop
+
+
 def wait_for_data_availability(
     co_client,
     data_asset_id: str,
@@ -759,8 +805,8 @@ def create_ng_link(
     colors = []
     for channel_str in s3_channel_paths:
         channel_str = Path(channel_str).stem
-        channel: int = int(channel_str.split("_")[-1])
-        hex_val: int = wavelength_to_hex(channel)
+        channel: int = int(channel_str.split("_")[1])
+        hex_val: int = wavelength_to_hex_alternate(channel)
         hex_str = f"#{str(hex(hex_val))[2:]}"
 
         colors.append(hex_str)
