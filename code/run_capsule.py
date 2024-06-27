@@ -31,7 +31,7 @@ logger.setLevel(logging.INFO)
 
 PathLike = Union[str, Path]
 
-PIPELINE_VERSION = "2.0.0"
+PIPELINE_VERSION = "2.0.1"
 
 
 def wavelength_to_hex(wavelength: int) -> int:
@@ -73,6 +73,50 @@ def wavelength_to_hex(wavelength: int) -> int:
 
     for ub, hex_val in color_map.items():
         if wavelength < ub:  # Exclusive
+            return hex_val
+    return hex_val  # hex_val is set to the last color in for loop
+
+
+def wavelength_to_hex_alternate(wavelength: int) -> int:
+    """
+    Converts wavelengths to hex value, taking fpbase.org spectra viewer
+    as a guide.
+    Fluorescent proteins querried:
+    mTFP1,
+    EGFP,
+    SYFP2,
+    mbanana,
+    morange,
+    mtomato,
+    mcherry,
+    mraspberry,
+    mplum
+
+    Parameters
+    ------------------------
+    wavelength: int
+        Integer value representing wavelength.
+
+    Returns
+    ------------------------
+    int:
+        Hex value color.
+    """
+
+    color_map = {
+        500: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
+        530: 0X92FF42,  # CHARTREUSE,   EGFP
+        540: 0XE4FE41,  # CHARTREUSE, SYFP2
+        560: 0XF3D038,  # MUSTARD, mBanana
+        580: 0XEAB032,  # XANTHOUS, mOrange
+        600: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
+        630: 0XED1C24,  # RED, mCherry
+        680: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
+        700: 0XA81F1F,  # FIRE BRICK, mPlum
+    }
+
+    for ub, hex_val in color_map.items():
+        if wavelength <= ub:  # Inclusive
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
 
@@ -739,6 +783,8 @@ def create_ng_link(
         Path where the neuroglancer config json
         was generated
     """
+    # Sort channels paths so that they appear in NG consistently ordered
+    s3_channel_paths = sorted(s3_channel_paths)
 
     dimensions = {
         "z": {
@@ -760,7 +806,7 @@ def create_ng_link(
     for channel_str in s3_channel_paths:
         channel_str = Path(channel_str).stem
         channel: int = int(channel_str.split("_")[-1])
-        hex_val: int = wavelength_to_hex(channel)
+        hex_val: int = wavelength_to_hex_alternate(channel)
         hex_str = f"#{str(hex(hex_val))[2:]}"
 
         colors.append(hex_str)
@@ -778,6 +824,9 @@ def create_ng_link(
                 # in zarr to change channel otherwise 0
                 "channel": 0,
                 "name": channel_name,
+                "opacity": 1,
+                "blend": "additive",
+                "tab": "rendering",
                 "shader": {
                     "color": colors[idx],
                     "emitter": "RGB",
@@ -787,7 +836,9 @@ def create_ng_link(
             }
         )
 
+    subject_id = Path(s3_dataset_path).name.split('_')[1]
     input_configs = {
+        "title": subject_id,
         "dimensions": dimensions,
         "layers": layers,
         "crossSectionOrientation": [0.5, 0.5, 0.5, -0.5],
