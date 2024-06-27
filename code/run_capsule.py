@@ -785,6 +785,8 @@ def create_ng_link(
         Path where the neuroglancer config json
         was generated
     """
+    # Sort channels paths so that they appear in NG consistently ordered
+    s3_channel_paths = sorted(s3_channel_paths)
 
     dimensions = {
         "z": {
