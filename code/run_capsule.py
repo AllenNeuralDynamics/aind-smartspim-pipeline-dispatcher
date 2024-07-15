@@ -310,7 +310,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     else:
         raise BaseException("Stopping pipeline, pipeline configuration.")
 
-def reprocess(processing_manifest: dict, results_folder: PathLike, bucket: str):
+def reprocess(
     processing_manifest: dict,
     data_folder: PathLike,
     results_folder: PathLike,
