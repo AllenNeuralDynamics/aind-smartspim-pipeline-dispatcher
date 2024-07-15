@@ -310,6 +310,103 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
     else:
         raise BaseException("Stopping pipeline, pipeline configuration.")
 
+def reprocess(processing_manifest: dict, results_folder: PathLike, bucket: str):
+    processing_manifest: dict,
+    data_folder: PathLike,
+    results_folder: PathLike,
+    alert_bot_link: str,
+):
+    """
+    Moves all the data to the aind-open-data bucket in
+    AWS.
+
+    Parameters
+    ----------
+    processing_manifest: dict
+        Dictionary with the processing manifest
+        metadata
+
+    data_folder: str
+        Path pointing to the data folder
+
+    results_folder: str
+        Path pointing to the results folder
+
+    bucket: str
+        Bucket name
+
+    alert_bot_link: str
+        Link to Team's channel for SmartSPIM notifications
+    """
+    logger.info(f"Data folder: {os.listdir(data_folder)}")
+
+    # # Variables from processing manifest
+    # bucket = "aind-open-data"
+
+    quantification_folders = glob(f"{data_folder}/quant_*")
+
+    logger.info(f"Quantification folders: {quantification_folders}")
+
+    # Reading quantification processings
+    quantification_processing = []
+    for quant_folder in quantification_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{quant_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        quantification_processing.append(processing_jsons)
+
+    # Building from previous processing json
+    processing_paths = list()
+    combined_processing_list = (
+        [[f"{data_folder}/output_aind_metadata/processing.json"]]
+        + quantification_processing
+    )
+    for sub_list in combined_processing_list:
+        processing_paths += sub_list
+
+    logger.info(f"Compiling processing paths: {processing_paths}")
+    output_filename = utils.compile_processing_jsons(
+        processing_paths=processing_paths,
+        output_general_processing=results_folder,
+        processor_full_name="Camilo Laiton",
+        pipeline_version=PIPELINE_VERSION,
+    )
+
+    logger.info(f"Compiled processing.json in path {output_filename}")
+
+    # Moving data out
+    # Defining s3 outputs
+    s3_path = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
+    quantification_s3_output = f"{s3_path}/image_cell_quantification"
+
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    # Copying final processing manifest
+    for out in utils.execute_command_helper(
+        f"aws s3 mv {results_folder}/processing.json {s3_path}/processing.json"
+    ):
+        print(out)
+
+    # Moving data to the quantification folder
+    for quantification_folder in quantification_folders:
+        channel_name = re.search(regex_channels, quantification_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    utils.save_string_to_txt(
+        f"Results of quantification saved in: {quantification_s3_output}",
+        f"{results_folder}/output_quantification.txt",
+    )
+
+    alert_bot = utils.AlertBot(url=alert_bot_link)
+    alert_bot.send_message(
+        f"Finished processing dataset: {processing_manifest['name']}"
+    )
 
 def clean_up(
     processing_manifest: dict,
@@ -922,7 +1019,7 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
-    if "dispatch" in mode:
+    if 'dispatch' in mode:
         pipeline_config, dataset_name = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
@@ -999,6 +1096,101 @@ def run():
         utils.save_dict_as_json(
             f"{results_folder}/modified_processing_manifest.json",
             pipeline_config,
+        )
+    elif "reprocess" in mode:
+        pipeline_config, dataset_name = get_data_config(
+            data_folder=data_folder,
+            data_description_path="input_aind_metadata/data_description.json",
+        )
+
+        # Creating new metadata for stitched dataset
+        output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
+            data_folder=data_folder, results_folder=results_folder, logger=logger
+        )
+
+        # Looking for files
+        destripe_files = glob(f"{data_folder}/image_destriping_*")
+        flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
+        stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
+        fuse_folders = glob(f"{data_folder}/fused/fusion_*")
+        ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
+
+        bucket_path = "aind-open-data"
+
+        s3_path, s3_dest_zarr = copy_intermediate_data(
+            output_dispatch_metadata=output_dispatch_metadata,
+            destripe_files=destripe_files,
+            flatfield_channels=flatfield_channels,
+            stitch_folders=stitch_folders,
+            fuse_folders=fuse_folders,
+            ccf_folders=ccf_folders,
+            new_dataset_name=new_dataset_name,
+            bucket_path=bucket_path,
+            results_folder=results_folder,
+            logger=logger,
+        )
+
+        # Getting S3 paths for channels
+        s3_paths_for_channels = []
+        for fuse_folder in fuse_folders:
+            channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
+            # f"{s3_path}/{output_fusion}/OMEZarr"
+            s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}.zarr")
+
+        axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
+            "resolution"
+        ]
+        output_json = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "z_res": axes_resolution[2]["resolution"],
+                "y_res": axes_resolution[1]["resolution"],
+                "x_res": axes_resolution[0]["resolution"],
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+        )
+
+        data_results = glob(f"{results_folder}/*")
+        logger.info(f"Data in {results_folder}: {data_results}")
+
+        # Copying neuroglancer config out
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        ):
+            logger.info(out)
+
+        # Setting the stitching path in pipeline config
+        pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
+
+        dispatch(
+            processing_manifest=pipeline_config,
+            results_folder=results_folder,
+            bucket=bucket_path,
+        )
+
+        utils.save_dict_as_json(
+            f"{results_folder}/modified_processing_manifest.json",
+            pipeline_config,
+        )
+
+    elif 'reprocess' in mode:
+        logger.info("Starting reprocess cleaning...")
+        pipeline_config, dataset_name = get_data_config(
+            data_folder=data_folder,
+            data_description_path="input_aind_metadata/data_description.json",
+            processing_manifest_path="modified_processing_manifest.json",
+        )
+
+        pipeline_config["name"] = dataset_name
+
+        reprocess(
+            processing_manifest=pipeline_config,
+            data_folder=data_folder,
+            results_folder=results_folder,
+            alert_bot_link=alert_bot_link,
         )
 
     elif "clean" in mode:
