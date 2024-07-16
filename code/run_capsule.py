@@ -1016,7 +1016,7 @@ def run():
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
         bucket_path = "aind-open-data"
-
+        print(f"Dataset name: {dataset_name}")
         s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
             destripe_files=destripe_files,
