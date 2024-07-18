@@ -413,7 +413,7 @@ def generate_data_description(
         data_name, creation_time = data["name"].split("_stitched_")
         creation_time = datetime.strptime(creation_time, '%Y-%m-%d_%H-%M-%S')
     else:
-        data_name = data["name"}
+        data_name = data["name"]
         creation_time = datetime.now()
 
     derived = DerivedDataDescription(
