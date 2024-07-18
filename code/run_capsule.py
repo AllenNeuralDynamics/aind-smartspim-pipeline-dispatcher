@@ -694,6 +694,135 @@ def copy_intermediate_data(
 
     return s3_path, dest_zarr_path
 
+def copy_reprocessed_intermediate_data(
+    output_dispatch_metadata: PathLike,
+    destripe_files: List[PathLike],
+    flatfield_channels: List[PathLike],
+    stitch_folders: List[PathLike],
+    fuse_folders: List[PathLike],
+    ccf_folders: List[PathLike],
+    new_dataset_name: str,
+    bucket_path: str,
+    results_folder: PathLike,
+    logger: logging.Logger,
+) -> str:
+    """
+    Copies the destripe, stitch and fusion metadata
+    to the destination bucket to make it available
+    to scientists as soon as possible.
+
+    Parameters
+    ----------
+    output_dispatch_metadata: PathLike
+        Path where the new metadata (derived)
+        for the processed dataset is located
+
+    destripe_files: List[PathLike]
+        Metadata files generated in the
+        parallel destriping step
+
+    flatfield_channels: List[PathLike]
+        Flatfields applied to the dataset
+
+    stitch_folders: List[PathLike]
+        Stitch folders generated in the
+        stitch step.
+
+    fuse_folders: List[PathLike]
+        Fuse folders generated in the
+        parallel fusion step.
+
+    ccf_folders: List[PathLike]
+        CCF registration folders generated
+        in the pipeline.
+
+    new_dataset_name: str
+        New dataset name where the data will
+        be copied following the aind conventions
+        e.g., s3://{bucket_path}/{new_dataset_name}
+
+    bucket_path: str
+        S3 path where the data will be moved.
+        Do not include 's3://' since this is
+        automatically added.
+
+    results_folder: PathLike
+        Results folder path in Code Ocean
+
+    logger: logging.Logger
+        Logging object
+
+    Returns
+    -------
+    Tuple[str, str]
+        The first position is the path where the dataset
+        was moved. e.g., s3://{bucket_path}/{new_dataset_name}
+        It includes the "s3://" prefix. The second position
+        is the folder inside that path where the Zarrs
+        were moved.
+        e.g., s3://{bucket_path}/{new_dataset_name}/{output_fusion}/OMEZarr
+    """
+
+    stitch_processings = []
+    fuse_processings = []
+    ccf_processings = []
+
+    for stitch_folder in stitch_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{stitch_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        stitch_processings.append(processing_jsons)
+
+    for fuse_folder in fuse_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{fuse_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        fuse_processings.append(processing_jsons)
+
+    for ccf_folder in ccf_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{ccf_folder}/metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        ccf_processings.append(processing_jsons)
+
+    # Flattening list
+    processing_paths = list()
+    combined_processing_list = stitch_processings + fuse_processings + ccf_processings
+    for sub_list in combined_processing_list:
+        processing_paths += sub_list
+
+    processing_paths = destripe_files + processing_paths
+    logger.info(f"Processing paths: {processing_paths}")
+
+    try:
+        output_filename = utils.compile_processing_jsons(
+            processing_paths=processing_paths,
+            output_general_processing=output_dispatch_metadata,
+            processor_full_name="Camilo Laiton",
+            pipeline_version=PIPELINE_VERSION,
+        )
+
+    except Exception as e:
+        print(f"Error while compiling processing manifests: {e}")
+        output_filename = None
+
+    logger.info(f"Compiled processing.json in path {output_filename}")
+
+    s3_path = f"s3://{bucket_path}/{new_dataset_name}"
+
+    # Copying out fused data
+    output_fusion = "image_tile_fusing"
+    dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
+    dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
+
+    return s3_path, dest_zarr_path
+
 def create_derived_stitched_metadata(
     data_folder: PathLike, results_folder: PathLike, logger: logging.Logger
 ) -> Tuple[PathLike, str]:
@@ -1017,7 +1146,7 @@ def run():
 
         bucket_path = "aind-open-data"
 
-        s3_path, s3_dest_zarr = copy_intermediate_data(
+        s3_path, s3_dest_zarr = copy_reprocessed_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
             destripe_files=destripe_files,
             flatfield_channels=flatfield_channels,
@@ -1057,10 +1186,10 @@ def run():
         logger.info(f"Data in {results_folder}: {data_results}")
 
         # Copying neuroglancer config out
-        for out in utils.execute_command_helper(
-            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-        ):
-            logger.info(out)
+        #for out in utils.execute_command_helper(
+        #    f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        #):
+        #    logger.info(out)
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
@@ -1075,7 +1204,6 @@ def run():
             f"{results_folder}/modified_processing_manifest.json",
             pipeline_config,
         )
-
     elif "clean" in mode:
         logger.info("Starting cleaning...")
         pipeline_config, dataset_name = get_data_config(
