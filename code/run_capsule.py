@@ -1133,7 +1133,7 @@ def run():
         )
 
         # Creating new metadata for stitched dataset
-        output_dispatch_metadata, _ = create_derived_stitched_metadata(
+        output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
             data_folder=data_folder, results_folder=results_folder, logger=logger
         )
 
@@ -1153,7 +1153,7 @@ def run():
             stitch_folders=stitch_folders,
             fuse_folders=fuse_folders,
             ccf_folders=ccf_folders,
-            new_dataset_name=dataset_name,
+            new_dataset_name=new_dataset_name,
             bucket_path=bucket_path,
             results_folder=results_folder,
             logger=logger,

@@ -408,9 +408,17 @@ def generate_data_description(
     funding_sources = [
         funding_adapter.validate_python(fund) for fund in data["funding_source"]
     ]
+
+    if "stitched" in data["name"]:
+        data_name, creation_time = data["name"].split("_stitched_")
+        creation_time = datetime.strptime(creation_time, '%Y-%m-%d_%H-%M-%S')
+    else:
+        data_name = data["name"}
+        creation_time = datetime.now()
+
     derived = DerivedDataDescription(
-        creation_time=datetime.now(),
-        input_data_name=data["name"],
+        creation_time=creation_time,
+        input_data_name=data_name,
         process_name=process_name,
         institution=Institution.from_abbreviation(institution),
         funding_source=funding_sources,
@@ -428,7 +436,6 @@ def generate_data_description(
         f.write(derived.model_dump_json())
 
     return derived.name
-
 
 def copy_available_metadata(
     input_path: PathLike, output_path: PathLike, ignore_files: List[str]
