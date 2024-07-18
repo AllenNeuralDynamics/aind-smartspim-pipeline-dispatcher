@@ -816,10 +816,34 @@ def copy_reprocessed_intermediate_data(
 
     s3_path = f"s3://{bucket_path}/{new_dataset_name}"
 
+    # Copying derived metadata
+    output_dispatch_metadata = Path(output_dispatch_metadata)
+    for out in utils.execute_command_helper(
+        f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
+    ):
+        logger.info(out)
+
     # Copying out fused data
     output_fusion = "image_tile_fusing"
     dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
+
+    # Copying ccf data
+    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    for ccf_folder in ccf_folders:
+        channel_name = re.search(regex_channels, ccf_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+        ):
+            logger.info(out)
+
+    utils.save_string_to_txt(
+        f"Stitched dataset saved in: {s3_path}",
+        f"{results_folder}/output_stitching.txt",
+    )
 
     return s3_path, dest_zarr_path
 
