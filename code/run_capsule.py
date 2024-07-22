@@ -223,7 +223,7 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
     pattern = (
         r"SmartSPIM_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
-        r"_stitched_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+        r"_(?:stitched|test)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
     )
     found_pattern = re.findall(pattern=pattern, string=dataset_to_register)
 
@@ -434,7 +434,6 @@ def clean_up(
     alert_bot.send_message(
         f"Finished processing dataset: {processing_manifest['name']}"
     )
-
 
 def get_data_config(
     data_folder: PathLike,
@@ -907,6 +906,65 @@ def create_derived_stitched_metadata(
 
     return output_dispatch_metadata, new_dataset_name
 
+def create_derived_test_metadata(
+    data_folder: PathLike, results_folder: PathLike, logger: logging.Logger
+) -> Tuple[PathLike, str]:
+    """
+    Creates the derived metadata following
+    AIND conventions.
+
+    Parameters
+    ----------
+    data_folder: PathLike
+        Path to the code ocean data folder
+
+    results_folder: PathLike
+        Path to the code ocean results folder
+
+    logger: logging.Logger
+        Logging object
+
+    Returns
+    -------
+    Tuple[PathLike, str]
+        The first position of the tuple
+        corresponds to the path where the
+        metadata was created while the
+        second position has the new name
+        of the dataset
+    """
+    logger.info("Generating derived data description")
+    raw_metadata_path = data_folder.joinpath("input_aind_metadata")
+    output_dispatch_metadata = f"{results_folder}/output_aind_metadata"
+    utils.create_folder(output_dispatch_metadata)
+
+    new_dataset_name = utils.generate_data_description(
+        raw_data_description_path=raw_metadata_path.joinpath("data_description.json"),
+        dest_data_description=output_dispatch_metadata,
+        process_name="test",
+    )
+
+    logger.info("Copying all available raw SmartSPIM metadata")
+
+    # This is the AIND metadata
+    found_metadata = utils.copy_available_metadata(
+        input_path=raw_metadata_path,
+        output_path=output_dispatch_metadata,
+        ignore_files=[
+            "data_description.json",  # Ignoring orig data description
+            "processing.json",  # This is generated with all the steps
+        ],
+    )
+
+    logger.info(f"Copied metadata from {raw_metadata_path}: {found_metadata}")
+    logger.info(
+        f"Metadata in raw folder {raw_metadata_path}: {os.listdir(raw_metadata_path)}"
+    )
+    logger.info(
+        f"Metadata in folder {output_dispatch_metadata}: {os.listdir(output_dispatch_metadata)}"
+    )
+
+    return output_dispatch_metadata, new_dataset_name
 
 def create_ng_link(
     config: dict, s3_channel_paths: List[str], s3_dataset_path: str
@@ -1158,6 +1216,84 @@ def run():
 
         # Creating new metadata for stitched dataset
         output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
+            data_folder=data_folder, results_folder=results_folder, logger=logger
+        )
+
+        # Looking for files
+        destripe_files = glob(f"{data_folder}/image_destriping_*")
+        flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
+        stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
+        fuse_folders = glob(f"{data_folder}/fused/fusion_*")
+        ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
+
+        bucket_path = "aind-open-data"
+
+        s3_path, s3_dest_zarr = copy_reprocessed_intermediate_data(
+            output_dispatch_metadata=output_dispatch_metadata,
+            destripe_files=destripe_files,
+            flatfield_channels=flatfield_channels,
+            stitch_folders=stitch_folders,
+            fuse_folders=fuse_folders,
+            ccf_folders=ccf_folders,
+            new_dataset_name=new_dataset_name,
+            bucket_path=bucket_path,
+            results_folder=results_folder,
+            logger=logger,
+        )
+
+        # Getting S3 paths for channels
+        s3_paths_for_channels = []
+        for fuse_folder in fuse_folders:
+            channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
+            # f"{s3_path}/{output_fusion}/OMEZarr"
+            s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}.zarr")
+
+        axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
+            "resolution"
+        ]
+        output_json = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "z_res": axes_resolution[2]["resolution"],
+                "y_res": axes_resolution[1]["resolution"],
+                "x_res": axes_resolution[0]["resolution"],
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+        )
+
+        data_results = glob(f"{results_folder}/*")
+        logger.info(f"Data in {results_folder}: {data_results}")
+
+        # Copying neuroglancer config out
+        #for out in utils.execute_command_helper(
+        #    f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        #):
+        #    logger.info(out)
+
+        # Setting the stitching path in pipeline config
+        pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
+
+        dispatch(
+            processing_manifest=pipeline_config,
+            results_folder=results_folder,
+            bucket=bucket_path,
+        )
+
+        utils.save_dict_as_json(
+            f"{results_folder}/modified_processing_manifest.json",
+            pipeline_config,
+        )
+    elif "test" in mode:
+        pipeline_config, dataset_name = get_data_config(
+            data_folder=data_folder,
+            data_description_path="input_aind_metadata/data_description.json",
+        )
+
+        # Creating new metadata for stitched dataset
+        output_dispatch_metadata, new_dataset_name = create_derived_test_metadata(
             data_folder=data_folder, results_folder=results_folder, logger=logger
         )
 

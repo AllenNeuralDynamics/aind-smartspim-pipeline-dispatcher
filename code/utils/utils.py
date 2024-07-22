@@ -368,7 +368,6 @@ def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
 
     return missing_inputs
 
-
 def generate_data_description(
     raw_data_description_path: PathLike,
     dest_data_description: PathLike,
@@ -485,7 +484,6 @@ def copy_available_metadata(
 
     return found_metadata
 
-
 def generate_processing(
     data_processes: List[DataProcess],
     dest_processing: str,
@@ -532,7 +530,6 @@ def generate_processing(
     processing.write_standard_file(output_directory=dest_processing)
 
     return dest_processing
-
 
 def compile_processing_jsons(
     processing_paths: List[str],
