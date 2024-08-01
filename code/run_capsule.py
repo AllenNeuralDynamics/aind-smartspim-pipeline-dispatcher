@@ -1219,9 +1219,6 @@ def run():
             data_folder=data_folder, results_folder=results_folder, logger=logger
         )
 
-        new_folder = f"{data_folder}/ccf_registration_results/"
-        logger.info(f"Data in ccf Folder: {os.listdir(new_folder)}")
-
         # Looking for files
         destripe_files = glob(f"{data_folder}/image_destriping_*")
         flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
