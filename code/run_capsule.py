@@ -1219,12 +1219,17 @@ def run():
             data_folder=data_folder, results_folder=results_folder, logger=logger
         )
 
+        print(data_folder)
+
         # Looking for files
         destripe_files = glob(f"{data_folder}/image_destriping_*")
         flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
         stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
+
+        if len(ccf_folders) == 0:
+            ccf_folders = glob(f"{data_folder}/ccf_*")
 
         bucket_path = "aind-open-data"
 
