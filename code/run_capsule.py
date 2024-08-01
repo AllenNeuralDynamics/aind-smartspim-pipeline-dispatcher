@@ -1219,7 +1219,7 @@ def run():
             data_folder=data_folder, results_folder=results_folder, logger=logger
         )
 
-        print(data_folder)
+       logger.info(f"Data in Data Folder: {data_folder}")
 
         # Looking for files
         destripe_files = glob(f"{data_folder}/image_destriping_*")
