@@ -1226,7 +1226,7 @@ def run():
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-        logger.info(f" Folder: {os.listdir(ccf_folders)}")
+        logger.info(f" Folder: {ccf_folders}")
 
         bucket_path = "aind-open-data"
 
@@ -1307,9 +1307,6 @@ def run():
         stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
-
-        if len(ccf_folders) == 0:
-            ccf_folders = glob(f"{data_folder}/ccf_*")
 
         bucket_path = "aind-open-data"
 
