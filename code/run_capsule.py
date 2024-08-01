@@ -1219,7 +1219,7 @@ def run():
             data_folder=data_folder, results_folder=results_folder, logger=logger
         )
 
-        logger.info(f"Data in Data Folder: {data_folder}")
+        logger.info(f"Data in ccf Folder: {os.listdir({data_folder}/ccf_registration_results/)}")
 
         # Looking for files
         destripe_files = glob(f"{data_folder}/image_destriping_*")
@@ -1228,8 +1228,7 @@ def run():
         fuse_folders = glob(f"{data_folder}/fused/fusion_*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-        if len(ccf_folders) == 0:
-            ccf_folders = glob(f"{data_folder}/ccf_*")
+        logger.info(f" Folder: {os.listdir(ccf_folders)}")
 
         bucket_path = "aind-open-data"
 
