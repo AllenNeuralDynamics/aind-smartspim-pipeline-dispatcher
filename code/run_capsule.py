@@ -1007,8 +1007,7 @@ def run():
             f"{results_folder}/modified_processing_manifest.json",
             pipeline_config,
         )
-        
-        
+             
         if len(investigators[0]) > 0:
             response = utils.send_alerts(
                 'dispatch',
