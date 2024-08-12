@@ -18,4 +18,5 @@ RUN pip install -U --no-cache-dir \
     python-dotenv==0.21.1 \
     aind-data-schema==0.22.1 \
     aind-ng-link==1.0.15 \
-    python-dotenv==0.21.1
+    python-dotenv==0.21.1 \
+    smartsheet-dataframe==0.3.4
