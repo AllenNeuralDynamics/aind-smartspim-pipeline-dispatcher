@@ -2,6 +2,7 @@
 Utility functions
 """
 
+import boto3
 import json
 import os
 import shutil
@@ -9,6 +10,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
+from smartsheet_dataframe import get_sheet_as_df
 
 import requests
 from aind_data_schema.base import AindCoreModel
@@ -368,6 +370,90 @@ def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
 
     return missing_inputs
 
+def send_alerts(
+        mode: str,
+        investigators: str,
+        dataset: str,
+        smartsheet_token: str,
+    ):
+    """
+    Sends an email alert to the investig
+
+    Parameters
+    ----------
+    mode : str
+        Which stage of the pipeline the email is being sent
+    investigators : list
+        Who requested the dataset and will be emailed
+    dataset: str
+        Name of the dataset that is being processed
+    smartsheet_token: str
+        Credentials to access the investigator smartsheet
+
+    Returns
+    -------
+    response:
+        Email response for logging
+
+    """
+    
+    # Create an SES client 
+    ses_client = boto3.client("ses", region_name="us-west-2")
+    
+    # Get email address
+    email_df = get_sheet_as_df(
+        token = smartsheet_token,
+        sheet_id = 2645998362906500,
+        )
+    
+    email_addresses = email_df.loc[email_df['Name'].isin(investigators), 'Email'].values.tolist()
+    
+    if len(investigators) > 1:
+        invest = ', '.join(investigators)
+        idx = invest.rfind(',')
+        invest = invest[:idx] + ' and' + invest[idx+1:]
+    else:
+        invest = investigators[0]
+    
+    if 'dispatch' in mode:
+        
+        message_data = f'Hi {invest}, \n\nThis messsage is to inform you ' \
+            f'that your dataset {dataset} has been uploaded to AWS and ' \
+            'stitched images are now available for viewing. \n\n' \
+            'Sincerely, SmartSPIM Processing Team'
+            
+        subject_data = f'Stitched images available for dataset {dataset}'
+            
+    elif "clean" in mode:
+        
+        message_data = f'Hi {invest}, \n\nThis messsage is to inform you' \
+            f'that your dataset {dataset} has completed the SmartSPIM ' \
+            'pipeline. Segmented and registered images have been quantified '\
+            'and are now available for viewing. \n\n' \
+            'Sincerely, SmartSPIM Processing Team'
+            
+        subject_data = f'SmartSPIM processing completed for dataset {dataset}'
+    
+    response = ses_client.send_email(
+        Destination={
+            'ToAddresses': email_addresses,
+        },
+        Message={
+            'Body': {
+                'Html': {
+                    'Charset': 'UTF-8',
+                    'Data': message_data,
+                }
+            },
+            'Subject': {
+                'Charset': 'UTF-8',
+                'Data': subject_data,
+            },
+        },
+        Source='notifications@allenneuraldynamics-test.org',
+    )
+    
+    return response
 
 def generate_data_description(
     raw_data_description_path: PathLike,

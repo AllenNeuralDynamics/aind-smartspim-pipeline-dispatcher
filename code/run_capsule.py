@@ -1,5 +1,6 @@
 """ Main script that works as a dispatcher in code ocean """
 
+import boto3
 import json
 import logging
 import os
@@ -460,12 +461,14 @@ def get_data_config(
 
     Returns
     -----------
-    Tuple[Dict, str]
+    Tuple[Dict, str, list]
         Dict: Empty dictionary if the path does not exist,
         dictionary with the data otherwise.
 
         Str: Empty string if the processing manifest
         was not found
+        
+        List: Empty list if no investigators in data description
     """
 
     # Returning first smartspim dataset found
@@ -489,8 +492,9 @@ def get_data_config(
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
 
     smartspim_dataset = data_description_dict["name"]
+    investigators = data_description_dict["investigators"]
 
-    return derivatives_dict, smartspim_dataset
+    return derivatives_dict, smartspim_dataset, investigators
 
 
 def copy_intermediate_data(
@@ -899,7 +903,10 @@ def run():
     alert_bot_link = os.environ["CUSTOM_KEY"]
 
     logger.info(f"Alert bot link: {alert_bot_link}")
-
+    
+    # Getting smartspim token for emailing
+    smartsheet_token = os.environ["CUSTOM_KEY"]
+    
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
@@ -923,7 +930,7 @@ def run():
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
     if "dispatch" in mode:
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
         )
@@ -1000,10 +1007,23 @@ def run():
             f"{results_folder}/modified_processing_manifest.json",
             pipeline_config,
         )
+        
+        
+        if len(investigators[0]) > 0:
+            response = utils.send_alerts(
+                'dispatch',
+                investigators,
+                dataset_name,
+                smartsheet_token
+            )
+        
+            logger.info(f"Email sent: {response}")
+        else:
+            logger.info("Email sent: No investigators were provided")
 
     elif "clean" in mode:
         logger.info("Starting cleaning...")
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
@@ -1017,6 +1037,18 @@ def run():
             results_folder=results_folder,
             alert_bot_link=alert_bot_link,
         )
+        
+        if len(investigators[0]) > 0:
+            response = utils.send_alerts(
+                'clean',
+                investigators,
+                dataset_name,
+                smartsheet_token
+            )
+        
+            logger.info(f"Email sent: {response}")
+        else:
+            logger.info("Email sent: No investigators were provided")
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
