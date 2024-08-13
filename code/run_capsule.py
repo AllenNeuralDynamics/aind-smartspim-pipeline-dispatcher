@@ -1105,8 +1105,8 @@ def run():
 
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
-    investigators = ['Nicholas Lusk']
-    smartsheet_token = 'jxjfJx5QuaKH1o4k4nOBVbdvYDWIj0eDQ28Hi'
+    #investigators = ['Nicholas Lusk']
+    #smartsheet_token = 'jxjfJx5QuaKH1o4k4nOBVbdvYDWIj0eDQ28Hi'
 
     logger.info(f"Alert bot link: {alert_bot_link}")
 
@@ -1291,17 +1291,17 @@ def run():
             pipeline_config,
         )
 
-        if len(investigators[0]) > 0:
-            response = utils.send_alerts(
-                'dispatch',
-                investigators,
-                dataset_name,
-                smartsheet_token
-            )
-        
-            logger.info(f"Email sent: {response}")
-        else:
-            logger.info("Email sent: No investigators were provided")
+        #if len(investigators[0]) > 0:
+        #    response = utils.send_alerts(
+        #        'dispatch',
+        #        investigators,
+        #        dataset_name,
+        #        smartsheet_token
+        #    )
+        #
+        #    logger.info(f"Email sent: {response}")
+        #else:
+        #    logger.info("Email sent: No investigators were provided")
 
     elif "test" in mode:
         pipeline_config, dataset_name = get_data_config(
@@ -1400,17 +1400,17 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
-        if len(investigators[0]) > 0:
-            response = utils.send_alerts(
-                'clean',
-                investigators,
-                dataset_name,
-                smartsheet_token
-            )
-        
-            logger.info(f"Email sent: {response}")
-        else:
-            logger.info("Email sent: No investigators were provided")
+        #if len(investigators[0]) > 0:
+        #    response = utils.send_alerts(
+        #        'clean',
+        #        investigators,
+        #        dataset_name,
+        #        smartsheet_token
+        #    )
+        #
+        #    logger.info(f"Email sent: {response}")
+        #else:
+        #    logger.info("Email sent: No investigators were provided")
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
