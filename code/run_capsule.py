@@ -1106,6 +1106,7 @@ def run():
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
     investigators = ['Nicholas Lusk']
+    smartsheet_token = 'jxjfJx5QuaKH1o4k4nOBVbdvYDWIj0eDQ28Hi'
 
     logger.info(f"Alert bot link: {alert_bot_link}")
 
