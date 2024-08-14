@@ -31,7 +31,7 @@ logger.setLevel(logging.INFO)
 
 PathLike = Union[str, Path]
 
-PIPELINE_VERSION = "2.0.1"
+PIPELINE_VERSION = "3.0.0"
 
 
 def wavelength_to_hex(wavelength: int) -> int:
@@ -495,10 +495,10 @@ def get_data_config(
 
 def copy_intermediate_data(
     output_dispatch_metadata: PathLike,
+    flatfield_folder: List[PathLike],
     destripe_files: List[PathLike],
-    flatfield_channels: List[PathLike],
-    stitch_folders: List[PathLike],
-    fuse_folders: List[PathLike],
+    stitch_folder: List[PathLike],
+    fuse_folder: List[PathLike],
     ccf_folders: List[PathLike],
     new_dataset_name: str,
     bucket_path: str,
@@ -561,26 +561,14 @@ def copy_intermediate_data(
         were moved.
         e.g., s3://{bucket_path}/{new_dataset_name}/{output_fusion}/OMEZarr
     """
-
-    stitch_processings = []
-    fuse_processings = []
+    flatfield_processings = [
+        str(flatfield_folder.joinpath("metadata/processing.json"))
+    ]
+    stitch_processings = [
+        str(stitch_folder.joinpath("metadata/processing.json"))
+    ]
+    fuse_processings = [str(p) for p in list(fuse_folder.glob("*_processing.json"))]
     ccf_processings = []
-
-    for stitch_folder in stitch_folders:
-        processing_jsons = [
-            p
-            for p in glob(f"{stitch_folder}/metadata/*processing*.json")
-            if "manifest" not in str(p)
-        ]
-        stitch_processings.append(processing_jsons)
-
-    for fuse_folder in fuse_folders:
-        processing_jsons = [
-            p
-            for p in glob(f"{fuse_folder}/metadata/*processing*.json")
-            if "manifest" not in str(p)
-        ]
-        fuse_processings.append(processing_jsons)
 
     for ccf_folder in ccf_folders:
         processing_jsons = [
@@ -592,11 +580,11 @@ def copy_intermediate_data(
 
     # Flattening list
     processing_paths = list()
-    combined_processing_list = stitch_processings + fuse_processings + ccf_processings
+    combined_processing_list = ccf_processings
     for sub_list in combined_processing_list:
         processing_paths += sub_list
 
-    processing_paths = destripe_files + processing_paths
+    processing_paths = flatfield_processings + destripe_files + stitch_processings + fuse_processings + processing_paths
     logger.info(f"Processing paths: {processing_paths}")
 
     try:
@@ -627,55 +615,59 @@ def copy_intermediate_data(
     dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
 
-    for flatfield_channel in flatfield_channels:
-        flatfield_channel_name = Path(flatfield_channel).name
-        logger.info(
-            f"Copying data from {flatfield_channel} to"
-            f"{dest_metadata_path}/flatfield_correction/{flatfield_channel_name}"
-        )
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {flatfield_channel} {dest_metadata_path}/flatfield_correction/{flatfield_channel_name}"
-        ):
-            logger.info(out)
+    for flatfield_file in flatfield_folder.glob("*"):
 
-    for fuse_folder in fuse_folders:
-        logger.info(f"Copying data from {fuse_folder} to {s3_path}/{output_fusion}")
-        fuse_folder = Path(fuse_folder)
-        source_zarr = fuse_folder.joinpath("OMEZarr")
-        source_metadata = fuse_folder.joinpath("metadata")
-
-        if source_zarr.exists():
+        if flatfield_file.exists():
+            logger.info(
+                f"Copying data from {flatfield_file} to"
+                f"{dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
+            )
             for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {source_zarr} {dest_zarr_path}"
+                f"aws s3 cp --recursive {flatfield_file} {dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
             ):
                 logger.info(out)
 
         else:
-            raise ValueError(f"Folder {source_zarr} does not exist!")
+            raise ValueError(f"Folder {flatfield_file} does not exist!")
 
-        if source_metadata.exists():
+    for fuse_zarr in fuse_folder.glob("*.ome.zarr"):
+        logger.info(f"Copying data from {fuse_zarr} to {dest_zarr_path}/{fuse_zarr.name}")
+
+        if fuse_zarr.exists():
             for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {source_metadata} {dest_metadata_path}/{fuse_folder.name}"
+                f"aws s3 cp --recursive {fuse_zarr} {dest_zarr_path}/{fuse_zarr.name}"
             ):
                 logger.info(out)
 
         else:
-            raise ValueError(f"Folder {source_metadata} does not exist!")
+            raise ValueError(f"Folder {fuse_zarr} does not exist!")
+
+    fuse_metadata_files = list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json"))
+    for fuse_metadata in fuse_metadata_files:
+
+        logger.info(f"Copying data from {fuse_metadata} to {dest_metadata_path}/{fuse_metadata.name}")
+
+        if fuse_metadata.exists():
+            for out in utils.execute_command_helper(
+                f"aws s3 cp --recursive {fuse_metadata} {dest_metadata_path}/{fuse_metadata.name}"
+            ):
+                logger.info(out)
+
+        else:
+            raise ValueError(f"Folder {fuse_metadata} does not exist!")
 
     # Copying stitch metadata
-    for stitch_folder in stitch_folders:
-        logger.info(f"Copying data from {stitch_folder} to {dest_metadata_path}")
-        stitch_folder = Path(stitch_folder)
-        source_metadata = stitch_folder.joinpath("metadata")
+    for stitch_metadata_folder in stitch_folder.glob("*"):
+        logger.info(f"Copying data from {stitch_metadata_folder} to {dest_metadata_path}/{stitch_metadata_folder.name}")
 
         if source_metadata.exists():
             for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {source_metadata} {dest_metadata_path}/{stitch_folder.name}"
+                f"aws s3 cp --recursive {stitch_metadata_folder} {dest_metadata_path}/{stitch_metadata_folder.name}"
             ):
                 logger.info(out)
 
         else:
-            raise ValueError(f"Folder {source_metadata} does not exist!")
+            raise ValueError(f"Folder {stitch_metadata_folder} does not exist!")
 
     # Copying ccf data
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
@@ -934,20 +926,20 @@ def run():
         )
 
         # Looking for files
-        destripe_files = glob(f"{data_folder}/image_destriping_*")
-        flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
-        stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
-        fuse_folders = glob(f"{data_folder}/fused/fusion_*")
+        flatfield_folder = data_folder.joinpath("flatfield_estimation")
+        destripe_files = [str(p) for p in list(data_folder.glob("image_destriping_*"))]
+        stitch_folder = data_folder.joinpath("stitched")
+        fuse_folder = data_folder.joinpath("fused")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-        bucket_path = "aind-open-data"
+        bucket_path = "aind-msma-morphology-data/test_data/SmartSPIM/"
 
         s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
+            flatfield_folder=flatfield_folder,
             destripe_files=destripe_files,
-            flatfield_channels=flatfield_channels,
-            stitch_folders=stitch_folders,
-            fuse_folders=fuse_folders,
+            stitch_folder=stitch_folder,
+            fuse_folder=fuse_folder,
             ccf_folders=ccf_folders,
             new_dataset_name=new_dataset_name,
             bucket_path=bucket_path,
@@ -956,11 +948,11 @@ def run():
         )
 
         # Getting S3 paths for channels
-        s3_paths_for_channels = []
-        for fuse_folder in fuse_folders:
-            channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
-            # f"{s3_path}/{output_fusion}/OMEZarr"
-            s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}.zarr")
+        s3_paths_for_channels = [
+            f"{s3_dest_zarr}/{fused_zarr.name}"
+            for fused_zarr in 
+            fuse_folder.glob("*.ome.zarr")
+        ]
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
