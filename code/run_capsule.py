@@ -630,31 +630,31 @@ def copy_intermediate_data(
         else:
             raise ValueError(f"Folder {flatfield_file} does not exist!")
 
-    for fuse_zarr in fuse_folder.glob("*.ome.zarr"):
-        logger.info(f"Copying data from {fuse_zarr} to {dest_zarr_path}/{fuse_zarr.name}")
+    for fused_zarr in fuse_folder.glob("*.ome.zarr"):
+        logger.info(f"Copying data from {fused_zarr} to {dest_zarr_path}/{fused_zarr.name}")
 
         if fuse_zarr.exists():
             for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {fuse_zarr} {dest_zarr_path}/{fuse_zarr.name}"
+                f"aws s3 cp --recursive {fused_zarr} {dest_zarr_path}/{fused_zarr.name}"
             ):
                 logger.info(out)
 
         else:
-            raise ValueError(f"Folder {fuse_zarr} does not exist!")
+            raise ValueError(f"Folder {fused_zarr} does not exist!")
 
-    fuse_metadata_files = list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json"))
-    for fuse_metadata in fuse_metadata_files:
+    fused_metadata_files = list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json"))
+    for fused_metadata in fused_metadata_files:
 
-        logger.info(f"Copying data from {fuse_metadata} to {dest_metadata_path}/{fuse_metadata.name}")
+        logger.info(f"Copying data from {fused_metadata} to {dest_metadata_path}/{fused_metadata.name}")
 
         if fuse_metadata.exists():
             for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {fuse_metadata} {dest_metadata_path}/{fuse_metadata.name}"
+                f"aws s3 cp --recursive {fused_metadata} {dest_metadata_path}/{fused_metadata.name}"
             ):
                 logger.info(out)
 
         else:
-            raise ValueError(f"Folder {fuse_metadata} does not exist!")
+            raise ValueError(f"Folder {fused_metadata} does not exist!")
 
     # Copying stitch metadata
     for stitch_metadata_folder in stitch_folder.glob("*"):
