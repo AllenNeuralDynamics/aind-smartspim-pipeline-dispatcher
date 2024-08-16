@@ -862,7 +862,7 @@ def run():
     data_folder = Path(os.path.abspath("../data"))
 
     for d in data_folder.glob("*"):
-        if d.isdir():
+        if d.is_dir():
             print(f"Data in {d}: {list(d.glob('*'))}")
 
     results_folder = Path(os.path.abspath("../results"))
