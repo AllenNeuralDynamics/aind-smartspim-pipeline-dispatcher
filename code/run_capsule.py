@@ -616,41 +616,58 @@ def copy_intermediate_data(
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
 
     for flatfield_file in flatfield_folder.glob("*"):
+        flatfield_file_path = str(flatfield_file)
+        flatfield_filename = str(flatfield_file.name)
 
         logger.info(
-            f"Copying data from {flatfield_file} to "
-            f"{dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
+            f"Copying data from {flatfield_file_path} to "
+            f"{dest_metadata_path}/flatfield_correction/{flatfield_filename}"
         )
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {flatfield_file} {dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
-        ):
+
+        cmd = f"aws s3 cp --recursive {flatfield_file_path} {dest_metadata_path}/flatfield_correction/{flatfield_filename}"
+
+        logger.info(f"Executing CMD: {cmd}")
+
+        for out in utils.execute_command_helper(cmd):
             logger.info(out)
 
     for fused_zarr in fuse_folder.glob("*.ome.zarr"):
-        logger.info(f"Copying data from {fused_zarr} to {dest_zarr_path}/{fused_zarr.name}")
+        fused_zarr_file_path = str(fused_zarr)
+        fused_zarr_filename = str(fused_zarr.name)
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {fused_zarr} {dest_zarr_path}/{fused_zarr.name}"
-        ):
+        logger.info(f"Copying data from {fused_zarr_file_path} to {dest_zarr_path}/{fused_zarr_filename}")
+
+        cmd = f"aws s3 cp --recursive {fused_zarr_file_path} {dest_zarr_path}/{fused_zarr_filename}"
+
+        logger.info(f"Executing CMD: {cmd}")
+
+        for out in utils.execute_command_helper(cmd):
             logger.info(out)
 
     fused_metadata_files = list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json"))
     for fused_metadata in fused_metadata_files:
+        fused_mdata_file_path = str(fused_metadata)
+        fused_mdata_filename = str(fused_metadata.name)
 
-        logger.info(f"Copying data from {fused_metadata} to {dest_metadata_path}/{fused_metadata.name}")
+        logger.info(f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/{fused_mdata_filename}")
+        
+        cmd = f"aws s3 cp --recursive {fused_mdata_file_path} {dest_metadata_path}/{fused_mdata_filename}"
+        logger.info(f"Executing CMD: {cmd}")
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {fused_metadata} {dest_metadata_path}/{fused_metadata.name}"
-        ):
+        for out in utils.execute_command_helper(cmd):
             logger.info(out)
 
     # Copying stitch metadata
     for stitch_metadata_folder in stitch_folder.glob("*"):
-        logger.info(f"Copying data from {stitch_metadata_folder} to {dest_metadata_path}/{stitch_metadata_folder.name}")
+        stitch_metadata_file_path = str(stitch_metadata_folder)
+        stitch_metadata_filename = str(stitch_metadata_folder.name)
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {stitch_metadata_folder} {dest_metadata_path}/{stitch_metadata_folder.name}"
-        ):
+        logger.info(f"Copying data from {stitch_metadata_file_path} to {dest_metadata_path}/{stitch_metadata_filename}")
+
+        cmd = f"aws s3 cp --recursive {stitch_metadata_file_path} {dest_metadata_path}/{stitch_metadata_filename}"
+        logger.info(f"Executing CMD: {cmd}")
+
+        for out in utils.execute_command_helper(cmd):
             logger.info(out)
 
     # Copying ccf data
