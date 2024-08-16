@@ -939,7 +939,7 @@ def run():
 
         # Getting S3 paths for channels
         s3_paths_for_channels = [
-            f"{s3_dest_zarr}/{fused_zarr.stem}"
+            f"{s3_dest_zarr}/{fused_zarr.stem}.zarr"
             for fused_zarr in 
             fuse_folder.glob("*.ome.zarr")
         ]
