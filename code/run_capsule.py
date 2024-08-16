@@ -640,26 +640,21 @@ def copy_intermediate_data(
         fused_mdata_file_path = str(fused_metadata)
         fused_mdata_filename = str(fused_metadata.name)
 
-        logger.info(f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/{fused_mdata_filename}")
+        logger.info(f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/fuse/{fused_mdata_filename}")
         
-        cmd = f"aws s3 cp {fused_mdata_file_path} {dest_metadata_path}/{fused_mdata_filename}"
+        cmd = f"aws s3 cp {fused_mdata_file_path} {dest_metadata_path}/fusion/{fused_mdata_filename}"
         logger.info(f"Executing CMD: {cmd}")
 
         for out in utils.execute_command_helper(cmd):
             logger.info(out)
 
-    # Copying stitch metadata
-    for stitch_metadata_folder in stitch_folder.glob("*"):
-        stitch_metadata_file_path = str(stitch_metadata_folder)
-        stitch_metadata_filename = str(stitch_metadata_folder.name)
+    logger.info(f"Copying data from {stitch_folder} to {dest_metadata_path}/stitching")
 
-        logger.info(f"Copying data from {stitch_metadata_file_path} to {dest_metadata_path}/{stitch_metadata_filename}")
+    cmd = f"aws s3 cp --recursive {stitch_folder} {dest_metadata_path}/stitching"
+    logger.info(f"Executing CMD: {cmd}")
 
-        cmd = f"aws s3 cp --recursive {stitch_metadata_file_path} {dest_metadata_path}/{stitch_metadata_filename}"
-        logger.info(f"Executing CMD: {cmd}")
-
-        for out in utils.execute_command_helper(cmd):
-            logger.info(out)
+    for out in utils.execute_command_helper(cmd):
+        logger.info(out)
 
     # Copying ccf data
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
