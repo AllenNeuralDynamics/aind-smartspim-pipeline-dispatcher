@@ -615,21 +615,12 @@ def copy_intermediate_data(
     dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
 
-    for flatfield_file in flatfield_folder.glob("*"):
-        flatfield_file_path = str(flatfield_file)
-        flatfield_filename = str(flatfield_file.name)
+    cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
 
-        logger.info(
-            f"Copying data from {flatfield_file_path} to "
-            f"{dest_metadata_path}/flatfield_correction/{flatfield_filename}"
-        )
+    logger.info(f"Executing CMD: {cmd}")
 
-        cmd = f"aws s3 cp --recursive {flatfield_file_path} {dest_metadata_path}/flatfield_correction/{flatfield_filename}"
-
-        logger.info(f"Executing CMD: {cmd}")
-
-        for out in utils.execute_command_helper(cmd):
-            logger.info(out)
+    for out in utils.execute_command_helper(cmd):
+        logger.info(out)
 
     for fused_zarr in fuse_folder.glob("*.ome.zarr"):
         fused_zarr_file_path = str(fused_zarr)
@@ -651,7 +642,7 @@ def copy_intermediate_data(
 
         logger.info(f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/{fused_mdata_filename}")
         
-        cmd = f"aws s3 cp --recursive {fused_mdata_file_path} {dest_metadata_path}/{fused_mdata_filename}"
+        cmd = f"aws s3 cp {fused_mdata_file_path} {dest_metadata_path}/{fused_mdata_filename}"
         logger.info(f"Executing CMD: {cmd}")
 
         for out in utils.execute_command_helper(cmd):
