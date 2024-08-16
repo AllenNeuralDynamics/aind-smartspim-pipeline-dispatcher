@@ -904,9 +904,6 @@ def run():
 
     logger.info(f"Alert bot link: {alert_bot_link}")
     
-    # Getting smartspim token for emailing
-    smartsheet_token = os.environ["CUSTOM_KEY"]
-    
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
@@ -1012,13 +1009,12 @@ def run():
             response = utils.send_alerts(
                 'dispatch',
                 investigators,
-                dataset_name,
-                smartsheet_token
+                dataset_name
             )
         
             logger.info(f"Email sent: {response}")
         else:
-            logger.info("Email sent: No investigators were provided")
+            logger.info("Email not sent: No investigators were provided")
 
     elif "clean" in mode:
         logger.info("Starting cleaning...")
@@ -1041,13 +1037,12 @@ def run():
             response = utils.send_alerts(
                 'clean',
                 investigators,
-                dataset_name,
-                smartsheet_token
+                dataset_name
             )
         
             logger.info(f"Email sent: {response}")
         else:
-            logger.info("Email sent: No investigators were provided")
+            logger.info("Email not sent: No investigators were provided")
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")

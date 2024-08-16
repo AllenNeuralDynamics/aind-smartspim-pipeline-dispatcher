@@ -13,6 +13,7 @@ from typing import Any, List, Optional, Union
 from smartsheet_dataframe import get_sheet_as_df
 
 import requests
+from botocore.exceptions import ClientError
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DerivedDataDescription,
                                                     Funding, Institution,
@@ -742,3 +743,115 @@ class AlertBot:
             contents = self._create_body_text(message, extra_text)
             response = requests.post(self.url, json=contents)
             return response
+
+def get_messanger_credentails(secret_id):
+    client = boto3.client('secretsmanager')
+
+    try:
+        # Retrieve the secret value
+        response = client.get_secret_value(SecretId=secret_id)
+        print("response ", response)
+        # Extract the secret string
+        secret_string = response.get('SecretString')
+        
+        if secret_string:
+            # Parse the secret string if it's in JSON format
+            secret_dict = json.loads(secret_string)
+            print("Getting ", secret_string)
+            return secret_dict
+        else:
+            # Handle the case where secret is stored in binary (not common for JSON secrets)
+            return response.get('SecretBinary')
+    
+    except Exception as e:
+        print(f"Error retrieving secret: {e}")
+        return None
+
+    return secret_dict        
+
+def send_ses_alerts(
+        mode: str,
+        investigators: str,
+        dataset: str,
+    ):
+    """
+    Sends an email alert to the investig
+
+    Parameters
+    ----------
+    mode : str
+        Which stage of the pipeline the email is being sent
+    investigators : list
+        Who requested the dataset and will be emailed
+    dataset: str
+        Name of the dataset that is being processed
+
+    Returns
+    -------
+    response:
+        Email response for logging
+
+    """
+    
+    # Create an SES client 
+    smartsheet_token = get_messanger_credentails('/aind/prod/smartspim_ses/token')
+    ses_client = boto3.client("ses", region_name="us-west-2")
+    
+    
+    # Get email address
+    email_df = get_sheet_as_df(
+        token = smartsheet_token,
+        sheet_id = 2645998362906500,
+        )
+    
+    email_addresses = email_df.loc[email_df['Name'].isin(investigators), 'Email'].values.tolist()
+    
+    if len(investigators) > 1:
+        invest = ', '.join(investigators)
+        idx = invest.rfind(',')
+        invest = invest[:idx] + ' and' + invest[idx+1:]
+    else:
+        invest = investigators[0]
+    
+    if 'dispatch' in mode:
+        
+        message_data = f'Hi {invest},<br><br>This messsage is to inform you ' \
+            f'that your dataset {dataset} has been uploaded to AWS and ' \
+            'stitched images are now available for viewing.<br><br>' \
+            'Sincerely,<br>SmartSPIM Processing Team'
+            
+        subject_data = f'Stitched images available for dataset {dataset}'
+            
+    elif "clean" in mode:
+        
+        message_data = f'Hi {invest},<br><br>This messsage is to inform you' \
+            f'that your dataset {dataset} has completed the SmartSPIM ' \
+            'pipeline. Segmented and registered images have been quantified '\
+            'and are now available for viewing.<br><br>' \
+            'Sincerely,<br>SmartSPIM Processing Team'
+            
+        subject_data = f'SmartSPIM processing completed for dataset {dataset}'
+    
+    try:
+        response = ses_client.send_email(
+            Destination={
+                'ToAddresses': email_addresses,
+            },
+            Message={
+                'Body': {
+                    'Html': {
+                        'Charset': 'UTF-8',
+                        'Data': message_data,
+                    }
+                },
+                'Subject': {
+                    'Charset': 'UTF-8',
+                    'Data': subject_data,
+                },
+            },
+            Source='notifications@allenneuraldynamics.org',
+        )
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+        
+    return response
