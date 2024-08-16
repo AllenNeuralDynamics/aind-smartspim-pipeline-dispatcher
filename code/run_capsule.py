@@ -617,57 +617,41 @@ def copy_intermediate_data(
 
     for flatfield_file in flatfield_folder.glob("*"):
 
-        if flatfield_file.exists():
-            logger.info(
-                f"Copying data from {flatfield_file} to"
-                f"{dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
-            )
-            for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {flatfield_file} {dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
-            ):
-                logger.info(out)
-
-        else:
-            raise ValueError(f"Folder {flatfield_file} does not exist!")
+        logger.info(
+            f"Copying data from {flatfield_file} to "
+            f"{dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
+        )
+        for out in utils.execute_command_helper(
+            f"aws s3 cp --recursive {flatfield_file} {dest_metadata_path}/flatfield_correction/{flatfield_file.name}"
+        ):
+            logger.info(out)
 
     for fused_zarr in fuse_folder.glob("*.ome.zarr"):
         logger.info(f"Copying data from {fused_zarr} to {dest_zarr_path}/{fused_zarr.name}")
 
-        if fuse_zarr.exists():
-            for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {fused_zarr} {dest_zarr_path}/{fused_zarr.name}"
-            ):
-                logger.info(out)
-
-        else:
-            raise ValueError(f"Folder {fused_zarr} does not exist!")
+        for out in utils.execute_command_helper(
+            f"aws s3 cp --recursive {fused_zarr} {dest_zarr_path}/{fused_zarr.name}"
+        ):
+            logger.info(out)
 
     fused_metadata_files = list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json"))
     for fused_metadata in fused_metadata_files:
 
         logger.info(f"Copying data from {fused_metadata} to {dest_metadata_path}/{fused_metadata.name}")
 
-        if fuse_metadata.exists():
-            for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {fused_metadata} {dest_metadata_path}/{fused_metadata.name}"
-            ):
-                logger.info(out)
-
-        else:
-            raise ValueError(f"Folder {fused_metadata} does not exist!")
+        for out in utils.execute_command_helper(
+            f"aws s3 cp --recursive {fused_metadata} {dest_metadata_path}/{fused_metadata.name}"
+        ):
+            logger.info(out)
 
     # Copying stitch metadata
     for stitch_metadata_folder in stitch_folder.glob("*"):
         logger.info(f"Copying data from {stitch_metadata_folder} to {dest_metadata_path}/{stitch_metadata_folder.name}")
 
-        if source_metadata.exists():
-            for out in utils.execute_command_helper(
-                f"aws s3 cp --recursive {stitch_metadata_folder} {dest_metadata_path}/{stitch_metadata_folder.name}"
-            ):
-                logger.info(out)
-
-        else:
-            raise ValueError(f"Folder {stitch_metadata_folder} does not exist!")
+        for out in utils.execute_command_helper(
+            f"aws s3 cp --recursive {stitch_metadata_folder} {dest_metadata_path}/{stitch_metadata_folder.name}"
+        ):
+            logger.info(out)
 
     # Copying ccf data
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
@@ -876,6 +860,11 @@ def run():
 
     # Absolute paths of common Code Ocean folders
     data_folder = Path(os.path.abspath("../data"))
+
+    for d in data_folder.glob("*"):
+        if d.isdir():
+            print(f"Data in {d}: {list(d.glob('*'))}")
+
     results_folder = Path(os.path.abspath("../results"))
 
     mode = str(sys.argv[1:])
@@ -912,8 +901,6 @@ def run():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
-    logger.info(f"Data in data folder: {os.listdir(data_folder)}")
-
     if "dispatch" in mode:
         pipeline_config, dataset_name = get_data_config(
             data_folder=data_folder,
@@ -932,7 +919,7 @@ def run():
         fuse_folder = data_folder.joinpath("fused")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-        bucket_path = "aind-msma-morphology-data/test_data/SmartSPIM/"
+        bucket_path = "aind-msma-morphology-data/test_data/SmartSPIM"
 
         s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
