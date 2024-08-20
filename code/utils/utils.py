@@ -12,9 +12,7 @@ from typing import Any, List, Optional, Union
 
 import requests
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.data_description import (DerivedDataDescription,
-                                                    Funding, Institution,
-                                                    Modality, Platform)
+from aind_data_schema.core.data_description import DataDescription, DerivedDataDescription
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
 from pydantic import TypeAdapter
@@ -397,31 +395,41 @@ def generate_data_description(
         data
     """
 
-    f = open(raw_data_description_path, "r")
-    data = json.load(f)
-    if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
-        institution = data["institution"]["abbreviation"]
-
-    investigators = data["investigators"] if len(data["investigators"]) else ["Unknown"]
-    # from_data_description
-    funding_adapter = TypeAdapter(Funding)
-    funding_sources = [
-        funding_adapter.validate_python(fund) for fund in data["funding_source"]
-    ]
-    derived = DerivedDataDescription(
-        creation_time=datetime.now(),
-        input_data_name=data["name"],
-        process_name=process_name,
-        institution=Institution.from_abbreviation(institution),
-        funding_source=funding_sources,
-        group=data["group"],
-        investigators=investigators,
-        platform=Platform.SMARTSPIM,
-        project_name=data["project_name"],
-        restrictions=data["restrictions"],
-        modality=[Modality.SPIM],
-        subject_id=data["subject_id"],
+    with open(raw_data_description_path, "r") as f:
+        contents = json.load(f)
+        
+    data_description_obj = DataDescription.model_construct(**contents)
+    print("Data description: ", data_description_obj)
+    derived = DerivedDataDescription.from_data_description(
+        data_description_obj,
+        process_name=process_name
     )
+    print("Derived data description: ", derived)
+    
+            
+#     if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
+#         institution = data["institution"]["abbreviation"]
+
+#     investigators = data["investigators"] if len(data["investigators"]) else ["Unknown"]
+#     # from_data_description
+#     funding_adapter = TypeAdapter(Funding)
+#     funding_sources = [
+#         funding_adapter.validate_python(fund) for fund in data["funding_source"]
+#     ]
+#     derived = DerivedDataDescription(
+#         creation_time=datetime.now(),
+#         input_data_name=data["name"],
+#         process_name=process_name,
+#         institution=Institution.from_abbreviation(institution),
+#         funding_source=funding_sources,
+#         group=data["group"],
+#         investigators=investigators,
+#         platform=Platform.SMARTSPIM,
+#         project_name=data["project_name"],
+#         restrictions=data["restrictions"],
+#         modality=[Modality.SPIM],
+#         subject_id=data["subject_id"],
+#     )
 
     # derived.write_standard_file(output_directory=dest_data_description)
     with open(f"{dest_data_description}/data_description.json", "w") as f:
