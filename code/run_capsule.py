@@ -486,8 +486,9 @@ def get_data_config(
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
 
     smartspim_dataset = data_description_dict["name"]
+    investigators = data_description_dict["investigators"]
 
-    return derivatives_dict, smartspim_dataset
+    return derivatives_dict, smartspim_dataset, investigators
 
 
 def copy_intermediate_data(
@@ -1105,8 +1106,6 @@ def run():
 
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
-    #investigators = ['Nicholas Lusk']
-    #smartsheet_token = 'jxjfJx5QuaKH1o4k4nOBVbdvYDWIj0eDQ28Hi'
 
     logger.info(f"Alert bot link: {alert_bot_link}")
 
@@ -1133,7 +1132,7 @@ def run():
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
     if 'dispatch' in mode:
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
         )
@@ -1211,7 +1210,7 @@ def run():
             pipeline_config,
         )
     elif "reprocess" in mode:
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
         )
@@ -1291,20 +1290,19 @@ def run():
             pipeline_config,
         )
 
-        #if len(investigators[0]) > 0:
-        #    response = utils.send_alerts(
-        #        'dispatch',
-        #        investigators,
-        #        dataset_name,
-        #        smartsheet_token
-        #    )
-        #
-        #    logger.info(f"Email sent: {response}")
-        #else:
-        #    logger.info("Email sent: No investigators were provided")
+        if len(investigators[0]) > 0:
+            response = utils.send_alerts(
+                'dispatch',
+                investigators,
+                dataset_name,
+            )
+        
+            logger.info(f"Email sent: {response}")
+        else:
+            logger.info("Email not sent: No investigators were provided")
 
     elif "test" in mode:
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
         )
@@ -1400,17 +1398,16 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
-        #if len(investigators[0]) > 0:
-        #    response = utils.send_alerts(
-        #        'clean',
-        #        investigators,
-        #        dataset_name,
-        #        smartsheet_token
-        #    )
-        #
-        #    logger.info(f"Email sent: {response}")
-        #else:
-        #    logger.info("Email sent: No investigators were provided")
+        if len(investigators[0]) > 0:
+            response = utils.send_alerts(
+                'clean',
+                investigators,
+                dataset_name,
+            )
+        
+            logger.info(f"Email sent: {response}")
+        else:
+            logger.info("Email not sent: No investigators were provided")
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
