@@ -14,6 +14,7 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
+
 from utils import utils
 
 logging.basicConfig(
@@ -105,14 +106,14 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
 
     color_map = {
         500: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
-        530: 0X92FF42,  # CHARTREUSE,   EGFP
-        540: 0XE4FE41,  # CHARTREUSE, SYFP2
-        560: 0XF3D038,  # MUSTARD, mBanana
-        580: 0XEAB032,  # XANTHOUS, mOrange
-        600: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
-        630: 0XED1C24,  # RED, mCherry
-        680: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
-        700: 0XA81F1F,  # FIRE BRICK, mPlum
+        530: 0x92FF42,  # CHARTREUSE,   EGFP
+        540: 0xE4FE41,  # CHARTREUSE, SYFP2
+        560: 0xF3D038,  # MUSTARD, mBanana
+        580: 0xEAB032,  # XANTHOUS, mOrange
+        600: 0xF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
+        630: 0xED1C24,  # RED, mCherry
+        680: 0xC51E1F,  # FIRE ENGINE RED, mRaspberry
+        700: 0xA81F1F,  # FIRE BRICK, mPlum
     }
 
     for ub, hex_val in color_map.items():
@@ -561,12 +562,8 @@ def copy_intermediate_data(
         were moved.
         e.g., s3://{bucket_path}/{new_dataset_name}/{output_fusion}/OMEZarr
     """
-    flatfield_processings = [
-        str(flatfield_folder.joinpath("metadata/processing.json"))
-    ]
-    stitch_processings = [
-        str(stitch_folder.joinpath("metadata/processing.json"))
-    ]
+    flatfield_processings = [str(flatfield_folder.joinpath("metadata/processing.json"))]
+    stitch_processings = [str(stitch_folder.joinpath("metadata/processing.json"))]
     fuse_processings = [str(p) for p in list(fuse_folder.glob("*_processing.json"))]
     ccf_processings = []
 
@@ -584,7 +581,13 @@ def copy_intermediate_data(
     for sub_list in combined_processing_list:
         processing_paths += sub_list
 
-    processing_paths = flatfield_processings + destripe_files + stitch_processings + fuse_processings + processing_paths
+    processing_paths = (
+        flatfield_processings
+        + destripe_files
+        + stitch_processings
+        + fuse_processings
+        + processing_paths
+    )
     logger.info(f"Processing paths: {processing_paths}")
 
     try:
@@ -626,7 +629,9 @@ def copy_intermediate_data(
         fused_zarr_file_path = str(fused_zarr)
         fused_zarr_filename = str(fused_zarr.name)
 
-        logger.info(f"Copying data from {fused_zarr_file_path} to {dest_zarr_path}/{fused_zarr_filename}")
+        logger.info(
+            f"Copying data from {fused_zarr_file_path} to {dest_zarr_path}/{fused_zarr_filename}"
+        )
 
         cmd = f"aws s3 cp --recursive {fused_zarr_file_path} {dest_zarr_path}/{fused_zarr_filename}"
 
@@ -635,13 +640,17 @@ def copy_intermediate_data(
         for out in utils.execute_command_helper(cmd):
             logger.info(out)
 
-    fused_metadata_files = list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json"))
+    fused_metadata_files = list(fuse_folder.glob("*.yaml")) + list(
+        fuse_folder.glob("*.json")
+    )
     for fused_metadata in fused_metadata_files:
         fused_mdata_file_path = str(fused_metadata)
         fused_mdata_filename = str(fused_metadata.name)
 
-        logger.info(f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/fuse/{fused_mdata_filename}")
-        
+        logger.info(
+            f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/fuse/{fused_mdata_filename}"
+        )
+
         cmd = f"aws s3 cp {fused_mdata_file_path} {dest_metadata_path}/fusion/{fused_mdata_filename}"
         logger.info(f"Executing CMD: {cmd}")
 
@@ -815,7 +824,7 @@ def create_ng_link(
             }
         )
 
-    subject_id = Path(s3_dataset_path).name.split('_')[1]
+    subject_id = Path(s3_dataset_path).name.split("_")[1]
     input_configs = {
         "title": subject_id,
         "dimensions": dimensions,
@@ -940,8 +949,7 @@ def run():
         # Getting S3 paths for channels
         s3_paths_for_channels = [
             f"{s3_dest_zarr}/{fused_zarr.stem}"
-            for fused_zarr in 
-            fuse_folder.glob("*.ome.zarr")
+            for fused_zarr in fuse_folder.glob("*.ome.zarr")
         ]
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
