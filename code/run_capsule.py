@@ -792,7 +792,7 @@ def create_ng_link(
 
     colors = []
     for channel_str in s3_channel_paths:
-        channel_str = Path(channel_str).stem
+        channel_str = str(Path(channel_str).stem).replace('.ome', '')
         channel: int = int(channel_str.split("_")[-1])
         hex_val: int = wavelength_to_hex_alternate(channel)
         hex_str = f"#{str(hex(hex_val))[2:]}"
@@ -948,7 +948,7 @@ def run():
 
         # Getting S3 paths for channels
         s3_paths_for_channels = [
-            f"{s3_dest_zarr}/{fused_zarr.stem}"
+            f"{s3_dest_zarr}/{fused_zarr}"
             for fused_zarr in fuse_folder.glob("*.ome.zarr")
         ]
 
