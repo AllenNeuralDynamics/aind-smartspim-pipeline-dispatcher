@@ -1,6 +1,5 @@
 """ Main script that works as a dispatcher in code ocean """
 
-import boto3
 import json
 import logging
 import os
@@ -1012,7 +1011,7 @@ def run():
                 dataset_name
             )
         
-            logger.info(f"Email sent: {response}")
+            logger.info(f"Email sent to: {investigators}")
         else:
             logger.info("Email not sent: No investigators were provided")
 
@@ -1040,7 +1039,7 @@ def run():
                 dataset_name
             )
         
-            logger.info(f"Email sent: {response}")
+            logger.info(f"Email sent to: {investigators}")
         else:
             logger.info("Email not sent: No investigators were provided")
 
