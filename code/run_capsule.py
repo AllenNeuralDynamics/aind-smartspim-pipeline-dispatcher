@@ -105,14 +105,14 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
 
     color_map = {
         500: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
-        530: 0X92FF42,  # CHARTREUSE,   EGFP
-        540: 0XE4FE41,  # CHARTREUSE, SYFP2
-        560: 0XF3D038,  # MUSTARD, mBanana
-        580: 0XEAB032,  # XANTHOUS, mOrange
-        600: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
-        630: 0XED1C24,  # RED, mCherry
-        680: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
-        700: 0XA81F1F,  # FIRE BRICK, mPlum
+        530: 0x92FF42,  # CHARTREUSE,   EGFP
+        540: 0xE4FE41,  # CHARTREUSE, SYFP2
+        560: 0xF3D038,  # MUSTARD, mBanana
+        580: 0xEAB032,  # XANTHOUS, mOrange
+        600: 0xF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
+        630: 0xED1C24,  # RED, mCherry
+        680: 0xC51E1F,  # FIRE ENGINE RED, mRaspberry
+        700: 0xA81F1F,  # FIRE BRICK, mPlum
     }
 
     for ub, hex_val in color_map.items():
@@ -466,7 +466,7 @@ def get_data_config(
 
         Str: Empty string if the processing manifest
         was not found
-        
+
         List: Empty list if no investigators in data description
     """
 
@@ -839,7 +839,7 @@ def create_ng_link(
             }
         )
 
-    subject_id = Path(s3_dataset_path).name.split('_')[1]
+    subject_id = Path(s3_dataset_path).name.split("_")[1]
     input_configs = {
         "title": subject_id,
         "dimensions": dimensions,
@@ -859,9 +859,9 @@ def create_ng_link(
 
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state["ng_link"] = (
-        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
-    )
+    json_state[
+        "ng_link"
+    ] = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
@@ -902,7 +902,7 @@ def run():
     alert_bot_link = os.environ["CUSTOM_KEY"]
 
     logger.info(f"Alert bot link: {alert_bot_link}")
-    
+
     # It is assumed that these files
     # will be in the data folder
     required_input_elements = [
@@ -1003,14 +1003,10 @@ def run():
             f"{results_folder}/modified_processing_manifest.json",
             pipeline_config,
         )
-             
+
         if len(investigators[0]) > 0:
-            response = utils.send_alerts(
-                'dispatch',
-                investigators,
-                dataset_name
-            )
-        
+            response = utils.send_alerts("dispatch", investigators, dataset_name)
+
             logger.info(f"Email sent to: {investigators}")
         else:
             logger.info("Email not sent: No investigators were provided")
@@ -1031,14 +1027,10 @@ def run():
             results_folder=results_folder,
             alert_bot_link=alert_bot_link,
         )
-        
+
         if len(investigators[0]) > 0:
-            response = utils.send_alerts(
-                'clean',
-                investigators,
-                dataset_name
-            )
-        
+            response = utils.send_alerts("clean", investigators, dataset_name)
+
             logger.info(f"Email sent to: {investigators}")
         else:
             logger.info("Email not sent: No investigators were provided")
