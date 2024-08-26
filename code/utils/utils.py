@@ -773,8 +773,48 @@ class AlertBot:
             response = requests.post(self.url, json=contents)
             return response
 
+def clean_investigator_names(investigators):
+    """
+    Formats investigator list to be syntactically correct
+
+    Parameters
+    ----------
+    investigators : list
+        list of investigator names
+
+    Returns
+    -------
+    invest : str
+        investigator names with proper syntax
+
+    """
+    
+    if len(investigators) > 1:
+        invest = ", ".join(investigators)
+        idx = invest.rfind(",")
+        invest = invest[:idx] + " and" + invest[idx + 1 :]
+    else:
+        invest = investigators[0]
+    
+    return invest
 
 def get_messanger_credentails(secret_id):
+    """
+    Pulls data from AWS secret manager
+
+    Parameters
+    ----------
+    secret_id : PathLike
+        Location on AWS where secrets are stored
+
+    Returns
+    -------
+    secret_dict: dict
+        Information located at secret_id
+
+    """
+    
+    
     client = boto3.client("secretsmanager")
 
     try:
@@ -802,6 +842,7 @@ def get_messanger_credentails(secret_id):
 
 def send_ses_alerts(
     mode: str,
+    alert_configs: dict,
     investigators: str,
     dataset: str,
 ):
@@ -812,6 +853,8 @@ def send_ses_alerts(
     ----------
     mode : str
         Which stage of the pipeline the email is being sent
+    alert_congifs: dict
+        The parameters needed to access investigator list
     investigators : list
         Who requested the dataset and will be emailed
     dataset: str
@@ -825,25 +868,20 @@ def send_ses_alerts(
     """
 
     # Create an SES client
-    smartsheet_token = get_messanger_credentails("/aind/prod/smartspim_ses/token")
+    smartsheet_token = get_messanger_credentails(alert_configs["ses_token_path"])
     ses_client = boto3.client("ses", region_name="us-west-2")
 
     # Get email address
     email_df = get_sheet_as_df(
         token=smartsheet_token,
-        sheet_id=2645998362906500,
+        sheet_id=alert_configs['smartsheet_id'],
     )
 
     email_addresses = email_df.loc[
         email_df["Name"].isin(investigators), "Email"
     ].values.tolist()
-
-    if len(investigators) > 1:
-        invest = ", ".join(investigators)
-        idx = invest.rfind(",")
-        invest = invest[:idx] + " and" + invest[idx + 1 :]
-    else:
-        invest = investigators[0]
+    
+    invest  = clean_investigator_names(investigators)
 
     if "dispatch" in mode:
         message_data = (
@@ -888,4 +926,4 @@ def send_ses_alerts(
     except ClientError as e:
         print(e.response["Error"]["Message"])
 
-    return response
+    return
