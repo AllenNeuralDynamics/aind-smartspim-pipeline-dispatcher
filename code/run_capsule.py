@@ -10,6 +10,7 @@ from glob import glob
 from pathlib import Path
 from typing import List, Tuple, Union
 
+import yaml
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
@@ -120,6 +121,25 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
         if wavelength <= ub:  # Inclusive
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
+
+
+def get_yaml_config(filename):
+    """
+    Get default configuration from a YAML file.
+    Parameters
+    ------------------------
+    filename: str
+        String where the YAML file is located.
+    Returns
+    ------------------------
+    Dict
+        Dictionary with the configuration
+    """
+
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+
+    return config
 
 
 def wait_for_data_availability(
@@ -461,12 +481,14 @@ def get_data_config(
 
     Returns
     -----------
-    Tuple[Dict, str]
+    Tuple[Dict, str, list]
         Dict: Empty dictionary if the path does not exist,
         dictionary with the data otherwise.
 
         Str: Empty string if the processing manifest
         was not found
+
+        List: Empty list if no investigators in data description
     """
 
     # Returning first smartspim dataset found
@@ -490,8 +512,9 @@ def get_data_config(
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
 
     smartspim_dataset = data_description_dict["name"]
+    investigators = data_description_dict["investigators"]
 
-    return derivatives_dict, smartspim_dataset
+    return derivatives_dict, smartspim_dataset, investigators
 
 
 def copy_intermediate_data(
@@ -856,6 +879,43 @@ def create_ng_link(
     return Path(ng_output_path)
 
 
+def send_email_alerts(
+    mode: str,
+    alert_configs: dict,
+    investigators: list,
+    dataset_name: str,
+    logger: logging.logger,
+):
+    """
+    Checks if there is investigator info and sends email
+
+    Parameters
+    ----------
+    mode : str
+        The current mode of the dispatcher
+    alert_configs : dict
+        Information on accessing investigator email list
+    investigators : list
+        investigators that submitted the dataset
+    dataset_name : str
+        current dataset being processed
+    logger : logging.logger
+        logger
+
+    Returns
+    -------
+    None.
+
+    """
+
+    if len(investigators[0]) > 0:
+        utils.send_ses_alerts(mode, alert_configs, investigators, dataset_name)
+
+        logger.info(f"Email sent to: {investigators}")
+    else:
+        logger.info("Email not sent: No investigators were provided")
+
+
 def run():
     """
     Run function allows the smartspim pipeline to execute
@@ -890,8 +950,10 @@ def run():
 
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
+    alert_configs = get_yaml_config("../code/utils/alert_configs.yaml")
 
     logger.info(f"Alert bot link: {alert_bot_link}")
+    logger.info(f"SES alert configs: {alert_configs}")
 
     # It is assumed that these files
     # will be in the data folder
@@ -914,7 +976,7 @@ def run():
         )
 
     if "dispatch" in mode:
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
         )
@@ -993,7 +1055,7 @@ def run():
 
     elif "clean" in mode:
         logger.info("Starting cleaning...")
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
@@ -1010,6 +1072,8 @@ def run():
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
+
+    send_email_alerts(mode, alert_configs, investigators, dataset_name)
 
 
 if __name__ == "__main__":
