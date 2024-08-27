@@ -17,8 +17,7 @@ from aind_data_schema.core.data_description import (DataDescription,
                                                     DerivedDataDescription,
                                                     Funding, Modality,
                                                     Platform)
-from aind_data_schema.core.processing import (DataProcess, Modality,
-                                              PipelineProcess, Platform,
+from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
 from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.pid_names import PIDName
