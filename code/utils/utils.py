@@ -454,7 +454,7 @@ def send_alerts(
 
     elif "clean" in mode:
         message_data = (
-            f"Hi {invest},<br><br>This messsage is to inform you"
+            f"Hi {invest},<br><br>This messsage is to inform you "
             f"that your dataset {dataset} has completed the SmartSPIM "
             "pipeline. Segmented and registered images have been quantified "
             "and are now available for viewing.<br><br>"
