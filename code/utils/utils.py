@@ -13,11 +13,15 @@ from typing import Any, List, Optional, Union
 import requests
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DataDescription,
-                                                    DerivedDataDescription)
-from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
+                                                    DerivedDataDescription,
+                                                    Funding, Modality,
+                                                    Platform)
+from aind_data_schema.core.processing import (DataProcess, Modality,
+                                              PipelineProcess, Platform,
                                               Processing)
+from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.pid_names import PIDName
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 # IO types
 PathLike = Union[str, Path]
@@ -400,14 +404,62 @@ def generate_data_description(
     with open(raw_data_description_path, "r") as f:
         contents = json.load(f)
 
-    data_description_obj = DataDescription.model_construct(**contents)
-    data_description_obj.investigators = [
-        PIDName(name=inv) for inv in data_description_obj.investigators
-    ]
+    try:
+        # For old datasets
+        data_description_obj = DataDescription.model_construct(**contents)
+        data_description_obj.investigators = [
+            PIDName(name=inv) for inv in data_description_obj.investigators
+        ]
+        derived = DerivedDataDescription.from_data_description(
+            data_description_obj, process_name=process_name
+        )
 
-    derived = DerivedDataDescription.from_data_description(
-        data_description_obj, process_name=process_name
-    )
+    except ValidationError as exc:
+        if (
+            isinstance(contents["institution"], dict)
+            and "abbreviation" in contents["institution"]
+        ):
+            institution = contents["institution"]["abbreviation"]
+
+        investigators = (
+            contents["investigators"] if len(contents["investigators"]) else ["Unknown"]
+        )
+        print(investigators)
+        investigators = [PIDName(name=iv) for iv in investigators]
+        # from_data_description
+        funding_adapter = TypeAdapter(Funding)
+        funding_sources = [
+            funding_adapter.validate_python(fund) for fund in contents["funding_source"]
+        ]
+        if institution == "AIND":
+            institution = Organization.AIND
+
+        elif institution == "AIBS":
+            institution = Organization.AIBS
+
+        elif institution == "NYU":
+            institution = Organization.NYU
+
+        elif institution == "COLUMBIA":
+            institution = Organization.COLUMBIA
+
+        else:
+            raise NotImplementedError(f"Organization {institution} not in metadata.")
+
+        derived = DerivedDataDescription(
+            creation_time=datetime.now(),
+            input_data_name=contents["name"],
+            process_name=process_name,
+            institution=institution,
+            funding_source=funding_sources,
+            group=contents["group"],
+            investigators=investigators,
+            platform=Platform.SMARTSPIM,
+            project_name=contents["project_name"],
+            restrictions=contents["restrictions"],
+            modality=[Modality.SPIM],
+            subject_id=contents["subject_id"],
+        )
 
     with open(f"{dest_data_description}/data_description.json", "w") as f:
         f.write(derived.model_dump_json())
