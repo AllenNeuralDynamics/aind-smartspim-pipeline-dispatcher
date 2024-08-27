@@ -1,0 +1,4 @@
+# Parameters for accessing investigator list
+
+smartsheet_id: 2645998362906500
+ses_token_path: "/aind/prod/smartspim_ses/token"

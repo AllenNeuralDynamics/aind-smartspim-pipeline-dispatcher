@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import time
+import yaml
 from glob import glob
 from pathlib import Path
 from typing import List, Tuple, Union
@@ -105,20 +106,38 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
 
     color_map = {
         500: 0x61ABFD,  # RUDDY BLUE, mTFP/mTurquoise
-        530: 0X92FF42,  # CHARTREUSE,   EGFP
-        540: 0XE4FE41,  # CHARTREUSE, SYFP2
-        560: 0XF3D038,  # MUSTARD, mBanana
-        580: 0XEAB032,  # XANTHOUS, mOrange
-        600: 0XF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
-        630: 0XED1C24,  # RED, mCherry
-        680: 0XC51E1F,  # FIRE ENGINE RED, mRaspberry
-        700: 0XA81F1F,  # FIRE BRICK, mPlum
+        530: 0x92FF42,  # CHARTREUSE,   EGFP
+        540: 0xE4FE41,  # CHARTREUSE, SYFP2
+        560: 0xF3D038,  # MUSTARD, mBanana
+        580: 0xEAB032,  # XANTHOUS, mOrange
+        600: 0xF15F22,  # GIANTS ORANGE, tdTomato/mScarlet
+        630: 0xED1C24,  # RED, mCherry
+        680: 0xC51E1F,  # FIRE ENGINE RED, mRaspberry
+        700: 0xA81F1F,  # FIRE BRICK, mPlum
     }
 
     for ub, hex_val in color_map.items():
         if wavelength <= ub:  # Inclusive
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
+
+def get_yaml_config(filename):
+    """
+    Get default configuration from a YAML file.
+    Parameters
+    ------------------------
+    filename: str
+        String where the YAML file is located.
+    Returns
+    ------------------------
+    Dict
+        Dictionary with the configuration
+    """
+
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+
+    return config
 
 
 def wait_for_data_availability(
@@ -460,12 +479,14 @@ def get_data_config(
 
     Returns
     -----------
-    Tuple[Dict, str]
+    Tuple[Dict, str, list]
         Dict: Empty dictionary if the path does not exist,
         dictionary with the data otherwise.
 
         Str: Empty string if the processing manifest
         was not found
+
+        List: Empty list if no investigators in data description
     """
 
     # Returning first smartspim dataset found
@@ -489,8 +510,9 @@ def get_data_config(
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
 
     smartspim_dataset = data_description_dict["name"]
+    investigators = data_description_dict["investigators"]
 
-    return derivatives_dict, smartspim_dataset
+    return derivatives_dict, smartspim_dataset, investigators
 
 
 def copy_intermediate_data(
@@ -836,7 +858,7 @@ def create_ng_link(
             }
         )
 
-    subject_id = Path(s3_dataset_path).name.split('_')[1]
+    subject_id = Path(s3_dataset_path).name.split("_")[1]
     input_configs = {
         "title": subject_id,
         "dimensions": dimensions,
@@ -856,9 +878,9 @@ def create_ng_link(
 
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state["ng_link"] = (
-        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
-    )
+    json_state[
+        "ng_link"
+    ] = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
@@ -866,6 +888,47 @@ def create_ng_link(
         json.dump(json_state, outfile, indent=2)
 
     return Path(ng_output_path)
+
+def send_email_alerts(
+        mode: str, 
+        alert_configs: dict, 
+        investigators: list, 
+        dataset_name: str, 
+        logger: logging.logger
+):
+    """
+    Checks if there is investigator info and sends email
+
+    Parameters
+    ----------
+    mode : str
+        The current mode of the dispatcher
+    alert_configs : dict
+        Information on accessing investigator email list
+    investigators : list
+        investigators that submitted the dataset
+    dataset_name : str
+        current dataset being processed
+    logger : logging.logger
+        logger
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    if len(investigators[0]) > 0:
+        utils.send_ses_alerts(
+            mode,
+            alert_configs,
+            investigators, 
+            dataset_name
+        )
+        
+        logger.info(f"Email sent to: {investigators}")
+    else:
+        logger.info("Email not sent: No investigators were provided")
 
 
 def run():
@@ -897,8 +960,10 @@ def run():
 
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
+    alert_configs = get_yaml_config('../code/utils/alert_configs.yaml')
 
     logger.info(f"Alert bot link: {alert_bot_link}")
+    logger.info(f"SES alert configs: {alert_configs}")
 
     # It is assumed that these files
     # will be in the data folder
@@ -923,7 +988,7 @@ def run():
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
     if "dispatch" in mode:
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
         )
@@ -1003,7 +1068,7 @@ def run():
 
     elif "clean" in mode:
         logger.info("Starting cleaning...")
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
@@ -1020,6 +1085,9 @@ def run():
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
+        
+        
+    send_email_alerts(mode, alert_configs, investigators, dataset_name)
 
 
 if __name__ == "__main__":
