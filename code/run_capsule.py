@@ -792,7 +792,7 @@ def create_ng_link(
 
     colors = []
     for channel_str in s3_channel_paths:
-        channel_str = str(Path(channel_str).stem).replace('.ome', '')
+        channel_str = str(Path(channel_str).stem).replace(".ome", "")
         channel: int = int(channel_str.split("_")[-1])
         hex_val: int = wavelength_to_hex_alternate(channel)
         hex_str = f"#{str(hex(hex_val))[2:]}"
