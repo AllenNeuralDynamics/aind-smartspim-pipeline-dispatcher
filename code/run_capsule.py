@@ -33,7 +33,7 @@ logger.setLevel(logging.INFO)
 PathLike = Union[str, Path]
 
 PIPELINE_VERSION = "2.0.1"
-
+SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 
 def wavelength_to_hex(wavelength: int) -> int:
     """
@@ -894,7 +894,7 @@ def send_email_alerts(
         alert_configs: dict, 
         investigators: list, 
         dataset_name: str, 
-        logger: logging.logger
+        logger: logging.Logger
 ):
     """
     Checks if there is investigator info and sends email
@@ -909,7 +909,7 @@ def send_email_alerts(
         investigators that submitted the dataset
     dataset_name : str
         current dataset being processed
-    logger : logging.logger
+    logger : logging.Logger
         logger
 
     Returns
@@ -960,7 +960,7 @@ def run():
 
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
-    alert_configs = get_yaml_config('../code/utils/alert_configs.yaml')
+    alert_configs = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
 
     logger.info(f"Alert bot link: {alert_bot_link}")
     logger.info(f"SES alert configs: {alert_configs}")
