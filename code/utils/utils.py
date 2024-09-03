@@ -547,7 +547,7 @@ def generate_data_description(
 
 
 def copy_available_metadata(
-    input_path: PathLike, output_path: PathLike, ignore_files: List[str]
+    input_path: PathLike, output_path: PathLike, files_to_copy: List[str]
 ) -> List[PathLike]:
     """
     Copies all the valid metadata from the aind-data-schema
@@ -562,9 +562,9 @@ def copy_available_metadata(
         Path where we will copy the found
         metadata
 
-    ignore_files: List[str]
+    files_to_copy: List[str]
         List with the filenames of the metadata
-        that we need to ignore from the aind-data-schema
+        that we need to copy to the fused asset
 
     Returns
     --------
@@ -573,19 +573,17 @@ def copy_available_metadata(
         were copied
     """
 
-    # We get all the valid filenames from the aind core model
-    metadata_to_find = [cl for cl in os.listdir(input_path) if cl.endswith(".json")]
-    print("Metadata to find: ", metadata_to_find)
+    print("Files to copy: ", files_to_copy)
     # Making sure the paths are pathlib objects
     input_path = Path(input_path)
     output_path = Path(output_path)
 
     found_metadata = []
 
-    for metadata_filename in metadata_to_find:
+    for metadata_filename in files_to_copy:
         metadata_filename = input_path.joinpath(metadata_filename)
 
-        if metadata_filename.exists() and metadata_filename.name not in ignore_files:
+        if metadata_filename.exists():
             found_metadata.append(metadata_filename)
 
             # Copying file to output path
@@ -773,6 +771,7 @@ class AlertBot:
             response = requests.post(self.url, json=contents)
             return response
 
+
 def clean_investigator_names(investigators):
     """
     Formats investigator list to be syntactically correct
@@ -788,15 +787,16 @@ def clean_investigator_names(investigators):
         investigator names with proper syntax
 
     """
-    
+
     if len(investigators) > 1:
         invest = ", ".join(investigators)
         idx = invest.rfind(",")
         invest = invest[:idx] + " and" + invest[idx + 1 :]
     else:
         invest = investigators[0]
-    
+
     return invest
+
 
 def get_messanger_credentails(secret_id):
     """
@@ -813,8 +813,7 @@ def get_messanger_credentails(secret_id):
         Information located at secret_id
 
     """
-    
-    
+
     client = boto3.client("secretsmanager")
 
     try:
@@ -874,14 +873,14 @@ def send_ses_alerts(
     # Get email address
     email_df = get_sheet_as_df(
         token=smartsheet_token,
-        sheet_id=alert_configs['smartsheet_id'],
+        sheet_id=alert_configs["smartsheet_id"],
     )
 
     email_addresses = email_df.loc[
         email_df["Name"].isin(investigators), "Email"
     ].values.tolist()
-    
-    invest  = clean_investigator_names(investigators)
+
+    invest = clean_investigator_names(investigators)
 
     if "dispatch" in mode:
         message_data = (
