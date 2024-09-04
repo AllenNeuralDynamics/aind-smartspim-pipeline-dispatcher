@@ -1087,7 +1087,7 @@ def run():
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
 
-    send_email_alerts(mode, alert_configs, investigators, dataset_name)
+    send_email_alerts(mode, alert_configs, investigators, dataset_name, logger)
 
 
 if __name__ == "__main__":
