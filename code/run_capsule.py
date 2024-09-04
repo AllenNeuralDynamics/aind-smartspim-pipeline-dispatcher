@@ -6,11 +6,11 @@ import os
 import re
 import sys
 import time
-import yaml
 from glob import glob
 from pathlib import Path
 from typing import List, Tuple, Union
 
+import yaml
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
@@ -34,6 +34,7 @@ PathLike = Union[str, Path]
 
 PIPELINE_VERSION = "2.0.1"
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
+
 
 def wavelength_to_hex(wavelength: int) -> int:
     """
@@ -120,6 +121,7 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
         if wavelength <= ub:  # Inclusive
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
+
 
 def get_yaml_config(filename):
     """
@@ -763,9 +765,12 @@ def create_derived_stitched_metadata(
     found_metadata = utils.copy_available_metadata(
         input_path=raw_metadata_path,
         output_path=output_dispatch_metadata,
-        ignore_files=[
-            "data_description.json",  # Ignoring orig data description
-            "processing.json",  # This is generated with all the steps
+        files_to_copy=[
+            "acquisition.json",
+            "instrument.json",
+            "subject.json",
+            "procedures.json",
+            "session.json",
         ],
     )
 
@@ -878,9 +883,9 @@ def create_ng_link(
 
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state[
-        "ng_link"
-    ] = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+    json_state["ng_link"] = (
+        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+    )
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
@@ -889,12 +894,13 @@ def create_ng_link(
 
     return Path(ng_output_path)
 
+
 def send_email_alerts(
-        mode: str, 
-        alert_configs: dict, 
-        investigators: list, 
-        dataset_name: str, 
-        logger: logging.Logger
+    mode: str,
+    alert_configs: dict,
+    investigators: list,
+    dataset_name: str,
+    logger: logging.Logger,
 ):
     """
     Checks if there is investigator info and sends email
@@ -917,15 +923,10 @@ def send_email_alerts(
     None.
 
     """
-    
+
     if len(investigators[0]) > 0:
-        utils.send_ses_alerts(
-            mode,
-            alert_configs,
-            investigators, 
-            dataset_name
-        )
-        
+        utils.send_ses_alerts(mode, alert_configs, investigators, dataset_name)
+
         logger.info(f"Email sent to: {investigators}")
     else:
         logger.info("Email not sent: No investigators were provided")
@@ -1085,8 +1086,7 @@ def run():
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
-        
-        
+
     send_email_alerts(mode, alert_configs, investigators, dataset_name)
 
 
