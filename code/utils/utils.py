@@ -663,7 +663,7 @@ class AlertBot:
             return response
 
 def get_messanger_credentails(secret_id):
-    client = boto3.client('secretsmanager')
+    client = boto3.client('secretsmanager', region_name="us-west-2")
 
     try:
         # Retrieve the secret value
