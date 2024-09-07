@@ -1290,7 +1290,7 @@ def run():
             pipeline_config,
         )
 
-        if len(investigators[0]) > 0:
+        if len(investigators) > 1:
             response = utils.send_alerts(
                 'dispatch',
                 investigators,
@@ -1398,7 +1398,7 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
-        if len(investigators[0]) > 0:
+        if len(investigators) > 1:
             response = utils.send_alerts(
                 'clean',
                 investigators,
