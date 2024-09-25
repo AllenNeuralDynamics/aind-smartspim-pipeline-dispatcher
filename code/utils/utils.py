@@ -14,10 +14,13 @@ import boto3
 import requests
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DerivedDataDescription,
-                                                    Funding, Institution,
-                                                    Modality, Platform)
+                                                    Funding)
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.organizations import Organization
+from aind_data_schema_models.pid_names import PIDName
+from aind_data_schema_models.platforms import Platform
 from botocore.exceptions import ClientError
 from pydantic import TypeAdapter
 from smartsheet_dataframe import get_sheet_as_df
@@ -486,8 +489,8 @@ def send_alerts(
 
 
 def generate_data_description(
-    raw_data_description_path: PathLike,
-    dest_data_description: PathLike,
+    raw_data_description_path,
+    dest_data_description,
     process_name: Optional[str] = "stitched",
 ):
     """
@@ -515,20 +518,29 @@ def generate_data_description(
 
     f = open(raw_data_description_path, "r")
     data = json.load(f)
+
     if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
         institution = data["institution"]["abbreviation"]
 
-    investigators = data["investigators"] if len(data["investigators"]) else ["Unknown"]
+    investigators = data["investigators"]
+
+    if len(investigators) and len(investigators[0]):
+        investigators = [PIDName.parse_obj(inv) for inv in investigators]
+
+    else:
+        investigators = [PIDName(name="Unknown")]
+
     # from_data_description
     funding_adapter = TypeAdapter(Funding)
     funding_sources = [
         funding_adapter.validate_python(fund) for fund in data["funding_source"]
     ]
+    # Ensuring backwards compatibility
     derived = DerivedDataDescription(
         creation_time=datetime.now(),
         input_data_name=data["name"],
         process_name=process_name,
-        institution=Institution.from_abbreviation(institution),
+        institution=Organization.from_abbreviation(institution),
         funding_source=funding_sources,
         group=data["group"],
         investigators=investigators,
