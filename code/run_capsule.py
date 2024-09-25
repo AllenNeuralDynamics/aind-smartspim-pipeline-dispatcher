@@ -649,7 +649,7 @@ def copy_intermediate_data(
     for out in utils.execute_command_helper(cmd):
         logger.info(out)
 
-    for fused_zarr in fuse_folder.glob("*.ome.zarr"):
+    for fused_zarr in fuse_folder.glob("*.zarr"):
         fused_zarr_file_path = str(fused_zarr)
         fused_zarr_filename = str(fused_zarr.name)
 
@@ -1012,7 +1012,7 @@ def run():
         # Getting S3 paths for channels
         s3_paths_for_channels = [
             f"{s3_dest_zarr}/{fused_zarr.name}"
-            for fused_zarr in fuse_folder.glob("*.ome.zarr")
+            for fused_zarr in fuse_folder.glob("*.zarr")
         ]
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
