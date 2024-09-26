@@ -13,16 +13,16 @@ from typing import Any, List, Optional, Union
 import boto3
 import requests
 from aind_data_schema.base import AindCoreModel
-from aind_data_schema.core.data_description import (DataDescription,
-                                                    DerivedDataDescription,
-                                                    Funding, Modality,
-                                                    Platform)
+from aind_data_schema.core.data_description import (DerivedDataDescription,
+                                                    Funding)
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
+from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.pid_names import PIDName
+from aind_data_schema_models.platforms import Platform
 from botocore.exceptions import ClientError
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 from smartsheet_dataframe import get_sheet_as_df
 
 # IO types
@@ -457,7 +457,7 @@ def send_alerts(
 
     elif "clean" in mode:
         message_data = (
-            f"Hi {invest},<br><br>This messsage is to inform you"
+            f"Hi {invest},<br><br>This messsage is to inform you "
             f"that your dataset {dataset} has completed the SmartSPIM "
             "pipeline. Segmented and registered images have been quantified "
             "and are now available for viewing.<br><br>"
@@ -491,7 +491,7 @@ def send_alerts(
 def generate_data_description(
     raw_data_description_path,
     dest_data_description,
-    process_name="stitched",
+    process_name: Optional[str] = "stitched",
 ):
     """
     Generates data description for the output folder.
@@ -516,66 +516,42 @@ def generate_data_description(
         data
     """
 
-    with open(raw_data_description_path, "r") as f:
-        contents = json.load(f)
+    f = open(raw_data_description_path, "r")
+    data = json.load(f)
 
-    try:
-        # For old datasets
-        data_description_obj = DataDescription.model_construct(**contents)
-        data_description_obj.investigators = [
-            PIDName(name=inv) for inv in data_description_obj.investigators
-        ]
-        derived = DerivedDataDescription.from_data_description(
-            data_description_obj, process_name=process_name
-        )
+    if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
+        institution = data["institution"]["abbreviation"]
 
-    except ValidationError as exc:
-        if (
-            isinstance(contents["institution"], dict)
-            and "abbreviation" in contents["institution"]
-        ):
-            institution = contents["institution"]["abbreviation"]
+    investigators = data["investigators"]
 
-        investigators = (
-            contents["investigators"] if len(contents["investigators"]) else ["Unknown"]
-        )
-        print(investigators)
-        investigators = [PIDName(name=iv) for iv in investigators]
-        # from_data_description
-        funding_adapter = TypeAdapter(Funding)
-        funding_sources = [
-            funding_adapter.validate_python(fund) for fund in contents["funding_source"]
-        ]
-        if institution == "AIND":
-            institution = Organization.AIND
+    if len(investigators) and len(investigators[0]):
+        investigators = [PIDName.parse_obj(inv) for inv in investigators]
 
-        elif institution == "AIBS":
-            institution = Organization.AIBS
+    else:
+        investigators = [PIDName(name="Unknown")]
 
-        elif institution == "NYU":
-            institution = Organization.NYU
+    # from_data_description
+    funding_adapter = TypeAdapter(Funding)
+    funding_sources = [
+        funding_adapter.validate_python(fund) for fund in data["funding_source"]
+    ]
+    # Ensuring backwards compatibility
+    derived = DerivedDataDescription(
+        creation_time=datetime.now(),
+        input_data_name=data["name"],
+        process_name=process_name,
+        institution=Organization.from_abbreviation(institution),
+        funding_source=funding_sources,
+        group=data["group"],
+        investigators=investigators,
+        platform=Platform.SMARTSPIM,
+        project_name=data["project_name"],
+        restrictions=data["restrictions"],
+        modality=[Modality.SPIM],
+        subject_id=data["subject_id"],
+    )
 
-        elif institution == "COLUMBIA":
-            institution = Organization.COLUMBIA
-
-        else:
-            raise NotImplementedError(f"Organization {institution} not in metadata.")
-
-        derived = DerivedDataDescription(
-            creation_time=datetime.now(),
-            input_data_name=contents["name"],
-            process_name=process_name,
-            institution=institution,
-            funding_source=funding_sources,
-            group=contents["group"],
-            investigators=investigators,
-            platform=Platform.SMARTSPIM,
-            project_name=contents["project_name"],
-            restrictions=contents["restrictions"],
-            modality=[Modality.SPIM],
-            subject_id=contents["subject_id"],
-        )
-
+    # derived.write_standard_file(output_directory=dest_data_description)
     with open(f"{dest_data_description}/data_description.json", "w") as f:
         f.write(derived.model_dump_json())
 
@@ -583,7 +559,7 @@ def generate_data_description(
 
 
 def copy_available_metadata(
-    input_path: PathLike, output_path: PathLike, ignore_files: List[str]
+    input_path: PathLike, output_path: PathLike, files_to_copy: List[str]
 ) -> List[PathLike]:
     """
     Copies all the valid metadata from the aind-data-schema
@@ -598,9 +574,9 @@ def copy_available_metadata(
         Path where we will copy the found
         metadata
 
-    ignore_files: List[str]
+    files_to_copy: List[str]
         List with the filenames of the metadata
-        that we need to ignore from the aind-data-schema
+        that we need to copy to the fused asset
 
     Returns
     --------
@@ -609,19 +585,17 @@ def copy_available_metadata(
         were copied
     """
 
-    # We get all the valid filenames from the aind core model
-    metadata_to_find = [cl for cl in os.listdir(input_path) if cl.endswith(".json")]
-    print("Metadata to find: ", metadata_to_find)
+    print("Files to copy: ", files_to_copy)
     # Making sure the paths are pathlib objects
     input_path = Path(input_path)
     output_path = Path(output_path)
 
     found_metadata = []
 
-    for metadata_filename in metadata_to_find:
+    for metadata_filename in files_to_copy:
         metadata_filename = input_path.joinpath(metadata_filename)
 
-        if metadata_filename.exists() and metadata_filename.name not in ignore_files:
+        if metadata_filename.exists():
             found_metadata.append(metadata_filename)
 
             # Copying file to output path
