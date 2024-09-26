@@ -15,6 +15,7 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
+
 from utils import utils
 
 logging.basicConfig(
@@ -32,7 +33,7 @@ logger.setLevel(logging.INFO)
 
 PathLike = Union[str, Path]
 
-PIPELINE_VERSION = "2.0.1"
+PIPELINE_VERSION = "2.0.2"
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 
 
