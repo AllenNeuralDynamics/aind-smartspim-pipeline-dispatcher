@@ -921,7 +921,7 @@ def send_ses_alerts(
             ng_link_path = (
                 ng_link_path
                 if ng_link_path
-                else "the dashboard or with the administrator for the link."
+                else "Please, look at the dashboard or communicate with the pipeline administrator."
             )
 
             message_data = f"""
