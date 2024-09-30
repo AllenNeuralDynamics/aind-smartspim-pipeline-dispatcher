@@ -753,9 +753,12 @@ def create_derived_stitched_metadata(
     found_metadata = utils.copy_available_metadata(
         input_path=raw_metadata_path,
         output_path=output_dispatch_metadata,
-        ignore_files=[
-            "data_description.json",  # Ignoring orig data description
-            "processing.json",  # This is generated with all the steps
+        files_to_copy=[
+            "acquisition.json",
+            "instrument.json",
+            "subject.json",
+            "procedures.json",
+            "session.json",
         ],
     )
 
