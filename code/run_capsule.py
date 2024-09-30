@@ -794,9 +794,12 @@ def create_ng_link(
 
     Returns
     -------------
-    str:
-        Path where the neuroglancer config json
-        was generated
+    Tuple[str, str]
+        str:
+            Path where the neuroglancer config json
+            was generated
+        str:
+            Neuroglancer link path
     """
     # Sort channels paths so that they appear in NG consistently ordered
     s3_channel_paths = sorted(s3_channel_paths)
@@ -869,18 +872,17 @@ def create_ng_link(
         json_name="neuroglancer_config.json",
     )
 
+    ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state["ng_link"] = (
-        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
-    )
+    json_state["ng_link"] = ng_link
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
     with open(ng_output_path, "w") as outfile:
         json.dump(json_state, outfile, indent=2)
 
-    return Path(ng_output_path)
+    return Path(ng_output_path), ng_link
 
 
 def send_email_alerts(
@@ -889,6 +891,8 @@ def send_email_alerts(
     investigators: list,
     dataset_name: str,
     logger: logging.Logger,
+    email_message_params: dict = {},
+    source_email: str = "notifications@allenneuraldynamics.org",
 ):
     """
     Checks if there is investigator info and sends email
@@ -904,18 +908,30 @@ def send_email_alerts(
     dataset_name : str
         current dataset being processed
     logger : logging.Logger
-        logger
-
-    Returns
-    -------
-    None.
+        logger object
+    source_email: str
+        Source email.
+        Default: notifications@allenneuraldynamics.org
 
     """
 
-    if len(investigators[0]) > 0:
-        utils.send_ses_alerts(mode, alert_configs, investigators, dataset_name)
+    if len(investigators) and len(investigators[0]):
+        # Parsing investigators name from PIDName
+        investigators = [
+            inv["name"] if isinstance(inv, dict) else inv for inv in investigators
+        ]
+        response = utils.send_ses_alerts(
+            mode=mode,
+            alert_configs=alert_configs,
+            investigators=investigators,
+            dataset=dataset_name,
+            email_message_params=email_message_params,
+            source_email=source_email,
+        )
+        logger.info(
+            f"Email alert response: {response} - Investigators: {investigators}"
+        )
 
-        logger.info(f"Email sent to: {investigators}")
     else:
         logger.info("Email not sent: No investigators were provided")
 
@@ -979,6 +995,9 @@ def run():
             f"We miss the following files in the capsule input: {missing_files}"
         )
 
+    logger.info(f"Data in data folder: {os.listdir(data_folder)}")
+
+    email_message_params = {}
     if "dispatch" in mode:
         pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
@@ -1021,7 +1040,7 @@ def run():
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
-        output_json = create_ng_link(
+        output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
@@ -1033,6 +1052,8 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
         )
+
+        email_message_params["ng_link_path"] = ng_link_path
 
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
@@ -1077,7 +1098,16 @@ def run():
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
 
-    send_email_alerts(mode, alert_configs, investigators, dataset_name, logger)
+    # Sending email alert
+    send_email_alerts(
+        mode=mode,
+        alert_configs=alert_configs,
+        investigators=["Camilo Laiton"],  # Value for testing purposes #investigators,
+        dataset_name=dataset_name,
+        logger=logger,
+        email_message_params=email_message_params,
+        source_email="notifications@allenneuraldynamics.org",
+    )
 
 
 if __name__ == "__main__":
