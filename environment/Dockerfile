@@ -20,4 +20,4 @@ RUN pip install -U --no-cache-dir \
     smartsheet-dataframe==0.3.4 \
     PyYAML==6.0.2 \
     pyOpenSSL==24.2.1 \
-    awscli
+    awscli==1.34.26
