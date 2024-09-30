@@ -929,6 +929,7 @@ def send_email_alerts(
     """
 
     if len(investigators) and len(investigators[0]):
+        # Parsing investigators name from PIDName
         investigators = [
             inv["name"] if isinstance(inv, dict) else inv for inv in investigators
         ]
@@ -1106,8 +1107,15 @@ def run():
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
 
+    # Sending email alert
     send_email_alerts(
-        mode, alert_configs, investigators, dataset_name, logger, email_message_params
+        mode=mode,
+        alert_configs=alert_configs,
+        investigators=investigators,
+        dataset_name=dataset_name,
+        logger=logger,
+        email_message_params=email_message_params,
+        source_email="notifications@allenneuraldynamics.org",
     )
 
 

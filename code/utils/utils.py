@@ -909,6 +909,7 @@ def send_ses_alerts(
 
         if not len(email_addresses):
             print(f"No email addresses were found for investigators: {investigators}")
+            return response
 
         invest = clean_investigator_names(investigators)
         aind_image_logo = (
@@ -928,7 +929,7 @@ def send_ses_alerts(
                 <body>
                     <h3>Hello {invest},</h3>
                     <p>This is an email to inform you that your dataset <i>{dataset}</i> is ready for visualization.</p>
-                    <p>Please, check {ng_link_path}</p>
+                    <p>Please, copy and paste this link in your browser: <i><u>{ng_link_path}</u></i></p>
                     <p>Sincerely,<br><b>SmartSPIM Processing Team.</b><p>
                     <p style="font-size: smaller; color: gray;"><b>Note:</b> If you requested segmentation, you will be receiving another email in a day or two. Thanks for your patience.</p>
                     <img src="{aind_image_logo}" alt="Embedded Image" style="width:300px; height:auto;">
