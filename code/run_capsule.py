@@ -1082,6 +1082,7 @@ def create_ng_link(
         json_name="neuroglancer_config.json",
     )
 
+    ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
     json_state["ng_link"] = (
@@ -1093,7 +1094,7 @@ def create_ng_link(
     with open(ng_output_path, "w") as outfile:
         json.dump(json_state, outfile, indent=2)
 
-    return Path(ng_output_path)
+    return Path(ng_output_path), ng_link
 
 def send_email_alerts(
     mode: str,
