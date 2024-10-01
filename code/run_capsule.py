@@ -1245,7 +1245,7 @@ def run():
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
-        output_json = create_ng_link(
+        output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
@@ -1327,7 +1327,7 @@ def run():
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
-        output_json = create_ng_link(
+        output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
@@ -1405,7 +1405,7 @@ def run():
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
-        output_json = create_ng_link(
+        output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
