@@ -10,6 +10,7 @@ from glob import glob
 from pathlib import Path
 from typing import List, Tuple, Union
 
+import yaml
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
