@@ -1,7 +1,6 @@
 """
 Utility functions
 """
-import boto3
 import json
 import os
 import shutil
@@ -9,8 +8,8 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
-from smartsheet_dataframe import get_sheet_as_df
 
+import boto3
 import requests
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DerivedDataDescription,
@@ -21,7 +20,9 @@ from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.pid_names import PIDName
 from aind_data_schema_models.platforms import Platform
+from botocore.exceptions import ClientError
 from pydantic import TypeAdapter
+from smartsheet_dataframe import get_sheet_as_df
 
 # IO types
 PathLike = Union[str, Path]
