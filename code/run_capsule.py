@@ -1361,6 +1361,11 @@ def run():
             bucket=bucket_path,
         )
 
+        utils.save_dict_as_json(
+            f"{results_folder}/modified_processing_manifest.json",
+            pipeline_config,
+        )
+
     elif "test" in mode:
         pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
