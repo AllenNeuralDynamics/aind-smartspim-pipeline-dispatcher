@@ -120,6 +120,23 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
 
+def get_yaml_config(filename):
+    """
+    Get default configuration from a YAML file.
+    Parameters
+    ------------------------
+    filename: str
+        String where the YAML file is located.
+    Returns
+    ------------------------
+    Dict
+        Dictionary with the configuration
+    """
+
+    with open(filename, "r") as stream:
+        config = yaml.safe_load(stream)
+
+    return config
 
 def wait_for_data_availability(
     co_client,
@@ -1076,6 +1093,55 @@ def create_ng_link(
 
     return Path(ng_output_path)
 
+def send_email_alerts(
+    mode: str,
+    alert_configs: dict,
+    investigators: list,
+    dataset_name: str,
+    logger: logging.Logger,
+    email_message_params: dict = {},
+    source_email: str = "notifications@allenneuraldynamics.org",
+):
+    """
+    Checks if there is investigator info and sends email
+
+    Parameters
+    ----------
+    mode : str
+        The current mode of the dispatcher
+    alert_configs : dict
+        Information on accessing investigator email list
+    investigators : list
+        investigators that submitted the dataset
+    dataset_name : str
+        current dataset being processed
+    logger : logging.Logger
+        logger object
+    source_email: str
+        Source email.
+        Default: notifications@allenneuraldynamics.org
+
+    """
+
+    if len(investigators) and len(investigators[0]):
+        # Parsing investigators name from PIDName
+        investigators = [
+            inv["name"] if isinstance(inv, dict) else inv for inv in investigators
+        ]
+        response = utils.send_ses_alerts(
+            mode=mode,
+            alert_configs=alert_configs,
+            investigators=investigators,
+            dataset=dataset_name,
+            email_message_params=email_message_params,
+            source_email=source_email,
+        )
+        logger.info(
+            f"Email alert response: {response} - Investigators: {investigators}"
+        )
+
+    else:
+        logger.info("Email not sent: No investigators were provided")
 
 def run():
     """
@@ -1106,8 +1172,10 @@ def run():
 
     # Getting teams notification channel link
     alert_bot_link = os.environ["CUSTOM_KEY"]
+    alert_configs = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
 
     logger.info(f"Alert bot link: {alert_bot_link}")
+    logger.info(f"SES alert configs: {alert_configs}")
 
     # It is assumed that these files
     # will be in the data folder
@@ -1131,6 +1199,7 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
+    email_message_params = {}
     if 'dispatch' in mode:
         pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
@@ -1186,6 +1255,8 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
         )
+
+        email_message_params["ng_link_path"] = ng_link_path
 
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
@@ -1267,6 +1338,8 @@ def run():
             s3_dataset_path=s3_path,
         )
 
+        email_message_params["ng_link_path"] = ng_link_path
+
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
 
@@ -1284,22 +1357,6 @@ def run():
             results_folder=results_folder,
             bucket=bucket_path,
         )
-
-        utils.save_dict_as_json(
-            f"{results_folder}/modified_processing_manifest.json",
-            pipeline_config,
-        )
-
-        if len(investigators) > 1:
-            response = utils.send_alerts(
-                'dispatch',
-                investigators,
-                dataset_name,
-            )
-        
-            logger.info(f"Email sent: {response}")
-        else:
-            logger.info("Email not sent: No investigators were provided")
 
     elif "test" in mode:
         pipeline_config, dataset_name, investigators = get_data_config(
@@ -1359,6 +1416,8 @@ def run():
             s3_dataset_path=s3_path,
         )
 
+        email_message_params["ng_link_path"] = ng_link_path
+
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
 
@@ -1381,6 +1440,7 @@ def run():
             f"{results_folder}/modified_processing_manifest.json",
             pipeline_config,
         )
+
     elif "clean" in mode:
         logger.info("Starting cleaning...")
         pipeline_config, dataset_name = get_data_config(
@@ -1398,20 +1458,19 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
-        if len(investigators) > 1:
-            response = utils.send_alerts(
-                'clean',
-                investigators,
-                dataset_name,
-            )
-        
-            logger.info(f"Email sent: {response}")
-        else:
-            logger.info("Email not sent: No investigators were provided")
-
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
 
+    # Sending email alert
+    send_email_alerts(
+        mode=mode,
+        alert_configs=alert_configs,
+        investigators=investigators,
+        dataset_name=dataset_name,
+        logger=logger,
+        email_message_params=email_message_params,
+        source_email="notifications@allenneuraldynamics.org",
+    )
 
 if __name__ == "__main__":
     run()

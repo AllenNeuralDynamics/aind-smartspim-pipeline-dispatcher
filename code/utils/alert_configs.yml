@@ -1,0 +1,4 @@
+# Parameters for accessing investigator list
+
+smartsheet_id: 0
+ses_token_path: "***REMOVED***"
