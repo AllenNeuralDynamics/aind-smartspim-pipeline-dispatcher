@@ -31,7 +31,8 @@ logger.setLevel(logging.INFO)
 
 PathLike = Union[str, Path]
 
-PIPELINE_VERSION = "2.0.1"
+PIPELINE_VERSION = "2.0.2"
+SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 
 
 def wavelength_to_hex(wavelength: int) -> int:
