@@ -209,7 +209,11 @@ def make_data_viewable(co_client: CodeOceanClient, response_contents: dict):
     )
     logger.info(f"Data asset viewable to everyone: {update_data_perm_response}")
 
-def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
+def dispatch(
+    processing_manifest: dict, 
+    results_folder: 
+    PathLike, bucket: str, 
+    create_asset: bool):
     """
     Creates multiple processing manifest jsons using
     the original processing manifest. This is done to
@@ -227,67 +231,73 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
     bucket: str
         Bucket name where the data is stored
+
+    create_asset: bool
+        Indicates if a new data asset should be created
     """
 
     logger.info(f"Provided processing manifest: {processing_manifest}")
 
-    codeocean_domain = os.getenv("API_KEY")
-    co_token = os.getenv("API_SECRET")
-    co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
+    if create_asset:
+        codeocean_domain = os.getenv("API_KEY")
+        co_token = os.getenv("API_SECRET")
+        co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
 
-    # Getting path in S3
-    dataset_to_register = processing_manifest["pipeline_processing"]["stitching"][
-        "s3_path"
-    ]
+        # Getting path in S3
+        dataset_to_register = processing_manifest["pipeline_processing"]["stitching"][
+            "s3_path"
+        ]
 
-    pattern = (
-        r"SmartSPIM_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
-        r"_(?:stitched|test)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
-    )
-    found_pattern = re.findall(pattern=pattern, string=dataset_to_register)
-
-    # Extract the data asset info
-    if len(found_pattern):
-        dataset_to_register = found_pattern[0]
-
-        smartspim_fused_tags = ["smartspim", "processed"]
-
-        # Registering AWS data asset
-        aws_source = Sources.AWS(
-            bucket=bucket,
-            prefix=dataset_to_register,
-            keep_on_external_storage=True,
-            public=True,
+        pattern = (
+            r"SmartSPIM_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"_(?:stitched|test)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
         )
-        source = Source(aws=aws_source)
+        found_pattern = re.findall(pattern=pattern, string=dataset_to_register)
 
-        create_data_asset_request = CreateDataAssetRequest(
-            name=dataset_to_register,
-            tags=smartspim_fused_tags,
-            mount=dataset_to_register,
-            source=source,
-            custom_metadata=None,
-        )
+        # Extract the data asset info
+        if len(found_pattern):
+            dataset_to_register = found_pattern[0]
 
-        input_json_data = json.loads(create_data_asset_request.json_string)
+            smartspim_fused_tags = ["smartspim", "processed"]
 
-        # Register the fused smartspim dataset
-        try:
-            data_asset_reg_response = co_client.create_data_asset(
-                request=input_json_data
+            # Registering AWS data asset
+            aws_source = Sources.AWS(
+                bucket=bucket,
+                prefix=dataset_to_register,
+                keep_on_external_storage=True,
+                public=True,
+            )
+            source = Source(aws=aws_source)
+
+            create_data_asset_request = CreateDataAssetRequest(
+                name=dataset_to_register,
+                tags=smartspim_fused_tags,
+                mount=dataset_to_register,
+                source=source,
+                custom_metadata=None,
             )
 
-            response_contents = data_asset_reg_response.json()
-            logger.info(f"Created data asset in Code Ocean: {response_contents}")
+            input_json_data = json.loads(create_data_asset_request.json_string)
 
-            # Making the created data asset available for everyone
-            make_data_viewable(co_client, response_contents)
+            # Register the fused smartspim dataset
+            try:
+                data_asset_reg_response = co_client.create_data_asset(
+                    request=input_json_data
+                )
 
-        except Exception as e:
-            logger.warning(f"Error registering data asset in the API call. Error: {e}")
+                response_contents = data_asset_reg_response.json()
+                logger.info(f"Created data asset in Code Ocean: {response_contents}")
 
+                # Making the created data asset available for everyone
+                make_data_viewable(co_client, response_contents)
+
+            except Exception as e:
+                logger.warning(f"Error registering data asset in the API call. Error: {e}")
+
+        else:
+            logger.warning("Error registering data asset")
     else:
-        logger.warning("Error registering data asset")
+        logger.info("No data asset was created for reprocessing")
 
     logger.info(f"Processing manifest: {processing_manifest}")
 
@@ -1277,6 +1287,7 @@ def run():
             processing_manifest=pipeline_config,
             results_folder=results_folder,
             bucket=bucket_path,
+            create_asset=True
         )
 
         utils.save_dict_as_json(
@@ -1359,6 +1370,7 @@ def run():
             processing_manifest=pipeline_config,
             results_folder=results_folder,
             bucket=bucket_path,
+            create_asset=False
         )
 
         utils.save_dict_as_json(
@@ -1442,6 +1454,7 @@ def run():
             processing_manifest=pipeline_config,
             results_folder=results_folder,
             bucket=bucket_path,
+            create_asset=False
         )
 
         utils.save_dict_as_json(
