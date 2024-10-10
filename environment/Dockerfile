@@ -18,5 +18,6 @@ RUN pip install -U --no-cache-dir \
     aind-data-schema==1.0.0 \
     aind-ng-link==1.0.17 \
     python-dotenv==0.21.1 \
-    smartsheet-dataframe==0.3.4 \
-    awscli==1.34.26
+    smartsheet-dataframe==0.3.4
+
+RUN conda install conda-forge::awscli
