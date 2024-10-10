@@ -19,5 +19,6 @@ RUN pip install -U --no-cache-dir \
     python-dotenv==0.21.1 \
     smartsheet-dataframe==0.3.4 \
     PyYAML==6.0.2 \
-    pyOpenSSL==24.2.1 \
-    awscli==1.34.26
+    pyOpenSSL==24.2.1
+
+RUN conda install conda-forge::awscli
