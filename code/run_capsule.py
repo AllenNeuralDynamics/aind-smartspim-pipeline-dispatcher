@@ -1016,7 +1016,7 @@ def run():
         fuse_folder = data_folder.joinpath("fused")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-        bucket_path = "aind-msma-morphology-data/test_data/SmartSPIM"
+        bucket_path = "aind-open-data"
 
         s3_path, s3_dest_zarr = copy_intermediate_data(
             output_dispatch_metadata=output_dispatch_metadata,
