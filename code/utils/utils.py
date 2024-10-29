@@ -401,8 +401,12 @@ def generate_data_description(
         data
     """
 
-    f = open(raw_data_description_path, "r")
-    data = json.load(f)
+    with open(raw_data_description_path, "r") as f:
+        data = json.load(f)
+
+    with open('../data/metadata.nd.json', 'r') as f:
+        metadata_nd = json.load(f)
+
     if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
         institution = data["institution"]["abbreviation"]
 
@@ -421,6 +425,9 @@ def generate_data_description(
     ]
 
     if "stitched" in data["name"]:
+        data_name, creation_time = data["name"].split("_stitched_")
+        creation_time = datetime.strptime(creation_time, '%Y-%m-%d_%H-%M-%S')
+    elif "stitched" in metadata_nd['name']:
         data_name, creation_time = data["name"].split("_stitched_")
         creation_time = datetime.strptime(creation_time, '%Y-%m-%d_%H-%M-%S')
     else:
