@@ -1102,7 +1102,7 @@ def run():
     send_email_alerts(
         mode=mode,
         alert_configs=alert_configs,
-        investigators=["Camilo Laiton"],  # Value for testing purposes #investigators,
+        investigators=investigators,
         dataset_name=dataset_name,
         logger=logger,
         email_message_params=email_message_params,
