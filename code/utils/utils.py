@@ -14,10 +14,13 @@ import boto3
 import requests
 from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DerivedDataDescription,
-                                                    Funding, Institution,
-                                                    Modality, Platform)
+                                                    Funding)
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
+from aind_data_schema_models.modalities import Modality
+from aind_data_schema_models.organizations import Organization
+from aind_data_schema_models.pid_names import PIDName
+from aind_data_schema_models.platforms import Platform
 from botocore.exceptions import ClientError
 from pydantic import TypeAdapter
 from smartsheet_dataframe import get_sheet_as_df
@@ -486,8 +489,8 @@ def send_alerts(
 
 
 def generate_data_description(
-    raw_data_description_path: PathLike,
-    dest_data_description: PathLike,
+    raw_data_description_path,
+    dest_data_description,
     process_name: Optional[str] = "stitched",
 ):
     """
@@ -515,20 +518,29 @@ def generate_data_description(
 
     f = open(raw_data_description_path, "r")
     data = json.load(f)
+
     if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
         institution = data["institution"]["abbreviation"]
 
-    investigators = data["investigators"] if len(data["investigators"]) else ["Unknown"]
+    investigators = data["investigators"]
+
+    if len(investigators) and len(investigators[0]):
+        investigators = [PIDName.parse_obj(inv) for inv in investigators]
+
+    else:
+        investigators = [PIDName(name="Unknown")]
+
     # from_data_description
     funding_adapter = TypeAdapter(Funding)
     funding_sources = [
         funding_adapter.validate_python(fund) for fund in data["funding_source"]
     ]
+    # Ensuring backwards compatibility
     derived = DerivedDataDescription(
         creation_time=datetime.now(),
         input_data_name=data["name"],
         process_name=process_name,
-        institution=Institution.from_abbreviation(institution),
+        institution=Organization.from_abbreviation(institution),
         funding_source=funding_sources,
         group=data["group"],
         investigators=investigators,
@@ -814,19 +826,17 @@ def get_messanger_credentails(secret_id):
 
     """
 
-    client = boto3.client("secretsmanager")
+    client = boto3.client("secretsmanager", region_name="us-west-2")
 
     try:
         # Retrieve the secret value
         response = client.get_secret_value(SecretId=secret_id)
-        print("response ", response)
         # Extract the secret string
         secret_string = response.get("SecretString")
 
         if secret_string:
             # Parse the secret string if it's in JSON format
             secret_dict = json.loads(secret_string)
-            print("Getting ", secret_string)
             return secret_dict
         else:
             # Handle the case where secret is stored in binary (not common for JSON secrets)
@@ -844,6 +854,8 @@ def send_ses_alerts(
     alert_configs: dict,
     investigators: str,
     dataset: str,
+    email_message_params: dict = {},
+    source_email: str = "notifications@allenneuraldynamics.org",
 ):
     """
     Sends an email alert to the investig
@@ -858,6 +870,11 @@ def send_ses_alerts(
         Who requested the dataset and will be emailed
     dataset: str
         Name of the dataset that is being processed
+    email_message_params: dict
+        Dictionary with optional email parameters
+    source_email: str
+        Source email.
+        Default: notifications@allenneuraldynamics.org
 
     Returns
     -------
@@ -867,62 +884,103 @@ def send_ses_alerts(
     """
 
     # Create an SES client
-    smartsheet_token = get_messanger_credentails(alert_configs["ses_token_path"])
-    ses_client = boto3.client("ses", region_name="us-west-2")
+    smartsheet_token = get_messanger_credentails(alert_configs["ses_token_path"])[
+        "token"
+    ]
+    response = None
 
-    # Get email address
-    email_df = get_sheet_as_df(
-        token=smartsheet_token,
-        sheet_id=alert_configs["smartsheet_id"],
-    )
+    if smartsheet_token:
+        ses_client = boto3.client("ses", region_name="us-west-2")
 
-    email_addresses = email_df.loc[
-        email_df["Name"].isin(investigators), "Email"
-    ].values.tolist()
+        # Get email address
+        try:
+            email_df = get_sheet_as_df(
+                token=smartsheet_token,
+                sheet_id=alert_configs["smartsheet_id"],
+            )
 
-    invest = clean_investigator_names(investigators)
+        except Exception as e:
+            print(f"Not able to get smartsheet, error: {e}")
+            return
 
-    if "dispatch" in mode:
-        message_data = (
-            f"Hi {invest},<br><br>This messsage is to inform you "
-            f"that your dataset {dataset} has been uploaded to AWS and "
-            "stitched images are now available for viewing.<br><br>"
-            "Sincerely,<br>SmartSPIM Processing Team"
+        email_addresses = email_df.loc[
+            email_df["Name"].isin(investigators), "Email"
+        ].values.tolist()
+
+        if not len(email_addresses):
+            print(f"No email addresses were found for investigators: {investigators}")
+            return response
+
+        invest = clean_investigator_names(investigators)
+        aind_image_logo = (
+            "https://allenneuraldynamics.github.io/assets/img/AIND_logo.png"
         )
 
-        subject_data = f"Stitched images available for dataset {dataset}"
+        if "dispatch" in mode:
+            ng_link_path = email_message_params.get("ng_link_path")
+            ng_link_path = (
+                ng_link_path
+                if ng_link_path
+                else "Please, look at the dashboard or communicate with the pipeline administrator."
+            )
 
-    elif "clean" in mode:
-        message_data = (
-            f"Hi {invest},<br><br>This messsage is to inform you "
-            f"that your dataset {dataset} has completed the SmartSPIM "
-            "pipeline. Segmented and registered images have been quantified "
-            "and are now available for viewing.<br><br>"
-            "Sincerely,<br>SmartSPIM Processing Team"
-        )
+            message_data = f"""
+                <html>
+                <body>
+                    <h3>Hello {invest},</h3>
+                    <p>This is an email to inform you that your dataset <i>{dataset}</i> is ready for visualization.</p>
+                    <p>Please, copy and paste this link in your browser: <i><u>{ng_link_path}</u></i></p>
+                    <p>Sincerely,<br><b>SmartSPIM Processing Team.</b><p>
+                    <p style="font-size: smaller; color: gray;"><b>Note:</b> If you requested segmentation, you will be receiving another email in a day or two. Thanks for your patience.</p>
+                    <img src="{aind_image_logo}" alt="Embedded Image" style="width:300px; height:auto;">
+                </body>
+                </html>
+            """
 
-        subject_data = f"SmartSPIM processing completed for dataset {dataset}"
+            subject_data = f"SmartSPIM Notification - Stitched Images - {dataset}"
 
-    try:
-        response = ses_client.send_email(
-            Destination={
-                "ToAddresses": email_addresses,
-            },
-            Message={
-                "Body": {
-                    "Html": {
+        elif "clean" in mode:
+            message_data = f"""
+                <html>
+                <body>
+                    <h3>Hello {invest},</h3>
+                    <p>This is an email to inform you that your dataset <i>{dataset}</i> finished cell detection and quantification.</p>
+                    <p>Please, check the SmartSPIM dashboard.</p>
+                    <p>Sincerely,<br><b>SmartSPIM Processing Team.</b><p>
+                    <img src="{aind_image_logo}" alt="Embedded Image" style="width:300px; height:auto;">
+                </body>
+                </html>
+            """
+
+            subject_data = f"SmartSPIM Notification - Pipeline Completed - {dataset}"
+
+        else:
+            print(f"Mode {mode} not implemented")
+            return response
+
+        try:
+            response = ses_client.send_email(
+                Destination={
+                    "ToAddresses": email_addresses,
+                },
+                Message={
+                    "Body": {
+                        "Html": {
+                            "Charset": "UTF-8",
+                            "Data": message_data,
+                        },
+                    },
+                    "Subject": {
                         "Charset": "UTF-8",
-                        "Data": message_data,
-                    }
+                        "Data": subject_data,
+                    },
                 },
-                "Subject": {
-                    "Charset": "UTF-8",
-                    "Data": subject_data,
-                },
-            },
-            Source="notifications@allenneuraldynamics.org",
-        )
-    except ClientError as e:
-        print(e.response["Error"]["Message"])
+                Source=source_email,
+            )
+        except ClientError as e:
+            print(e.response["Error"]["Message"])
 
-    return
+    else:
+        print("Problem retrieving token from the secret manager")
+
+    return response
