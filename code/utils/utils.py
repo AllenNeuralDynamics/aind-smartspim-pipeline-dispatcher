@@ -535,6 +535,12 @@ def generate_data_description(
     funding_sources = [
         funding_adapter.validate_python(fund) for fund in data["funding_source"]
     ]
+
+    # Setting Allen Institute as default since derived data description
+    # does not allow empty funding source
+    if not len(funding_sources):
+        funding_sources = [Funding(funder=Organization.AI)]
+
     # Ensuring backwards compatibility
     derived = DerivedDataDescription(
         creation_time=datetime.now(),
