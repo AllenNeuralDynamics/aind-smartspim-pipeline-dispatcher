@@ -310,7 +310,7 @@ def dispatch(
         segment_channels = pipeline_config["segmentation"]["channels"]
         background_channel = processing_manifest["pipeline_processing"]["registration"][
             "channels"
-        ][0]
+        ][-1]
 
         if not len(segment_channels):
             raise BaseException("Stopping pipeline, no segmentation channels.")
