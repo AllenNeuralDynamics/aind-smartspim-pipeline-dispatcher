@@ -1106,7 +1106,7 @@ def create_ng_link(
     )
 
     if segmentation:
-        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/image_tile_fusing/neuroglancer_config.json"
+        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/image_atlas_alignment/neuroglancer_config.json"
     else:
         ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
 
