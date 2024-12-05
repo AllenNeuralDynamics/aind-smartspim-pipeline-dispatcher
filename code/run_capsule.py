@@ -997,7 +997,7 @@ def create_derived_test_metadata(
     return output_dispatch_metadata, new_dataset_name
 
 def create_ng_link(
-    config: dict, s3_channel_paths: List[str], s3_dataset_path: str
+    config: dict, s3_channel_paths: List[str], s3_dataset_path: str, segmentation: bool
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -1014,6 +1014,9 @@ def create_ng_link(
 
     s3_dataset_path: str
         S3 path where the dataset is stored
+
+    segmentation: bool
+        If a precomputed segmentation layer will be included in the link
 
     Returns
     -------------
@@ -1074,6 +1077,16 @@ def create_ng_link(
             }
         )
 
+    if segmentation:
+        layers.append(
+            {
+                "source":
+                "type": "segmentation"
+                "tab": "source"
+                "name": "CCF_parcellation"
+            }
+        )
+
     subject_id = Path(s3_dataset_path).name.split('_')[1]
     input_configs = {
         "title": subject_id,
@@ -1092,12 +1105,14 @@ def create_ng_link(
         json_name="neuroglancer_config.json",
     )
 
-    ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+    if segmentation:
+        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/image_tile_fusing/neuroglancer_config.json"
+    else:
+        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
-    json_state["ng_link"] = (
-        f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
-    )
+    json_state["ng_link"] = ng_link
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
@@ -1267,6 +1282,21 @@ def run():
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
+            segmentation=False
+        )
+
+        output_json, ng_link_path = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "z_res": axes_resolution[2]["resolution"] * 2**3,
+                "y_res": axes_resolution[1]["resolution"]* 2**3,
+                "x_res": axes_resolution[0]["resolution"]* 2**3,
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+            segmentation=True
         )
 
         email_message_params["ng_link_path"] = ng_link_path
@@ -1350,6 +1380,21 @@ def run():
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
+            segmentation=False
+        )
+
+        output_json, ng_link_path = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "z_res": axes_resolution[2]["resolution"] * 2**3,
+                "y_res": axes_resolution[1]["resolution"]* 2**3,
+                "x_res": axes_resolution[0]["resolution"]* 2**3,
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+            segmentation=True
         )
 
         email_message_params["ng_link_path"] = ng_link_path
