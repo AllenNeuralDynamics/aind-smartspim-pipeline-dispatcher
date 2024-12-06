@@ -859,9 +859,10 @@ def copy_reprocessed_intermediate_data(
 
     # Copying ccf data
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
-    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})|ccf_reverse|annotation_precomputed$"
 
     for ccf_folder in ccf_folders:
+        
         channel_name = re.search(regex_channels, ccf_folder).group()
 
         for out in utils.execute_command_helper(
