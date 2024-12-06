@@ -1080,10 +1080,10 @@ def create_ng_link(
     if segmentation:
         layers.append(
             {
-                "source":
-                "type": "segmentation"
-                "tab": "source"
-                "name": "CCF_parcellation"
+                "source":f"precomputed://{s3_dataset_path}/image_atlas_alignment/annotation_precomputed",
+                "type": "segmentation",
+                "tab": "source",
+                "name": "CCF_parcellation",
             }
         )
 
