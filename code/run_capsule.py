@@ -1384,6 +1384,12 @@ def run():
             segmentation=False
         )
 
+        # Copying neuroglancer config out
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        ):
+            logger.info(out)
+
         output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
@@ -1404,10 +1410,10 @@ def run():
         logger.info(f"Data in {results_folder}: {data_results}")
 
         # Copying neuroglancer config out
-        #for out in utils.execute_command_helper(
-        #    f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-        #):
-        #    logger.info(out)
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
+        ):
+            logger.info(out)
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
