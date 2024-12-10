@@ -1245,6 +1245,7 @@ def run():
         flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
         stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
         fuse_folders = glob(f"{data_folder}/fused/*")
+        print(f"Fused folder: {fuse_folders}")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
         bucket_path = "aind-open-data"
