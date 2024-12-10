@@ -1244,7 +1244,7 @@ def run():
         destripe_files = glob(f"{data_folder}/image_destriping_*")
         flatfield_channels = glob(f"{data_folder}/flatfield_correction_*")
         stitch_folders = glob(f"{data_folder}/stitched/stitch_*")
-        fuse_folders = glob(f"{data_folder}/fused/fusion_*")
+        fuse_folders = glob(f"{data_folder}/fused/*")
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
         bucket_path = "aind-open-data"
@@ -1266,8 +1266,7 @@ def run():
         s3_paths_for_channels = []
         for fuse_folder in fuse_folders:
             channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
-            # f"{s3_path}/{output_fusion}/OMEZarr"
-            s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}.zarr")
+            s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}")
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
