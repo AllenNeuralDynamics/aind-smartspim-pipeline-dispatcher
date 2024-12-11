@@ -213,7 +213,12 @@ def make_data_viewable(co_client: CodeOceanClient, response_contents: dict):
     logger.info(f"Data asset viewable to everyone: {update_data_perm_response}")
 
 
-def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
+def dispatch(
+    processing_manifest: dict,
+    results_folder: PathLike,
+    bucket: str,
+    co_domain : str = "https://codeocean.allenneuraldynamics.org"
+):
     """
     Creates multiple processing manifest jsons using
     the original processing manifest. This is done to
@@ -231,11 +236,14 @@ def dispatch(processing_manifest: dict, results_folder: PathLike, bucket: str):
 
     bucket: str
         Bucket name where the data is stored
+
+    co_domain: str
+        Code Ocean domain
     """
 
     logger.info(f"Provided processing manifest: {processing_manifest}")
 
-    codeocean_domain = os.getenv("API_KEY")
+    codeocean_domain = co_domain #os.getenv("API_KEY")
     co_token = os.getenv("API_SECRET")
     co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
 
