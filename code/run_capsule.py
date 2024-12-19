@@ -1081,7 +1081,20 @@ def create_ng_link(
     if segmentation:
         layers.append(
             {
-                "source":f"precomputed://{s3_dataset_path}/image_atlas_alignment/annotation_precomputed",
+                "source":f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
+                "type": "image",
+                "tab": "source",
+                "name": "CCF_template",
+                "shaderControls": {
+                    "normalized": {"range": [0, 300]},
+                    "window": [0, 1000]
+                }
+            }
+        )
+
+        layers.append(
+            {
+                "source":f"{s3_dataset_path}/image_atlas_alignment/ccf_annotation_precomputed",
                 "type": "segmentation",
                 "tab": "source",
                 "name": "CCF_parcellation",
