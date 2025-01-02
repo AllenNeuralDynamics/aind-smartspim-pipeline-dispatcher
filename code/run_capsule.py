@@ -33,7 +33,7 @@ logger.setLevel(logging.INFO)
 
 PathLike = Union[str, Path]
 
-PIPELINE_VERSION = "2.0.2"
+PIPELINE_VERSION = "2.0.3"
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 
 
@@ -787,7 +787,7 @@ def create_derived_stitched_metadata(
 
 
 def create_ng_link(
-    config: dict, s3_channel_paths: List[str], s3_dataset_path: str
+    config: dict, s3_channel_paths: List[str], s3_dataset_path: str, segmentation: bool
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -805,14 +805,16 @@ def create_ng_link(
     s3_dataset_path: str
         S3 path where the dataset is stored
 
+    segmentation: bool
+        If a precomputed segmentation layer will be included in the link
+
     Returns
     -------------
-    Tuple[str, str]
-        str:
-            Path where the neuroglancer config json
-            was generated
-        str:
-            Neuroglancer link path
+    str:
+        Path where the neuroglancer config json
+        was generated
+    str:
+        Neuroglancer link path
     """
     # Sort channels paths so that they appear in NG consistently ordered
     s3_channel_paths = sorted(s3_channel_paths)
@@ -863,11 +865,36 @@ def create_ng_link(
                     "emitter": "RGB",
                     "vec": "vec3",
                 },
-                "shaderControls": {"normalized": {"range": [0, 200]}},  # Optional
+                "shaderControls": {"normalized": {"range": [0, 500]}},  # Optional
             }
         )
 
-    subject_id = Path(s3_dataset_path).name.split("_")[1]
+    dataset_path = s3_dataset_path.split("aind-open-data/")[1]
+
+    if segmentation:
+        layers.append(
+            {
+                "source":f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
+                "type": "image",
+                "tab": "source",
+                "name": "CCF_template",
+                "shaderControls": {
+                    "normalized": {"range": [0, 300]},
+                    "window": [0, 1000]
+                }
+            }
+        )
+
+        layers.append(
+            {
+                "source":f"precomputed://{dataset_path}/image_atlas_alignment/ccf_annotation_precomputed",
+                "type": "segmentation",
+                "tab": "source",
+                "name": "CCF_parcellation",
+            }
+        )
+
+    subject_id = Path(s3_dataset_path).name.split('_')[1]
     input_configs = {
         "title": subject_id,
         "dimensions": dimensions,
@@ -885,7 +912,11 @@ def create_ng_link(
         json_name="neuroglancer_config.json",
     )
 
-    ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+    if segmentation:
+        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/image_atlas_alignment/neuroglancer_config.json"
+    else:
+        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
+
     # Modifying output path in s3 for when the data is moved
     json_state = neuroglancer_link.state
     json_state["ng_link"] = ng_link
@@ -1060,6 +1091,21 @@ def run():
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
+            segmentation=False
+        )
+        
+        output_json, _ = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "z_res": axes_resolution[2]["resolution"] * 2**3,
+                "y_res": axes_resolution[1]["resolution"]* 2**3,
+                "x_res": axes_resolution[0]["resolution"]* 2**3,
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+            segmentation=True
         )
 
         email_message_params["ng_link_path"] = ng_link_path
