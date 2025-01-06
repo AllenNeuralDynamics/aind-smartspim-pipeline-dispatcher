@@ -520,8 +520,8 @@ def get_data_config(
     derivatives_dict = utils.read_json_as_dict(str(processing_manifest_path))
     data_description_dict = utils.read_json_as_dict(str(data_description_path))
 
-    smartspim_dataset = data_description_dict["name"]
-    investigators = data_description_dict["investigators"]
+    smartspim_dataset = data_description_dict.get("name")
+    investigators = data_description_dict.get("investigators")
 
     return derivatives_dict, smartspim_dataset, investigators
 
@@ -1106,16 +1106,17 @@ def run():
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
 
-    # Sending email alert
-    send_email_alerts(
-        mode=mode,
-        alert_configs=alert_configs,
-        investigators=investigators,
-        dataset_name=dataset_name,
-        logger=logger,
-        email_message_params=email_message_params,
-        source_email="notifications@allenneuraldynamics.org",
-    )
+    if investigators:
+        # Sending email alert
+        send_email_alerts(
+            mode=mode,
+            alert_configs=alert_configs,
+            investigators=investigators,
+            dataset_name=dataset_name,
+            logger=logger,
+            email_message_params=email_message_params,
+            source_email="notifications@allenneuraldynamics.org",
+        )
 
 
 if __name__ == "__main__":
