@@ -1286,6 +1286,8 @@ def run():
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
+
+        # This creates the main link to the stitched images
         output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
@@ -1300,6 +1302,8 @@ def run():
             segmentation=False
         )
 
+
+        # This creates the reverse transform link that is in image_atlas_alignment
         output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
