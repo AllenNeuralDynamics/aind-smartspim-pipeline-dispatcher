@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import dask.array as da
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Optional, Union
@@ -703,6 +704,51 @@ def compile_processing_jsons(
     )
 
     return output_filename
+
+def calculate_dynamic_range(
+        fuse_folder: PathLike,
+        percentile: 99,
+        level: 3
+):
+    
+    dynamic_ranges = {}
+    for fused_zarr in fuse_folder.glob("*.zarr"):
+        
+        img = da.from_zarr(fused_zarr, 3).squeeze()
+        range_max = da.percentile(img.flatten(), percentile).compute()[0]
+        window_max = int(range_max * 1.5)
+        dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
+        
+    return dynamic_ranges
+        
+
+def generate_ng_link(
+        input_configs: dict,
+        mount_service: str,
+        bucket_path: PathLike,
+        s3_path: PathLike,
+        output_dir: PathLike,
+        base_url = PathLike,
+        json_name = str,
+):
+    
+    json_state = {
+        "ng_link": f"{base_url}#!{s3_path}/{json_name}",
+        "title": input_configs['title'],
+        "dimensions": input_configs['dimensions'],
+        "crossSectionOrientation": input_configs['crossSectionOrientation'],
+        "crossSectionScale": input_configs['crossSectionScale'],
+        "projectionScale": 16384,
+        "layers": input_configs['layers'],
+        "gpuMemoryLimit": 1500000000,
+        "selectedLayer": {
+            "visible": True,
+            "layer": input_configs['layers'][0]['name']
+        },
+        "layout": "4panel",
+    }
+    
+    return json_state
 
 
 class AlertBot:

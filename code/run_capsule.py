@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import List, Tuple, Union
 
 import yaml
+import numpy as np
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
-from ng_link import NgState
 
 from utils import utils
 
@@ -123,7 +123,33 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
 
-
+def volume_orientation(acquisition_params: dict):
+    
+    
+    acquired = ["", "", ""]
+    
+    for axis in acquisition_params['axes']:
+        acquired[axis['dimension']] = axis['direction'][0]
+        
+    acquired = "".join(acquired)
+    
+    if acquired in ["SPR", "SPL"]:
+        orientation = [0.5, 0.5, 0.5, -0.5]
+    elif acquired == "SAL":
+        orientation = [0.5, 0.5, -0.5, 0.5]
+    elif acquired == "IAR":
+        orientation = [0.5, -0.5, 0.5, 0.5]
+    elif acquired == "RAS":
+        orientation = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
+    elif acquired == "RPI":
+        orientation = [np.cos(np.pi/4), 0.0, 0.0, -np.cos(np.pi/4)]
+    elif acquired == "LAI":
+        orientation = [0.0, np.cos(np.pi/4), -np.cos(np.pi/4), 0.0]
+    else:
+        raise ValueError("Acquisition orientation: {acquired} has unknown NG parameters")
+    
+    return orientation
+    
 def get_yaml_config(filename):
     """
     Get default configuration from a YAML file.
@@ -782,7 +808,11 @@ def create_derived_stitched_metadata(
 
 
 def create_ng_link(
-    config: dict, s3_channel_paths: List[str], s3_dataset_path: str
+    config: dict, 
+    s3_channel_paths: List[str], 
+    s3_dataset_path: str,
+    orientation: dict,
+    dynamic_ranges: dict,
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -844,7 +874,7 @@ def create_ng_link(
 
         layers.append(
             {
-                "source": s3_channel_paths[idx],
+                "source": f"zarr://{s3_channel_paths[idx]}",
                 "type": "image",
                 # use channel idx when source is the same
                 # in zarr to change channel otherwise 0
@@ -858,39 +888,42 @@ def create_ng_link(
                     "emitter": "RGB",
                     "vec": "vec3",
                 },
-                "shaderControls": {"normalized": {"range": [0, 200]}},  # Optional
+                "shaderControls": {
+                    "normalized": {
+                        "range": [0, dynamic_ranges[channel_name][0]],
+                        "window": [0, dynamic_ranges[channel_name][1]]
+                    }
+                },
             }
         )
-
+        
     subject_id = Path(s3_dataset_path).name.split("_")[1]
+    crossSectionOrientation = volume_orientation(orientation)
     input_configs = {
         "title": subject_id,
         "dimensions": dimensions,
         "layers": layers,
-        "crossSectionOrientation": [0.5, 0.5, 0.5, -0.5],
+        "crossSectionOrientation": crossSectionOrientation,
         "crossSectionScale": 15,
     }
-
-    neuroglancer_link = NgState(
-        input_config=input_configs,
-        mount_service="s3",
-        bucket_path=config["bucket_path"],
-        output_dir=config["output_folder"],
-        base_url=config["ng_base_url"],
-        json_name="neuroglancer_config.json",
+    
+    json_state = utils.generate_ng_link(
+        input_configs = input_configs,
+        mount_service = "s3",
+        bucket_path = config['bucket_path'],
+        s3_path = s3_dataset_path,
+        output_dir = config["output_folder"],
+        base_url = config['ng_base_url'],
+        json_name = "neuroglancer_config.json",
     )
-
-    ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/neuroglancer_config.json"
-    # Modifying output path in s3 for when the data is moved
-    json_state = neuroglancer_link.state
-    json_state["ng_link"] = ng_link
-
+    
+    
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
     with open(ng_output_path, "w") as outfile:
         json.dump(json_state, outfile, indent=2)
 
-    return Path(ng_output_path), ng_link
+    return Path(ng_output_path), json_state["ng_link"]
 
 
 def send_email_alerts(
@@ -1044,6 +1077,9 @@ def run():
             f"{s3_dest_zarr}/{fused_zarr.name}"
             for fused_zarr in fuse_folder.glob("*.zarr")
         ]
+        
+        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder)
+        orientation = pipeline_config['perlim_acquisition']
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
@@ -1052,13 +1088,15 @@ def run():
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
-                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
                 "z_res": axes_resolution[2]["resolution"],
                 "y_res": axes_resolution[1]["resolution"],
                 "x_res": axes_resolution[0]["resolution"],
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
+            orientation=orientation,
+            dynamic_ranges=chanel_dynamic_ranges
         )
 
         email_message_params["ng_link_path"] = ng_link_path

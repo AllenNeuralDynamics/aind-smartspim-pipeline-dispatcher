@@ -13,9 +13,9 @@ RUN conda create -n dispatcher python=3.8
 # Make RUN commands use the new environment:
 SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
 RUN pip install -U --no-cache-dir \
+    dask[distributed]==2022.11.1 \
     aind-codeocean-api==0.4.2 \
     aind-data-schema==1.0.0 \
-    aind-ng-link==1.0.17 \
     python-dotenv==0.21.1 \
     smartsheet-dataframe==0.3.4 \
     PyYAML==6.0.2 \
