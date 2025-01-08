@@ -657,8 +657,10 @@ def generate_ng_link(
         fully configured JSON for neuroglancer visualization
     """
     
+    ng_path = f"s3://aind-msma-morphology-data/test_data/SmartSPIM/{json.name}"
+
     json_state = {
-        "ng_link": f"{base_url}#!{s3_path}/{json_name}",
+        "ng_link": f"{base_url}#!{ng_path}",
         "title": input_configs['title'],
         "dimensions": input_configs['dimensions'],
         "crossSectionOrientation": input_configs['crossSectionOrientation'],
