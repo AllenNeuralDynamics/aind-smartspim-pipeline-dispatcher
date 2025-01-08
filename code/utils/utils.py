@@ -657,7 +657,7 @@ def generate_ng_link(
         fully configured JSON for neuroglancer visualization
     """
     
-    ng_path = f"s3://aind-msma-morphology-data/test_data/SmartSPIM/{json.name}"
+    ng_path = f"s3://aind-msma-morphology-data/test_data/SmartSPIM/dispatcher_test/{json.name}"
 
     json_state = {
         "ng_link": f"{base_url}#!{ng_path}",
