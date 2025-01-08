@@ -1349,7 +1349,7 @@ def run():
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
-                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
                 "z_res": axes_resolution[2]["resolution"],
                 "y_res": axes_resolution[1]["resolution"],
                 "x_res": axes_resolution[0]["resolution"],
@@ -1367,7 +1367,7 @@ def run():
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
-                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
                 "z_res": axes_resolution[2]["resolution"] * 2**3,
                 "y_res": axes_resolution[1]["resolution"]* 2**3,
                 "x_res": axes_resolution[0]["resolution"]* 2**3,
@@ -1479,7 +1479,7 @@ def run():
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
-                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
                 "z_res": axes_resolution[2]["resolution"] * 2**3,
                 "y_res": axes_resolution[1]["resolution"]* 2**3,
                 "x_res": axes_resolution[0]["resolution"]* 2**3,
@@ -1566,7 +1566,7 @@ def run():
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
-                "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
                 "z_res": axes_resolution[2]["resolution"],
                 "y_res": axes_resolution[1]["resolution"],
                 "x_res": axes_resolution[0]["resolution"],
