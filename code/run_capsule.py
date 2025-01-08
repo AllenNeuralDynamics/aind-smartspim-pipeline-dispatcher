@@ -1473,7 +1473,7 @@ def run():
         #s3_ng = "s3://aind-msma-morphology-data/test_data/SmartSPIM/dispatcher_test"
         #for out in utils.execute_command_helper(
         #    f"aws s3 cp {output_json} {s3_ng}/{output_json.name}"
-        ):
+        #):
         #    logger.info(out)
 
         # Copying neuroglancer config out
