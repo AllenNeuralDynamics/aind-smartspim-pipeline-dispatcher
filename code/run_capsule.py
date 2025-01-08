@@ -1357,7 +1357,7 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
             orientation=orientation,
-            dynamic_ranges=chanel_dynamic_ranges
+            dynamic_ranges=chanel_dynamic_ranges,
             segmentation=False
         )
 
@@ -1375,7 +1375,7 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
             orientation=[],
-            dynamic_ranges=chanel_dynamic_ranges
+            dynamic_ranges=chanel_dynamic_ranges,
             segmentation=True
         )
 
@@ -1465,7 +1465,7 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
             orientation=orientation,
-            dynamic_ranges=chanel_dynamic_ranges
+            dynamic_ranges=chanel_dynamic_ranges,
             segmentation=False
         )
 
@@ -1487,7 +1487,7 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
             orientation=[],
-            dynamic_ranges=chanel_dynamic_ranges
+            dynamic_ranges=chanel_dynamic_ranges,
             segmentation=True
         )
 
