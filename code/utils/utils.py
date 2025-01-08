@@ -710,11 +710,30 @@ def calculate_dynamic_range(
         percentile: 99,
         level: 3
 ):
+    """
+    Calculates the default dynamic range for teh neuroglancer link
+    using a defined percentile from the downsampled zarr
+
+    Parameters
+    ----------
+    fuse_folder : PathLike
+        location of the zarrs created during fusion
+    percentile : 99
+        The top percentile value for setting the dynamic range
+    level : 3
+        level of zarr to use for calculating percentile
+
+    Returns
+    -------
+    dynamic_ranges : dict
+        The dynamic range and window range values for each channels zarr
+
+    """
     
     dynamic_ranges = {}
     for fused_zarr in fuse_folder.glob("*.zarr"):
         
-        img = da.from_zarr(fused_zarr, 3).squeeze()
+        img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
         dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
@@ -724,13 +743,29 @@ def calculate_dynamic_range(
 
 def generate_ng_link(
         input_configs: dict,
-        mount_service: str,
-        bucket_path: PathLike,
         s3_path: PathLike,
-        output_dir: PathLike,
         base_url = PathLike,
         json_name = str,
 ):
+    """
+    Creates the json state dictionary for the neuroglancer link
+
+    Parameters
+    ----------
+    input_configs : dict
+        Base and layer information needed for configuring json state
+    s3_path : PathLike
+        The bucket location where the neuroglancer file will be stored
+    base_url : PathLike
+        The neuroglancer instance that you want to host the visualization
+    json_name : str
+        The name of the neuroglancer json file
+
+    Returns
+    -------
+    json_state : dict
+        fully configured JSON for neuroglancer visualization
+    """
     
     json_state = {
         "ng_link": f"{base_url}#!{s3_path}/{json_name}",

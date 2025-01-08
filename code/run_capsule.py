@@ -124,7 +124,26 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
     return hex_val  # hex_val is set to the last color in for loop
 
 def volume_orientation(acquisition_params: dict):
-    
+    """
+    Uses the acquisition orientation to set the cross-section
+    orientation in the neuroglancer links
+
+    Parameters
+    ----------
+    acquisition_params : dict
+        acquisition paramenters from the processing manifest
+
+    Raises
+    ------
+    ValueError
+        if a brain is aquired in a way other than those predifined here
+
+    Returns
+    -------
+    orientation : list
+        orientation values for the neuroglancer link
+
+    """
     
     acquired = ["", "", ""]
     
@@ -829,6 +848,12 @@ def create_ng_link(
 
     s3_dataset_path: str
         S3 path where the dataset is stored
+        
+    orientation: dict
+        Acquisition orientation obtained from processing manifest
+        
+    dynamic_ranges: dict
+        Values for setting dynamic range for each channel
 
     Returns
     -------------
@@ -909,10 +934,7 @@ def create_ng_link(
     
     json_state = utils.generate_ng_link(
         input_configs = input_configs,
-        mount_service = "s3",
-        bucket_path = config['bucket_path'],
         s3_path = s3_dataset_path,
-        output_dir = config["output_folder"],
         base_url = config['ng_base_url'],
         json_name = "neuroglancer_config.json",
     )
