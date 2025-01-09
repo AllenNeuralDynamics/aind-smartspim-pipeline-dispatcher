@@ -15,7 +15,6 @@ from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
-
 from utils import utils
 
 logging.basicConfig(
@@ -217,7 +216,7 @@ def dispatch(
     processing_manifest: dict,
     results_folder: PathLike,
     bucket: str,
-    co_domain : str = "https://codeocean.allenneuraldynamics.org"
+    co_domain: str = "https://codeocean.allenneuraldynamics.org",
 ):
     """
     Creates multiple processing manifest jsons using
@@ -243,7 +242,7 @@ def dispatch(
 
     logger.info(f"Provided processing manifest: {processing_manifest}")
 
-    codeocean_domain = co_domain #os.getenv("API_KEY")
+    codeocean_domain = co_domain  # os.getenv("API_KEY")
     co_token = os.getenv("API_SECRET")
     co_client = CodeOceanClient(domain=codeocean_domain, token=co_token)
 
@@ -533,11 +532,10 @@ def copy_intermediate_data(
     stitch_folder: List[PathLike],
     fuse_folder: List[PathLike],
     ccf_folders: List[PathLike],
-    new_dataset_name: str,
-    bucket_path: str,
+    s3_path: str,
     results_folder: PathLike,
     logger: logging.Logger,
-) -> str:
+):
     """
     Copies the destripe, stitch and fusion metadata
     to the destination bucket to make it available
@@ -568,15 +566,8 @@ def copy_intermediate_data(
         CCF registration folders generated
         in the pipeline.
 
-    new_dataset_name: str
-        New dataset name where the data will
-        be copied following the aind conventions
-        e.g., s3://{bucket_path}/{new_dataset_name}
-
-    bucket_path: str
-        S3 path where the data will be moved.
-        Do not include 's3://' since this is
-        automatically added.
+    s3_path: str
+        Path where we want to copy the data to s3.
 
     results_folder: PathLike
         Results folder path in Code Ocean
@@ -584,15 +575,6 @@ def copy_intermediate_data(
     logger: logging.Logger
         Logging object
 
-    Returns
-    -------
-    Tuple[str, str]
-        The first position is the path where the dataset
-        was moved. e.g., s3://{bucket_path}/{new_dataset_name}
-        It includes the "s3://" prefix. The second position
-        is the folder inside that path where the Zarrs
-        were moved.
-        e.g., s3://{bucket_path}/{new_dataset_name}/{output_fusion}/OMEZarr
     """
     flatfield_processings = [str(flatfield_folder.joinpath("metadata/processing.json"))]
     stitch_processings = [str(stitch_folder.joinpath("metadata/processing.json"))]
@@ -636,8 +618,6 @@ def copy_intermediate_data(
 
     logger.info(f"Compiled processing.json in path {output_filename}")
 
-    s3_path = f"s3://{bucket_path}/{new_dataset_name}"
-
     # Copying derived metadata
     output_dispatch_metadata = Path(output_dispatch_metadata)
     for out in utils.execute_command_helper(
@@ -647,8 +627,8 @@ def copy_intermediate_data(
 
     # Copying out fused data
     output_fusion = "image_tile_fusing"
-    dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
+    dest_zarr_path = f"{s3_path}/{output_fusion}/metadata"
 
     cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
 
@@ -713,8 +693,6 @@ def copy_intermediate_data(
         f"Stitched dataset saved in: {s3_path}",
         f"{results_folder}/output_stitching.txt",
     )
-
-    return s3_path, dest_zarr_path
 
 
 def create_derived_stitched_metadata(
@@ -1025,23 +1003,12 @@ def run():
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
         bucket_path = "aind-open-data"
-
-        s3_path, s3_dest_zarr = copy_intermediate_data(
-            output_dispatch_metadata=output_dispatch_metadata,
-            flatfield_folder=flatfield_folder,
-            destripe_files=destripe_files,
-            stitch_folder=stitch_folder,
-            fuse_folder=fuse_folder,
-            ccf_folders=ccf_folders,
-            new_dataset_name=new_dataset_name,
-            bucket_path=bucket_path,
-            results_folder=results_folder,
-            logger=logger,
-        )
+        s3_path = f"s3://{bucket_path}/{new_dataset_name}"
+        dest_zarr_path = f"{s3_path}/image_tile_fusing/OMEZarr"
 
         # Getting S3 paths for channels
         s3_paths_for_channels = [
-            f"{s3_dest_zarr}/{fused_zarr.name}"
+            f"{dest_zarr_path}/{fused_zarr.name}"
             for fused_zarr in fuse_folder.glob("*.zarr")
         ]
 
@@ -1062,6 +1029,42 @@ def run():
         )
 
         email_message_params["ng_link_path"] = ng_link_path
+
+        # Creating QC Metrics
+        qc_evaluators = [
+            {
+                "name": "Neuroglancer Link Evaluation",
+                "description": "Checks that the whole-brain neuroglancer link was created",
+                "notes": "",
+                "stage": "Processing",
+                "qc_metric_values": [
+                    {
+                        "name": "Dataset neuroglancer link",
+                        "description": "Qualitative check that the neuroglancer link was created",
+                        "value": "",
+                        "reference": ng_link_path,
+                        "status": "Pending",
+                    },
+                ],
+            },
+        ]
+
+        utils.create_quality_control_metadata(
+            qc_eval_values=qc_evaluators,
+            output_path=output_dispatch_metadata,
+        )
+
+        copy_intermediate_data(
+            output_dispatch_metadata=output_dispatch_metadata,
+            flatfield_folder=flatfield_folder,
+            destripe_files=destripe_files,
+            stitch_folder=stitch_folder,
+            fuse_folder=fuse_folder,
+            ccf_folders=ccf_folders,
+            s3_path=s3_path,
+            results_folder=results_folder,
+            logger=logger,
+        )
 
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
