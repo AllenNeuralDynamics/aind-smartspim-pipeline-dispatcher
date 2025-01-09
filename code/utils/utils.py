@@ -8,15 +8,18 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import boto3
+import pytz
 import requests
-from aind_data_schema.base import AindCoreModel
 from aind_data_schema.core.data_description import (DerivedDataDescription,
                                                     Funding)
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
+from aind_data_schema.core.quality_control import (QCEvaluation, QCMetric,
+                                                   QCStatus, QualityControl,
+                                                   Stage, Status)
 from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.pid_names import PIDName
@@ -375,7 +378,21 @@ def validate_capsule_inputs(input_elements: List[str]) -> List[str]:
     return missing_inputs
 
 
-def get_messenger_credentails(secret_id):
+def get_messenger_credentails(secret_id: str) -> Dict:
+    """
+    Gets messenger credentials to send emails
+    to investigators.
+
+    Parameters
+    ----------
+    secret_id: str
+        Secret ID to retrieve from S3
+
+    Returns
+    -------
+    Dict
+        Dictionary with the secrets
+    """
     client = boto3.client("secretsmanager", region_name="us-west-2")
 
     try:
@@ -990,3 +1007,75 @@ def send_ses_alerts(
         print("Problem retrieving token from the secret manager")
 
     return response
+
+
+def create_quality_control_metadata(
+    qc_eval_values: List[Dict], output_path: str, time_zone: str = "America/Los_Angeles"
+):
+    """
+    Creates a quality control metadata file to
+    track all metrics in each of the image processing
+    steps.
+
+    Parameters
+    ---------
+    qc_eval_values: List[Dict]
+        List of evaluations that will be included in
+        the quality control metadata.
+
+    output_path: PathLike
+        Path where the quality control metadata file
+        will be stored.
+
+    timezone: str
+        Timezone that will be used in the creation of
+        the metadata file.
+    """
+    qc_metrics = []
+
+    if len(qc_eval_values):
+        pst_timezone = pytz.timezone(time_zone)
+        curr_time = datetime.now(pst_timezone)
+        stage_lookup = {item.value: item for item in Stage}
+        status_lookup = {item.value: item for item in Status}
+
+        print("stage lookup: ", stage_lookup)
+        evaluations = []
+        for curr_qc_eval in qc_eval_values:
+            qc_metric_values = curr_qc_eval.get("qc_metric_values")
+
+            print(curr_qc_eval)
+            qc_metrics = [
+                QCMetric(
+                    name=curr_dict.get("name", ""),
+                    description=curr_dict.get("desc", ""),
+                    value=curr_dict.get("value", ""),
+                    reference=curr_dict.get("reference"),
+                    status_history=[
+                        QCStatus(
+                            evaluator="Automated",
+                            status=status_lookup.get(curr_dict.get("status")),
+                            timestamp=curr_time,
+                        )
+                    ],
+                )
+                for curr_dict in qc_metric_values
+            ]
+
+            evaluations.append(
+                QCEvaluation(
+                    name=curr_qc_eval.get("name"),
+                    description=curr_qc_eval.get("description"),
+                    modality=Modality.SPIM,
+                    stage=stage_lookup.get(curr_qc_eval.get("stage")),
+                    metrics=qc_metrics,
+                    notes=curr_qc_eval.get("notes", ""),
+                    created=curr_time,
+                )
+            )
+
+        if len(evaluations):
+            q = QualityControl(evaluations=evaluations)
+            serialized = q.model_dump_json()
+            deserialized = QualityControl.model_validate_json(serialized)
+            q.write_standard_file(output_directory=output_path)
