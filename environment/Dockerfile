@@ -14,7 +14,7 @@ RUN conda create -n dispatcher python=3.8
 SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
 RUN pip install -U --no-cache-dir \
     aind-codeocean-api==0.4.2 \
-    aind-data-schema==1.0.0 \
+    aind-data-schema==1.3.0 \
     aind-ng-link==1.0.17 \
     python-dotenv==0.21.1 \
     smartsheet-dataframe==0.3.4 \
