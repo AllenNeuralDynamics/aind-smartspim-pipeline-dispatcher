@@ -628,7 +628,7 @@ def copy_intermediate_data(
     # Copying out fused data
     output_fusion = "image_tile_fusing"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
-    dest_zarr_path = f"{s3_path}/{output_fusion}/metadata"
+    dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
 
     cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
 
