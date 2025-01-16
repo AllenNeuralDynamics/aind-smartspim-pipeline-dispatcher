@@ -1050,7 +1050,6 @@ def create_ng_link(
     s3_dataset_path: str,
     orientation: dict,
     dynamic_ranges: dict,
-    segmentation: bool,
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -1087,19 +1086,19 @@ def create_ng_link(
     s3_channel_paths = sorted(s3_channel_paths)
 
     dimensions = {
-        "z": {
-            "voxel_size": config["z_res"],
-            "unit": "microns",
-        },
-        "y": {
-            "voxel_size": config["y_res"],
-            "unit": "microns",
-        },
-        "x": {
-            "voxel_size": config["x_res"],
-            "unit": "microns",
-        },
-        "t": {"voxel_size": 0.001, "unit": "seconds"},
+        "z": [
+            config["z_res"] * 10**-6,
+            "m",
+        ],
+        "y": [
+            config["y_res"] * 10**-6,
+            "m",
+        ],
+        "x": [
+            config["x_res"] * 10**-6,
+            "m",
+        ],
+        "t": [0.001, "s"],
     }
 
     colors = []
@@ -1107,7 +1106,8 @@ def create_ng_link(
         channel_str = str(Path(channel_str).stem).replace(".ome", "")
         channel: int = int(channel_str.split("_")[-1])
         hex_val: int = wavelength_to_hex_alternate(channel)
-        hex_str = f"#{str(hex(hex_val))[2:]}"
+        hex_code = f"#{str(hex(hex_val))[2:]}"
+        hex_str = '#uicontrol vec3 color color(default="' + hex_code + '")\n#uicontrol invlerp normalized\nvoid main() {\nemitRGB(color * normalized());\n}'
 
         colors.append(hex_str)
 
@@ -1127,11 +1127,8 @@ def create_ng_link(
                 "opacity": 1,
                 "blend": "additive",
                 "tab": "rendering",
-                "shader": {
-                    "color": colors[idx],
-                    "emitter": "RGB",
-                    "vec": "vec3",
-                },
+
+                "shader": hex_str,
                 "shaderControls": {
                     "normalized": {
                         "range": [0, dynamic_ranges[channel_name][0]],
@@ -1447,7 +1444,7 @@ def run():
             s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}")
         
         chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folders, 99, 3)
-        orientation = pipeline_config['prelim_acquisition']
+        orientation = pipeline_config['perlim_acquisition']
 
         logger.info(f"s3 channel paths: {s3_paths_for_channels}")
 
