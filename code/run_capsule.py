@@ -1446,7 +1446,7 @@ def run():
             s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}")
         
         chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folders, 99, 3)
-        orientation = pipeline_config['perlim_acquisition']
+        orientation = pipeline_config['prelim_acquisition']
 
         logger.info(f"s3 channel paths: {s3_paths_for_channels}")
 
