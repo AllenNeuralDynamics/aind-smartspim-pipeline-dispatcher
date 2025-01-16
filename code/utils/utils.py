@@ -622,12 +622,12 @@ def calculate_dynamic_range(
     """
     
     dynamic_ranges = {}
-    for fused_zarr in fuse_folder.glob("*.zarr"):
-        
+    for fused_zarr in fuse_folder:
+        name = fused_zarr.split("/")[-1] 
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
-        dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
+        dynamic_ranges[name] = [int(range_max), window_max]
         
     return dynamic_ranges
 
