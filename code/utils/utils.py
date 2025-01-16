@@ -539,7 +539,7 @@ def generate_data_description(
     if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
         institution = data["institution"]["abbreviation"]
 
-    investigators = data["investigators"]
+    investigators = data.get("investigators", [])
 
     if len(investigators) and len(investigators[0]):
         investigators = [PIDName.parse_obj(inv) for inv in investigators]
