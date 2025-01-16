@@ -14,6 +14,7 @@ RUN conda create -n dispatcher python=3.8
 SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
 RUN pip install -U --no-cache-dir \
     dask[distributed]==2022.11.1 \
+    zarr==2.13.3 \
     aind-codeocean-api==0.4.2 \
     python-dotenv==0.21.1 \
     aind-data-schema==1.0.0 \
