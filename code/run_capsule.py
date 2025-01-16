@@ -1050,6 +1050,7 @@ def create_ng_link(
     s3_dataset_path: str,
     orientation: dict,
     dynamic_ranges: dict,
+    segmentation: bool,
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -1127,7 +1128,6 @@ def create_ng_link(
                 "opacity": 1,
                 "blend": "additive",
                 "tab": "rendering",
-
                 "shader": hex_str,
                 "shaderControls": {
                     "normalized": {
