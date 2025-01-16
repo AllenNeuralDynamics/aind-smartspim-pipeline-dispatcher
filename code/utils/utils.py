@@ -598,8 +598,8 @@ def compile_processing_jsons(
 
 def calculate_dynamic_range(
         fuse_folder: PathLike,
-        percentile: 99,
-        level: 3
+        percentile: int,
+        level: int
 ):
     """
     Calculates the default dynamic range for teh neuroglancer link

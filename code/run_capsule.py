@@ -1337,7 +1337,7 @@ def run():
             channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
             s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}.zarr")
         
-        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder)
+        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folders, 99, 3)
         orientation = pipeline_config['perlim_acquisition']
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
@@ -1445,7 +1445,7 @@ def run():
             channel_name = f"{Path(fuse_folder).name}".replace("fusion_", "")
             s3_paths_for_channels.append(f"{s3_dest_zarr}/{channel_name}")
         
-        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder)
+        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folders, 99, 3)
         orientation = pipeline_config['perlim_acquisition']
 
         logger.info(f"s3 channel paths: {s3_paths_for_channels}")
@@ -1470,17 +1470,16 @@ def run():
         )
 
         # Copying neuroglancer config out
-        #s3_ng = "s3://aind-msma-morphology-data/test_data/SmartSPIM/dispatcher_test"
-        #for out in utils.execute_command_helper(
-        #    f"aws s3 cp {output_json} {s3_ng}/{output_json.name}"
-        #):
-        #    logger.info(out)
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        ):
+            logger.info(out)
 
         # Copying neuroglancer config out
-        #for out in utils.execute_command_helper(
-        #    f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-        #):
-        #    logger.info(out)
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        ):
+            logger.info(out)
 
         #output_json, ng_link_path = create_ng_link(
         #    config={
