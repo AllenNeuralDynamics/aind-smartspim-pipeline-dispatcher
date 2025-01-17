@@ -739,7 +739,41 @@ def calculate_dynamic_range(
         dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
         
     return dynamic_ranges
+
+def calculate_dynamic_range(
+        fuse_folder: PathLike,
+        percentile: int,
+        level: int
+):
+    """
+    Calculates the default dynamic range for teh neuroglancer link
+    using a defined percentile from the downsampled zarr
+
+    Parameters
+    ----------
+    fuse_folder : PathLike
+        location of the zarrs created during fusion
+    percentile : 99
+        The top percentile value for setting the dynamic range
+    level : 3
+        level of zarr to use for calculating percentile
+
+    Returns
+    -------
+    dynamic_ranges : dict
+        The dynamic range and window range values for each channels zarr
+
+    """
+    
+    dynamic_ranges = {}
+    for fused_zarr in fuse_folder:
+        name = fused_zarr.split("/")[-1] 
+        img = da.from_zarr(fused_zarr, str(level)).squeeze()
+        range_max = da.percentile(img.flatten(), percentile).compute()[0]
+        window_max = int(range_max * 1.5)
+        dynamic_ranges[name] = [int(range_max), window_max]
         
+    return dynamic_ranges   
 
 def generate_ng_link(
         input_configs: dict,
@@ -767,8 +801,10 @@ def generate_ng_link(
         fully configured JSON for neuroglancer visualization
     """
     
+    ng_path = f"{s3_path}/{json_name}"
+
     json_state = {
-        "ng_link": f"{base_url}#!{s3_path}/{json_name}",
+        "ng_link": f"{base_url}#!{ng_path}",
         "title": input_configs['title'],
         "dimensions": input_configs['dimensions'],
         "crossSectionOrientation": input_configs['crossSectionOrientation'],

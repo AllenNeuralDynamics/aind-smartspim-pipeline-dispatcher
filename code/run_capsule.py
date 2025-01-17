@@ -832,6 +832,7 @@ def create_ng_link(
     s3_dataset_path: str,
     orientation: dict,
     dynamic_ranges: dict,
+    segmentation: bool,
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -868,19 +869,19 @@ def create_ng_link(
     s3_channel_paths = sorted(s3_channel_paths)
 
     dimensions = {
-        "z": {
-            "voxel_size": config["z_res"],
-            "unit": "microns",
-        },
-        "y": {
-            "voxel_size": config["y_res"],
-            "unit": "microns",
-        },
-        "x": {
-            "voxel_size": config["x_res"],
-            "unit": "microns",
-        },
-        "t": {"voxel_size": 0.001, "unit": "seconds"},
+        "z": [
+            config["z_res"] * 10**-6,
+            "m",
+        ],
+        "y": [
+            config["y_res"] * 10**-6,
+            "m",
+        ],
+        "x": [
+            config["x_res"] * 10**-6,
+            "m",
+        ],
+        "t": [0.001, "s"],
     }
 
     colors = []
@@ -888,7 +889,8 @@ def create_ng_link(
         channel_str = str(Path(channel_str).stem).replace(".ome", "")
         channel: int = int(channel_str.split("_")[-1])
         hex_val: int = wavelength_to_hex_alternate(channel)
-        hex_str = f"#{str(hex(hex_val))[2:]}"
+        hex_code = f"#{str(hex(hex_val))[2:]}"
+        hex_str = '#uicontrol vec3 color color(default="' + hex_code + '")\n#uicontrol invlerp normalized\nvoid main() {\nemitRGB(color * normalized());\n}'
 
         colors.append(hex_str)
 
@@ -908,11 +910,7 @@ def create_ng_link(
                 "opacity": 1,
                 "blend": "additive",
                 "tab": "rendering",
-                "shader": {
-                    "color": colors[idx],
-                    "emitter": "RGB",
-                    "vec": "vec3",
-                },
+                "shader": colors[idx],
                 "shaderControls": {
                     "normalized": {
                         "range": [0, dynamic_ranges[channel_name][0]],
@@ -921,8 +919,31 @@ def create_ng_link(
                 },
             }
         )
-        
-    subject_id = Path(s3_dataset_path).name.split("_")[1]
+
+    if segmentation:
+        layers.append(
+            {
+                "source":f"zarr://{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
+                "type": "image",
+                "tab": "source",
+                "name": "CCF_template",
+                "shaderControls": {
+                    "normalized": {"range": [0, 300]},
+                    "window": [0, 1000]
+                }
+            }
+        )
+
+        layers.append(
+            {
+                "source":f"precomputed://{s3_dataset_path}/image_atlas_alignment/ccf_annotation_precomputed",
+                "type": "segmentation",
+                "tab": "source",
+                "name": "CCF_parcellation",
+            }
+        )
+
+    subject_id = Path(s3_dataset_path).name.split('_')[1]
     crossSectionOrientation = volume_orientation(orientation)
     input_configs = {
         "title": subject_id,
@@ -931,22 +952,24 @@ def create_ng_link(
         "crossSectionOrientation": crossSectionOrientation,
         "crossSectionScale": 15,
     }
-    
+
     json_state = utils.generate_ng_link(
         input_configs = input_configs,
         s3_path = s3_dataset_path,
         base_url = config['ng_base_url'],
         json_name = "neuroglancer_config.json",
     )
-    
-    
+
+    if segmentation:
+        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/image_atlas_alignment/neuroglancer_config.json"
+        json_state["ng_link"] = ng_link
+
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
     with open(ng_output_path, "w") as outfile:
         json.dump(json_state, outfile, indent=2)
 
     return Path(ng_output_path), json_state["ng_link"]
-
 
 def send_email_alerts(
     mode: str,
@@ -1100,12 +1123,14 @@ def run():
             for fused_zarr in fuse_folder.glob("*.zarr")
         ]
         
-        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder)
-        orientation = pipeline_config['perlim_acquisition']
+        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder, 99, 3)
+        orientation = pipeline_config['prelim_acquisition']
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
+
+        # This creates the standard raw data view
         output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
@@ -1118,7 +1143,25 @@ def run():
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
             orientation=orientation,
-            dynamic_ranges=chanel_dynamic_ranges
+            dynamic_ranges=chanel_dynamic_ranges,
+            segmentation=False
+        )
+
+        # This creates the reverse transform link that is in image_atlas_alignment
+        output_json, ng_link_path = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
+                "z_res": axes_resolution[2]["resolution"] * 2**3,
+                "y_res": axes_resolution[1]["resolution"]* 2**3,
+                "x_res": axes_resolution[0]["resolution"]* 2**3,
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+            orientation=[],
+            dynamic_ranges=chanel_dynamic_ranges,
+            segmentation=True
         )
 
         email_message_params["ng_link_path"] = ng_link_path
