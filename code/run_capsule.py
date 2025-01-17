@@ -1128,7 +1128,7 @@ def create_ng_link(
                 "opacity": 1,
                 "blend": "additive",
                 "tab": "rendering",
-                "shader": hex_str,
+                "shader": color[idx],
                 "shaderControls": {
                     "normalized": {
                         "range": [0, dynamic_ranges[channel_name][0]],
