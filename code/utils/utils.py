@@ -549,9 +549,13 @@ def generate_data_description(
 
     # from_data_description
     funding_adapter = TypeAdapter(Funding)
-    funding_sources = [
-        funding_adapter.validate_python(fund) for fund in data["funding_source"]
-    ]
+    try:
+        funding_sources = [
+            funding_adapter.validate_python(fund) for fund in data["funding_source"]
+        ]
+    except Exception as e:
+        print(f"Error getting the funding source into the schema!")
+        funding_sources = []
 
     # Setting Allen Institute as default since derived data description
     # does not allow empty funding source
