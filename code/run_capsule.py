@@ -1613,7 +1613,7 @@ def run():
 
     elif "clean" in mode:
         logger.info("Starting cleaning...")
-        pipeline_config, dataset_name = get_data_config(
+        pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
             processing_manifest_path="modified_processing_manifest.json",
