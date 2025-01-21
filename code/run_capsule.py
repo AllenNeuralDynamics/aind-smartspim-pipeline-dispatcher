@@ -1119,7 +1119,7 @@ def create_ng_link(
 
         layers.append(
             {
-                "source": f"zarr://{s3_channel_paths[idx]}",
+                "source": s3_channel_paths[idx],
                 "type": "image",
                 # use channel idx when source is the same
                 # in zarr to change channel otherwise 0
@@ -1141,7 +1141,7 @@ def create_ng_link(
     if segmentation:
         layers.append(
             {
-                "source":f"zarr://{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
+                "source":f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
                 "type": "image",
                 "tab": "source",
                 "name": "CCF_template",
