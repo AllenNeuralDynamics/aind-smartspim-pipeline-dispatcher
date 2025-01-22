@@ -669,10 +669,19 @@ def generate_ng_link(
         "layers": input_configs['layers'],
         "gpuMemoryLimit": 1500000000,
         "selectedLayer": {
-            "visible": True,
             "layer": input_configs['layers'][0]['name']
         },
         "layout": "4panel",
+        "selection": {
+            "row": 2,
+            "visible": false
+        },
+        "toolPalettes": {
+            "Shader controls": {
+                "row": 1,
+                "query": "type:shaderControl"
+            }
+        }
     }
     
     return json_state

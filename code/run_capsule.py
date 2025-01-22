@@ -1473,44 +1473,32 @@ def run():
         ):
             logger.info(out)
 
-        # Copying neuroglancer config out
-        for out in utils.execute_command_helper(
-            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-        ):
-            logger.info(out)
+        output_json, ng_link_path = create_ng_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
+                "z_res": axes_resolution[2]["resolution"]* 2**3,
+                "y_res": axes_resolution[1]["resolution"]* 2**3,
+                "x_res": axes_resolution[0]["resolution"]* 2**3,
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+            orientation=[],
+            dynamic_ranges=chanel_dynamic_ranges,
+            segmentation=True
+        )
 
-        #output_json, ng_link_path = create_ng_link(
-        #    config={
-        #        "bucket_path": bucket_path,
-        #        "output_folder": results_folder,
-        #        "ng_base_url": "https://neuroglancer-demo.appspot.com/",
-        #        "z_res": axes_resolution[2]["resolution"] * 2**3,
-        #        "y_res": axes_resolution[1]["resolution"]* 2**3,
-        #        "x_res": axes_resolution[0]["resolution"]* 2**3,
-        #    },
-        #    s3_channel_paths=s3_paths_for_channels,
-        #    s3_dataset_path=s3_path,
-        #    orientation=[],
-        #    dynamic_ranges=chanel_dynamic_ranges,
-        #    segmentation=True
-        #)
+        email_message_params["ng_link_path"] = ng_link_path
 
-        #email_message_params["ng_link_path"] = ng_link_path
-
-        #data_results = glob(f"{results_folder}/*")
-        #logger.info(f"Data in {results_folder}: {data_results}")
-
-        # Copying neuroglancer config out
-        #s3_ng = "s3://aind-msma-morphology-data/test_data/SmartSPIM/dispatcher_test/{output_json.name}"
-        #for out in utils.execute_command_helper(
-        #   f"aws s3 cp {output_json} {s3_ng}/image_atlas_alignment/{output_json.name}"
-        #):
+        data_results = glob(f"{results_folder}/*")
+        logger.info(f"Data in {results_folder}: {data_results}")
 
         # Commented out during testing
-        #for out in utils.execute_command_helper(
-        #    f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
-        #):
-        #    logger.info(out)
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
+        ):
+            logger.info(out)
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
