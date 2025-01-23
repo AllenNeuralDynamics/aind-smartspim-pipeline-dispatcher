@@ -674,7 +674,7 @@ def generate_ng_link(
         "layout": "4panel",
         "selection": {
             "row": 2,
-            "visible": false
+            "visible": False
         },
         "toolPalettes": {
             "Shader controls": {
