@@ -942,6 +942,11 @@ def create_ng_link(
                 "name": "CCF_parcellation",
             }
         )
+        
+    if isinstance(orientation, dict):
+        crossSectionOrientation = volume_orientation(orientation)
+    else:
+        crossSectionOrientation = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
 
     subject_id = Path(s3_dataset_path).name.split('_')[1]
     crossSectionOrientation = volume_orientation(orientation)
@@ -1146,6 +1151,12 @@ def run():
             dynamic_ranges=chanel_dynamic_ranges,
             segmentation=False
         )
+        
+        # Copying neuroglancer config out
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+        ):
+            logger.info(out)
 
         # This creates the reverse transform link that is in image_atlas_alignment
         output_json, ng_link_path = create_ng_link(
@@ -1159,7 +1170,7 @@ def run():
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
-            orientation=[],
+            orientation=None,
             dynamic_ranges=chanel_dynamic_ranges,
             segmentation=True
         )
