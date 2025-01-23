@@ -1499,7 +1499,6 @@ def run():
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
 
-        # Commented out during testing
         for out in utils.execute_command_helper(
             f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
         ):
