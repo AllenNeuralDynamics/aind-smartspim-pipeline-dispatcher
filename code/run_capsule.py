@@ -262,7 +262,7 @@ def dispatch(
     processing_manifest: dict,
     results_folder: PathLike,
     bucket: str,
-    co_domain : str = "https://codeocean.allenneuraldynamics.org"
+    co_domain: str = "https://codeocean.allenneuraldynamics.org",
 ):
     """
     Creates multiple processing manifest jsons using
@@ -901,7 +901,7 @@ def create_ng_link(
 
         layers.append(
             {
-                "source": f"zarr://{s3_channel_paths[idx]}",
+                "source": s3_channel_paths[idx],
                 "type": "image",
                 # use channel idx when source is the same
                 # in zarr to change channel otherwise 0
@@ -1108,23 +1108,12 @@ def run():
         ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
         bucket_path = "aind-open-data"
-
-        s3_path, s3_dest_zarr = copy_intermediate_data(
-            output_dispatch_metadata=output_dispatch_metadata,
-            flatfield_folder=flatfield_folder,
-            destripe_files=destripe_files,
-            stitch_folder=stitch_folder,
-            fuse_folder=fuse_folder,
-            ccf_folders=ccf_folders,
-            new_dataset_name=new_dataset_name,
-            bucket_path=bucket_path,
-            results_folder=results_folder,
-            logger=logger,
-        )
+        s3_path = f"s3://{bucket_path}/{new_dataset_name}"
+        dest_zarr_path = f"{s3_path}/image_tile_fusing/OMEZarr"
 
         # Getting S3 paths for channels
         s3_paths_for_channels = [
-            f"{s3_dest_zarr}/{fused_zarr.name}"
+            f"{dest_zarr_path}/{fused_zarr.name}"
             for fused_zarr in fuse_folder.glob("*.zarr")
         ]
         
@@ -1134,8 +1123,6 @@ def run():
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
-
-        # This creates the standard raw data view
         output_json, ng_link_path = create_ng_link(
             config={
                 "bucket_path": bucket_path,
@@ -1176,6 +1163,42 @@ def run():
         )
 
         email_message_params["ng_link_path"] = ng_link_path
+
+        # Creating QC Metrics
+        qc_evaluators = [
+            {
+                "name": "Neuroglancer Link Evaluation",
+                "description": "Checks that the whole-brain neuroglancer link was created",
+                "notes": "",
+                "stage": "Processing",
+                "qc_metric_values": [
+                    {
+                        "name": "Dataset neuroglancer link",
+                        "description": "Qualitative check that the neuroglancer link was created",
+                        "value": "",
+                        "reference": ng_link_path,
+                        "status": "Pending",
+                    },
+                ],
+            },
+        ]
+
+        utils.create_quality_control_metadata(
+            qc_eval_values=qc_evaluators,
+            output_path=output_dispatch_metadata,
+        )
+
+        copy_intermediate_data(
+            output_dispatch_metadata=output_dispatch_metadata,
+            flatfield_folder=flatfield_folder,
+            destripe_files=destripe_files,
+            stitch_folder=stitch_folder,
+            fuse_folder=fuse_folder,
+            ccf_folders=ccf_folders,
+            s3_path=s3_path,
+            results_folder=results_folder,
+            logger=logger,
+        )
 
         data_results = glob(f"{results_folder}/*")
         logger.info(f"Data in {results_folder}: {data_results}")
