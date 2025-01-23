@@ -1164,7 +1164,7 @@ def create_ng_link(
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
     else:
-        crossSectionOrientaion = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
+        crossSectionOrientation = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
 
 
     subject_id = Path(s3_dataset_path).name.split('_')[1]
