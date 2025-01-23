@@ -923,7 +923,7 @@ def create_ng_link(
     if segmentation:
         layers.append(
             {
-                "source":f"zarr://{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
+                "source":f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
                 "type": "image",
                 "tab": "source",
                 "name": "CCF_template",
