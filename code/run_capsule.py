@@ -1050,6 +1050,7 @@ def create_ng_link(
     s3_dataset_path: str,
     orientation: dict,
     dynamic_ranges: dict,
+    crossSectionScale: float,
     segmentation: bool,
 ) -> str:
     """
@@ -1161,12 +1162,7 @@ def create_ng_link(
             }
         )
 
-    if isinstance(orientation, dict):
-        crossSectionOrientation = volume_orientation(orientation)
-    else:
-        crossSectionOrientation = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
-
-
+    crossSectionOrientation = volume_orientation(orientation)
     subject_id = Path(s3_dataset_path).name.split('_')[1]
     input_configs = {
         "title": subject_id,
@@ -1469,6 +1465,7 @@ def run():
             s3_dataset_path=s3_path,
             orientation=orientation,
             dynamic_ranges=chanel_dynamic_ranges,
+            crossSectionScale = 15.0,
             segmentation=False
         )
 
@@ -1489,8 +1486,9 @@ def run():
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
-            orientation=None,
+            orientation=orientation,
             dynamic_ranges=chanel_dynamic_ranges,
+            crossSectionScale=1.25,
             segmentation=True
         )
 
