@@ -379,6 +379,16 @@ def clean_up(
     logger.info(f"Cell folders: {cell_folders}")
     logger.info(f"Quantification folders: {quantification_folders}")
 
+    # Reading proposals processings
+    proposals_processing = []
+    for cell_folder in cell_folders:
+        processing_jsons = [
+            p
+            for p in glob(f"{cell_folder}/proposals_metadata/*processing*.json")
+            if "manifest" not in str(p)
+        ]
+        segmentation_processing.append(processing_jsons)
+
     # Reading segmentation processings
     segmentation_processing = []
     for cell_folder in cell_folders:
@@ -403,6 +413,7 @@ def clean_up(
     processing_paths = list()
     combined_processing_list = (
         [[f"{data_folder}/output_aind_metadata/processing.json"]]
+        + proposals_processing
         + segmentation_processing
         + quantification_processing
     )
