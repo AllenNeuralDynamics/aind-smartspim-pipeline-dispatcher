@@ -387,7 +387,7 @@ def clean_up(
             for p in glob(f"{cell_folder}/proposals_metadata/*processing*.json")
             if "manifest" not in str(p)
         ]
-        segmentation_processing.append(processing_jsons)
+        proposals_processing.append(processing_jsons)
 
     # Reading segmentation processings
     segmentation_processing = []
