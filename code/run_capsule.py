@@ -384,7 +384,7 @@ def clean_up(
     for cell_folder in cell_folders:
         processing_jsons = [
             p
-            for p in glob(f"{cell_folder}/proposals_metadata/*processing*.json")
+            for p in glob(f"{cell_folder}/proposals/metadata/*processing*.json")
             if "manifest" not in str(p)
         ]
         proposals_processing.append(processing_jsons)
