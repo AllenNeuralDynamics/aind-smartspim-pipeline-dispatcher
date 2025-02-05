@@ -16,6 +16,7 @@ from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
 from utils import utils
+from ._init_ import __pipeline_version__, __maintainers__, __pipeline_notes__
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -32,7 +33,6 @@ logger.setLevel(logging.INFO)
 
 PathLike = Union[str, Path]
 
-PIPELINE_VERSION = "3.0.0"
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 
 
@@ -424,8 +424,9 @@ def clean_up(
     output_filename = utils.compile_processing_jsons(
         processing_paths=processing_paths,
         output_general_processing=results_folder,
-        processor_full_name="Camilo Laiton",
-        pipeline_version=PIPELINE_VERSION,
+        processor_full_name=__maintainers__[0],
+        pipeline_version=__pipeline_version__,
+        pipeline_notes=__pipeline_notes__,
     )
 
     logger.info(f"Compiled processing.json in path {output_filename}")
@@ -619,8 +620,9 @@ def copy_intermediate_data(
         output_filename = utils.compile_processing_jsons(
             processing_paths=processing_paths,
             output_general_processing=output_dispatch_metadata,
-            processor_full_name="Camilo Laiton",
-            pipeline_version=PIPELINE_VERSION,
+            processor_full_name=__maintainers__[0],
+            pipeline_version=__pipeline_version__,
+            pipeline_notes=__pipeline_notes__,
         )
 
     except Exception as e:
