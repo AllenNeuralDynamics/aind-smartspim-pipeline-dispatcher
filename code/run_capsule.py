@@ -312,28 +312,31 @@ def dispatch(
             "channels"
         ][0]
 
-        if not len(segment_channels):
-            raise BaseException("Stopping pipeline, no segmentation channels.")
+        if len(segment_channels):
+            print(f"Preparing segmentation configs for: {segment_channels}")
+            
+            for channel_to_segment in segment_channels:
+                copy_pipeline_config = pipeline_config.copy()
 
-        for channel_to_segment in segment_channels:
-            copy_pipeline_config = pipeline_config.copy()
+                copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
+                copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
+                copy_pipeline_config["segmentation"][
+                    "background_channel"
+                ] = background_channel
 
-            copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
-            copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
-            copy_pipeline_config["segmentation"][
-                "background_channel"
-            ] = background_channel
+                # Creating quantification parameters
+                copy_pipeline_config["quantification"] = {}
+                copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
+                copy_pipeline_config["quantification"]["channel"] = channel_to_segment
+                copy_pipeline_config["quantification"]["save_path"] = "../results/"
 
-            # Creating quantification parameters
-            copy_pipeline_config["quantification"] = {}
-            copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
-            copy_pipeline_config["quantification"]["channel"] = channel_to_segment
-            copy_pipeline_config["quantification"]["save_path"] = "../results/"
+                utils.save_dict_as_json(
+                    f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
+                    copy_pipeline_config,
+                )
 
-            utils.save_dict_as_json(
-                f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
-                copy_pipeline_config,
-            )
+        else:
+            print(f"No segmentation channels provided, pipeline config: {pipeline_config}")
 
     else:
         raise BaseException("Stopping pipeline, pipeline configuration.")
