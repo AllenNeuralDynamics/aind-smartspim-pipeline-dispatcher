@@ -428,57 +428,62 @@ def clean_up(
         processing_paths += sub_list
 
     logger.info(f"Compiling processing paths: {processing_paths}")
-    output_filename = utils.compile_processing_jsons(
-        processing_paths=processing_paths,
-        output_general_processing=results_folder,
-        processor_full_name=__maintainers__[0],
-        pipeline_version=__pipeline_version__,
-        pipeline_notes=__pipeline_notes__,
-    )
+    
+    if len(processing_paths) > 1:
+        output_filename = utils.compile_processing_jsons(
+            processing_paths=processing_paths,
+            output_general_processing=results_folder,
+            processor_full_name=__maintainers__[0],
+            pipeline_version=__pipeline_version__,
+            pipeline_notes=__pipeline_notes__,
+        )
 
-    logger.info(f"Compiled processing.json in path {output_filename}")
+        logger.info(f"Compiled processing.json in path {output_filename}")
 
-    # Moving data out
-    # Defining s3 outputs
-    s3_path = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
-    cell_s3_output = f"{s3_path}/image_cell_segmentation"
-    quantification_s3_output = f"{s3_path}/image_cell_quantification"
+        # Moving data out
+        # Defining s3 outputs
+        s3_path = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
+        cell_s3_output = f"{s3_path}/image_cell_segmentation"
+        quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
-    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+        regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
 
-    # Copying final processing manifest
-    for out in utils.execute_command_helper(
-        f"aws s3 cp {results_folder}/processing.json {s3_path}/processing.json"
-    ):
-        print(out)
-
-    # Moving data to the cell folder
-    for cell_folder in cell_folders:
-        channel_name = re.search(regex_channels, cell_folder).group()
-
+        # Copying final processing manifest
         for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+            f"aws s3 cp {results_folder}/processing.json {s3_path}/processing.json"
         ):
             print(out)
 
-    # Moving data to the quantification folder
-    for quantification_folder in quantification_folders:
-        channel_name = re.search(regex_channels, quantification_folder).group()
+        # Moving data to the cell folder
+        for cell_folder in cell_folders:
+            channel_name = re.search(regex_channels, cell_folder).group()
 
-        for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
-        ):
-            print(out)
+            for out in utils.execute_command_helper(
+                f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+            ):
+                print(out)
 
-    utils.save_string_to_txt(
-        f"Results of cell segmentation saved in: {cell_s3_output}",
-        f"{results_folder}/output_cell.txt",
-    )
+        # Moving data to the quantification folder
+        for quantification_folder in quantification_folders:
+            channel_name = re.search(regex_channels, quantification_folder).group()
 
-    utils.save_string_to_txt(
-        f"Results of quantification saved in: {quantification_s3_output}",
-        f"{results_folder}/output_quantification.txt",
-    )
+            for out in utils.execute_command_helper(
+                f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+            ):
+                print(out)
+
+        utils.save_string_to_txt(
+            f"Results of cell segmentation saved in: {cell_s3_output}",
+            f"{results_folder}/output_cell.txt",
+        )
+
+        utils.save_string_to_txt(
+            f"Results of quantification saved in: {quantification_s3_output}",
+            f"{results_folder}/output_quantification.txt",
+        )
+    
+    else:
+        print("No segmentation data to copy!")
 
     alert_bot = utils.AlertBot(url=alert_bot_link)
     alert_bot.send_message(
