@@ -314,7 +314,7 @@ def dispatch(
 
         if len(segment_channels):
             print(f"Preparing segmentation configs for: {segment_channels}")
-            
+
             for channel_to_segment in segment_channels:
                 copy_pipeline_config = pipeline_config.copy()
 
@@ -336,6 +336,11 @@ def dispatch(
                 )
 
         else:
+            utils.save_dict_as_json(
+                f"{results_folder}/segmentation_processing_manifest_empty.json",
+                pipeline_config.copy(),
+            )
+            
             print(f"No segmentation channels provided, pipeline config: {pipeline_config}")
 
     else:
