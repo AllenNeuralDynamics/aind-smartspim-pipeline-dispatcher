@@ -484,6 +484,10 @@ def clean_up(
     
     else:
         print("No segmentation data to copy!")
+        utils.save_dict_as_json(
+            filename=f"{results_folder}/processing_manifest_no_cell_detection.json",
+            dictionary=processing_manifest,
+        )
 
     alert_bot = utils.AlertBot(url=alert_bot_link)
     alert_bot.send_message(
