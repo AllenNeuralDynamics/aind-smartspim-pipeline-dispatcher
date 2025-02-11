@@ -450,7 +450,7 @@ def clean_up(
 
         # Copying final processing manifest
         for out in utils.execute_command_helper(
-            f"aws s3 cp {results_folder}/processing.json {s3_path}/processing.json"
+            f"aws s3 cp {output_filename}/processing.json {s3_path}/processing.json"
         ):
             print(out)
 
