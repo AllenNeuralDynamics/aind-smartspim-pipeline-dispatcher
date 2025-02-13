@@ -18,7 +18,7 @@ from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
 
-from _init_ import __maintainers__, __pipeline_notes__, __pipeline_version__
+from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from utils import utils
 
 logging.basicConfig(
