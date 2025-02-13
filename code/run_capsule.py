@@ -1404,12 +1404,12 @@ def run():
             f"{data_folder}/stitched_data",
         ]
 
-    #     missing_files = utils.validate_capsule_inputs(required_input_elements)
+    missing_files = utils.validate_capsule_inputs(required_input_elements)
 
-    #     if len(missing_files):
-    #         raise ValueError(
-    #             f"We miss the following files in the capsule input: {missing_files}"
-    #         )
+    if len(missing_files):
+        raise ValueError(
+            f"We miss the following files in the capsule input: {missing_files}"
+        )
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
