@@ -4,19 +4,22 @@ import json
 import logging
 import os
 import re
+import shutil
 import sys
 import time
 from glob import glob
 from pathlib import Path
 from typing import List, Tuple, Union
 
+import requests
 import yaml
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
+
+from _init_ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from utils import utils
-from _init_ import __pipeline_version__, __maintainers__, __pipeline_notes__
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -34,6 +37,357 @@ logger.setLevel(logging.INFO)
 PathLike = Union[str, Path]
 
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
+
+PIPELINE_REPOS = [
+    ("aind-smartspim-microscope-to-zarr", "File format conversion"),
+    ("aind-smartspim-flatfield-estimation", "Image flat-field correction"),
+    ("aind-smartspim-destripe", "Image destriping"),
+    ("aind-smartspim-stitch", "Image tile alignment"),
+    ("aind-smartspim-fuse", "Image tile fusing"),
+    ("aind-smartspim-ccf-registration", "Image atlas alignment"),
+    ("aind-smartspim-segmentation", "Image cell segmentation"),
+    ("aind-smartspim-classification", "Image cell segmentation"),
+    ("aind-smartspim-quantification", "Image cell quantification"),
+]
+
+MANIFEST_STEP_NAMES = {
+    "stitching": {"possible_names": ["stitching"]},
+    "registration": {"possible_names": ["registration", "ccf_registration"]},
+    "segmentation": {"possible_names": ["segmentation", "cell_segmentation_channels"]},
+}
+
+
+def get_processing_manifest_path(raw_data_folder):
+    raw_data_folder = Path(raw_data_folder)
+
+    if not raw_data_folder.exists():
+        raise FileNotFoundError(f"Raw data folder does not exist: {raw_data_folder}")
+
+    processing_manifest_path = None
+
+    for path in [
+        raw_data_folder.joinpath("derivatives"),
+        raw_data_folder.joinpath("SPIM/derivatives"),
+    ]:
+        curr_proc_man = path.joinpath("processing_manifest.json")
+        if curr_proc_man.exists():
+            processing_manifest_path = curr_proc_man
+
+    return processing_manifest_path
+
+
+def read_json_as_dict(filepath: str) -> dict:
+    """
+    Reads a json as dictionary.
+
+    Parameters
+    ------------------------
+
+    filepath: PathLike
+        Path where the json is located.
+
+    Returns
+    ------------------------
+
+    dict:
+        Dictionary with the data the json has.
+
+    """
+
+    dictionary = {}
+
+    if os.path.exists(filepath):
+        with open(filepath) as json_file:
+            dictionary = json.load(json_file)
+
+    return dictionary
+
+
+def get_version(owner, repo, path, branch="main"):
+    url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        match = re.search(r'__version__\s*=\s*"([^"]+)"', response.text)
+        return match.group(1) if match else "Version not found"
+    else:
+        return None
+
+
+def get_pipeline_versions(pipeline_repos, owner="AllenNeuralDynamics"):
+    step_versions = {}
+
+    for repo, step_name in PIPELINE_REPOS:
+        if "ccf" in repo:
+            package_name = "aind_ccf_reg"
+        else:
+            package_name = repo.replace("-", "_")
+
+        version = get_version(owner, repo, path=f"code/{package_name}/__init__.py")
+        step_versions[f"{repo} - {step_name}"] = {
+            "version": version,
+        }
+
+    return step_versions
+
+
+def get_dataset_step_versions(dataset_path):
+    processing_path = Path(dataset_path).joinpath("processing.json")
+    dataset_step_versions = None
+
+    if processing_path.exists():
+        try:
+            processing_data = read_json_as_dict(filepath=str(processing_path))
+        except BaseException as e:
+            print(f"Error reading {processing_path}: {e}")
+            processing_data = {}
+
+        processing_pipeline = processing_data.get("processing_pipeline")
+        pipeline_steps = processing_data.get("data_processes")
+
+        if pipeline_steps is None:
+            pipeline_steps = (
+                processing_pipeline.get("data_processes")
+                if processing_pipeline
+                else None
+            )
+
+        if pipeline_steps:
+            dataset_step_versions = {}
+
+            for step in pipeline_steps:
+                code_url = step.get("code_url")
+                step_name = step.get("name")
+                code_version = step.get("software_version", step.get("version"))
+
+                package_name = code_url.split("/")[-1]
+                dataset_step_versions[f"{package_name} - {step_name}"] = {
+                    "version": code_version
+                }
+
+        else:
+            print(f"No pipeline steps found in {processing_path}: {processing_data}")
+
+    else:
+        print("PROCESSING PATH DOES NOT EXIST: ", dataset_path.stem, processing_path)
+
+    return dataset_step_versions
+
+
+def check_dataset_latest_version(
+    dataset_versions,
+    latest_versions,
+):
+    process_versions = {}
+
+    for step, values in latest_versions.items():
+        dataset_step = dataset_versions.get(step)
+
+        if dataset_step is None:
+            curr_key = None
+            if "tile alignment" in step:
+                curr_key = [
+                    d
+                    for d in list(dataset_versions.keys())
+                    if "tile alignment" in d.lower()
+                ]
+
+            elif "tile fusing" in step:
+                curr_key = [
+                    d
+                    for d in list(dataset_versions.keys())
+                    if "tile fusing" in d.lower()
+                ]
+
+            elif "atlas alignment" in step:
+                curr_key = [
+                    d
+                    for d in list(dataset_versions.keys())
+                    if "atlas alignment".lower() in d.lower()
+                ]
+
+            curr_key = curr_key[0] if curr_key and len(curr_key) else None
+            dataset_step = dataset_versions.get(curr_key)
+
+        values_version = values.get("version")
+
+        process_versions[step] = {
+            "process": True,
+            "latest_version": values_version,
+            "dataset_version": None,
+        }
+
+        if dataset_step:
+            dataset_step_version = dataset_step.get("version")
+            if dataset_step_version == values_version:
+                process_versions[step] = {
+                    "process": False,
+                    "dataset_version": dataset_step_version,
+                    "latest_version": values_version,
+                }
+
+            else:
+                process_versions[step]["dataset_version"] = dataset_step_version
+
+    return process_versions
+
+
+def get_standard_manifest_config(pipeline_processing, hashmap_stepnames):
+
+    if not len(pipeline_processing):
+        raise ValueError("Please, provide a valid processing manifest.")
+
+    standard_pipeline_processing = {}
+    for step_name, values in hashmap_stepnames.items():
+
+        standard_pipeline_processing[step_name] = {}
+
+        for possible_name in values["possible_names"]:
+            if possible_name in pipeline_processing:
+                config = {}
+                if "cell_segmentation_channels" == possible_name:
+                    # Cell finder's params
+                    config = {
+                        "channels": pipeline_processing[possible_name],
+                        "input_scale": "0",
+                        "chunksize": "128",
+                        "signal_start": "0",
+                        "signal_end": "-1",
+                    }
+
+                elif "ccf_registration" == possible_name:
+                    config = {
+                        "channels": pipeline_processing[possible_name],
+                        "input_scale": 3,
+                    }
+
+                else:
+                    config = pipeline_processing[possible_name]
+
+                standard_pipeline_processing[step_name] = config
+                break
+
+    return standard_pipeline_processing
+
+
+def get_omezarr_path(stitched_path):
+    stitched_path = Path(stitched_path)
+
+    if not stitched_path.exists():
+        raise FileNotFoundError(f"Path {stitched_path} does not exist!")
+
+    possible_omezarr_folders = ["processed", "image_tile_fusing"]
+
+    for pof in possible_omezarr_folders:
+        curr_folder = stitched_path.joinpath(pof)
+
+        if curr_folder.joinpath("OMEZarr").exists():
+            return curr_folder
+
+    return None
+
+
+def get_dataset_post_processing_config(
+    processed_step_versions, pipeline_processing, latest_step_versions
+):
+    final_config = {
+        "pipeline_processing": pipeline_processing,
+        "need_registration": {},
+        "need_proposals": {},
+        "need_classification": {},
+        "need_quantification": {},
+    }
+
+    if processed_step_versions and pipeline_processing:
+
+        process_versions = check_dataset_latest_version(
+            processed_step_versions, latest_step_versions
+        )
+
+        image_reg_cfg = pipeline_processing.get("registration")
+        image_seg_cfg = pipeline_processing.get("segmentation")
+
+        reg_channels = image_reg_cfg.get("channels")
+        seg_channels = image_seg_cfg.get("channels")
+
+        version_control_reg = process_versions[
+            "aind-smartspim-ccf-registration - Image atlas alignment"
+        ]["process"]
+
+        # Checking if there's something in the manifest
+        manifest_reg = reg_channels[0] if reg_channels and len(reg_channels) else []
+        manifest_seg = seg_channels[0] if seg_channels and len(seg_channels) else []
+
+        version_control_proposals = process_versions[
+            "aind-smartspim-segmentation - Image cell segmentation"
+        ]["process"]
+
+        version_control_classification = process_versions[
+            "aind-smartspim-classification - Image cell segmentation"
+        ]["process"]
+
+        version_control_quantification = process_versions[
+            "aind-smartspim-quantification - Image cell quantification"
+        ]["process"]
+
+        if len(manifest_reg) and version_control_reg:
+            need_reg = process_versions[
+                "aind-smartspim-ccf-registration - Image atlas alignment"
+            ]
+
+        if len(manifest_seg):
+            # Might need segmentation, classification or quantification
+            if version_control_proposals:
+                final_config["need_proposals"] = process_versions[
+                    "aind-smartspim-segmentation - Image cell segmentation"
+                ]
+                final_config["need_classification"] = process_versions[
+                    "aind-smartspim-classification - Image cell segmentation"
+                ]
+                final_config["need_quantification"] = process_versions[
+                    "aind-smartspim-quantification - Image cell quantification"
+                ]
+
+            elif version_control_classification:
+                final_config["need_classification"] = process_versions[
+                    "aind-smartspim-classification - Image cell segmentation"
+                ]
+                final_config["need_quantification"] = process_versions[
+                    "aind-smartspim-quantification - Image cell quantification"
+                ]
+
+            elif version_control_quantification or len(need_reg):
+                final_config["need_quantification"] = process_versions[
+                    "aind-smartspim-quantification - Image cell quantification"
+                ]
+
+    elif pipeline_processing:
+        image_reg_cfg = pipeline_processing.get("registration")
+        image_seg_cfg = pipeline_processing.get("segmentation")
+
+        reg_channels = image_reg_cfg.get("channels")
+        seg_channels = image_seg_cfg.get("channels")
+
+        manifest_reg = reg_channels[0] if reg_channels and len(reg_channels) else []
+        manifest_seg = seg_channels[0] if seg_channels and len(seg_channels) else []
+
+        if len(manifest_reg):
+            final_config["need_registration"] = {"process": True}
+
+        # Trigger everything if processing.json does not exist
+        if len(manifest_seg):
+            # Might need segmentation, classification or quantification
+            final_config["need_proposals"] = {"process": True}
+            final_config["need_classification"] = {"process": True}
+            final_config["need_quantification"] = {"process": True}
+
+    else:
+        print(
+            f"[!!!] Problem getting the process versions: {process_versions} - manifest: {pipeline_processing}"
+        )
+
+    return final_config
+
 
 def wavelength_to_hex(wavelength: int) -> int:
     """
@@ -340,8 +694,10 @@ def dispatch(
                 f"{results_folder}/segmentation_processing_manifest_empty.json",
                 pipeline_config.copy(),
             )
-            
-            print(f"No segmentation channels provided, pipeline config: {pipeline_config}")
+
+            print(
+                f"No segmentation channels provided, pipeline config: {pipeline_config}"
+            )
 
     else:
         raise BaseException("Stopping pipeline, pipeline configuration.")
@@ -428,7 +784,7 @@ def clean_up(
         processing_paths += sub_list
 
     logger.info(f"Compiling processing paths: {processing_paths}")
-    
+
     if len(processing_paths) > 1:
         output_filename = utils.compile_processing_jsons(
             processing_paths=processing_paths,
@@ -481,7 +837,7 @@ def clean_up(
             f"Results of quantification saved in: {quantification_s3_output}",
             f"{results_folder}/output_quantification.txt",
         )
-    
+
     else:
         print("No segmentation data to copy!")
         utils.save_dict_as_json(
@@ -722,6 +1078,45 @@ def copy_intermediate_data(
         f"Stitched dataset saved in: {s3_path}",
         f"{results_folder}/output_stitching.txt",
     )
+
+
+def create_segmentation_manifests(processing_manifest, results_folder):
+    pipeline_config = processing_manifest["pipeline_processing"]
+    segment_channels = pipeline_config["segmentation"]["channels"]
+    background_channel = processing_manifest["pipeline_processing"]["registration"][
+        "channels"
+    ][0]
+
+    if len(segment_channels):
+        print(f"Preparing segmentation configs for: {segment_channels}")
+
+        for channel_to_segment in segment_channels:
+            copy_pipeline_config = pipeline_config.copy()
+
+            copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
+            copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
+            copy_pipeline_config["segmentation"][
+                "background_channel"
+            ] = background_channel
+
+            # Creating quantification parameters
+            copy_pipeline_config["quantification"] = {}
+            copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
+            copy_pipeline_config["quantification"]["channel"] = channel_to_segment
+            copy_pipeline_config["quantification"]["save_path"] = "../results/"
+
+            print(copy_pipeline_config, channel_to_segment)
+
+            utils.save_dict_as_json(
+                f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
+                copy_pipeline_config,
+            )
+
+    else:
+        utils.save_dict_as_json(
+            f"{results_folder}/segmentation_processing_manifest_empty.json",
+            pipeline_config.copy(),
+        )
 
 
 def create_derived_stitched_metadata(
@@ -968,9 +1363,9 @@ def run():
     # Absolute paths of common Code Ocean folders
     data_folder = Path(os.path.abspath("../data"))
 
-    for d in data_folder.glob("*"):
-        if d.is_dir():
-            print(f"Data in {d}: {list(d.glob('*'))}")
+    #     for d in data_folder.glob("*"):
+    #         if d.is_dir():
+    #             print(f"Data in {d}: {list(d.glob('*'))}")
 
     results_folder = Path(os.path.abspath("../results"))
 
@@ -1003,12 +1398,18 @@ def run():
             f"{data_folder}/input_aind_metadata/data_description.json",
         ]
 
-    missing_files = utils.validate_capsule_inputs(required_input_elements)
+    if "postprocess" in mode:
+        required_input_elements = [
+            f"{data_folder}/raw_data",
+            f"{data_folder}/stitched_data",
+        ]
 
-    if len(missing_files):
-        raise ValueError(
-            f"We miss the following files in the capsule input: {missing_files}"
-        )
+    #     missing_files = utils.validate_capsule_inputs(required_input_elements)
+
+    #     if len(missing_files):
+    #         raise ValueError(
+    #             f"We miss the following files in the capsule input: {missing_files}"
+    #         )
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
@@ -1135,20 +1536,123 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
+    elif "postprocess" in mode:
+        logger.info("Starting post-processing...")
+
+        # Raw data and stitched data folders
+        raw_path = data_folder.joinpath("raw_data")
+        stitched_path = data_folder.joinpath("stitched_data")
+
+        processing_manifest_path = get_processing_manifest_path(raw_path)
+
+        investigators = []
+
+        if processing_manifest_path is None:
+            print(f"[-] ERROR GETTING {processing_manifest_path.stem}")
+        else:
+            print(f"[+] Processing {raw_path.stem} - {processing_manifest_path}")
+
+            # Read necessary JSON files
+            data_description_dict = utils.read_json_as_dict(
+                str(raw_path / "data_description.json")
+            )
+            investigators = data_description_dict.get("investigators")
+
+            processing_manifest_data = read_json_as_dict(processing_manifest_path)
+            latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
+
+            # Standardize pipeline processing config
+            processing_manifest_data["pipeline_processing"] = (
+                get_standard_manifest_config(
+                    pipeline_processing=processing_manifest_data.get(
+                        "pipeline_processing"
+                    ),
+                    hashmap_stepnames=MANIFEST_STEP_NAMES,
+                )
+            )
+
+            processed_step_versions = get_dataset_step_versions(stitched_path)
+
+            # Get final processing configuration
+            final_config = get_dataset_post_processing_config(
+                processed_step_versions,
+                processing_manifest_data["pipeline_processing"],
+                latest_step_versions,
+            )
+
+            omezarr_folder = get_omezarr_path(stitched_path)
+
+            # Define important paths
+            atlas_alignment_path = stitched_path / "image_atlas_alignment"
+            quantification_path = stitched_path / "image_cell_quantification"
+            cell_seg_path = stitched_path / "image_cell_segmentation"
+
+            print(f"Final config: {final_config}, {omezarr_folder}")
+
+            # Extract required processing steps
+            need_reg = final_config.get("need_registration", {}).get("process", False)
+            need_prop = final_config.get("need_proposals", {}).get("process", False)
+            need_class = final_config.get("need_classification", {}).get(
+                "process", False
+            )
+            need_quant = final_config.get("need_quantification", {}).get(
+                "process", False
+            )
+
+            if not need_reg and not need_prop and not need_class and not need_quant:
+                empty_pmd = processing_manifest_data.copy()
+                empty_pmd["pipeline_processing"]["registration"]["channels"] = []
+                empty_pmd["pipeline_processing"]["segmentation"]["channels"] = []
+
+                utils.save_dict_as_json(
+                    results_folder / "processing_manifest.json", empty_pmd
+                )
+
+            # If registration is needed, save the processing manifest
+            if need_reg:
+                utils.save_dict_as_json(
+                    results_folder / "processing_manifest.json",
+                    processing_manifest_data,
+                )
+
+            # If any further processing is needed, handle atlas alignment copying
+            elif need_prop or need_class or need_quant:
+                atlas_alignment_dest = results_folder / "image_atlas_alignment"
+                utils.create_folder(atlas_alignment_dest)
+
+                for ccf_folder in atlas_alignment_path.glob("Ex_*_Em_*"):
+                    shutil.copy(
+                        ccf_folder, atlas_alignment_dest / f"ccf_{ccf_folder.stem}"
+                    )
+
+            # Handle segmentation manifests
+            if need_prop:
+                create_segmentation_manifests(processing_manifest_data, results_folder)
+            elif need_class or need_quant:
+                cell_seg_dest = results_folder / "image_cell_segmentation"
+                utils.create_folder(cell_seg_dest)
+
+                for cell_folder in cell_seg_path.glob("Ex_*_Em_*"):
+                    create_segmentation_manifests(
+                        processing_manifest_data, cell_seg_dest
+                    )
+                    shutil.copy(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
+
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
 
-    if investigators:
-        # Sending email alert
-        send_email_alerts(
-            mode=mode,
-            alert_configs=alert_configs,
-            investigators=investigators,
-            dataset_name=dataset_name,
-            logger=logger,
-            email_message_params=email_message_params,
-            source_email="notifications@allenneuraldynamics.org",
-        )
+
+#     if investigators:
+#         # Sending email alert
+#         send_email_alerts(
+#             mode=mode,
+#             alert_configs=alert_configs,
+#             investigators=investigators,
+#             dataset_name=dataset_name,
+#             logger=logger,
+#             email_message_params=email_message_params,
+#             source_email="notifications@allenneuraldynamics.org",
+#         )
 
 
 if __name__ == "__main__":
