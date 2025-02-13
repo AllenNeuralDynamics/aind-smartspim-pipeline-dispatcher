@@ -657,7 +657,7 @@ def generate_processing(
 
     pipeline_version: str
         Terastitcher pipeline version
-    
+
     pipeline_notes: str
         Pipeline notes
 
@@ -708,7 +708,7 @@ def compile_processing_jsons(
 
     pipeline_version: str
         Pipeline version
-    
+
     pipeline_notes: str
         Pipeline version notes
 
