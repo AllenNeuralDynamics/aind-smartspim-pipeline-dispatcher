@@ -1636,9 +1636,8 @@ def run():
                     results_folder,
                     prefix="segmentation",
                 )
-
-            elif need_class or need_quant:
-
+            
+            else:
                 copy_manifests = processing_manifest_data.copy()
 
                 # Setting channels to empty to avoid processing
@@ -1648,6 +1647,8 @@ def run():
                     results_folder,
                     prefix="segmentation"
                 )
+
+            if need_class or need_quant:
 
                 # Copying cell segmentation data
                 cell_seg_dest = results_folder / "image_cell_segmentation"
