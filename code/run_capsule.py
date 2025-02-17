@@ -1080,7 +1080,11 @@ def copy_intermediate_data(
     )
 
 
-def create_segmentation_manifests(processing_manifest, results_folder):
+def create_segmentation_manifests(
+    processing_manifest,
+    results_folder,
+    prefix
+):
     pipeline_config = processing_manifest["pipeline_processing"]
     segment_channels = pipeline_config["segmentation"]["channels"]
     background_channel = processing_manifest["pipeline_processing"]["registration"][
@@ -1088,7 +1092,7 @@ def create_segmentation_manifests(processing_manifest, results_folder):
     ][0]
 
     if len(segment_channels):
-        print(f"Preparing segmentation configs for: {segment_channels}")
+        print(f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}")
 
         for channel_to_segment in segment_channels:
             copy_pipeline_config = pipeline_config.copy()
@@ -1108,13 +1112,13 @@ def create_segmentation_manifests(processing_manifest, results_folder):
             print(copy_pipeline_config, channel_to_segment)
 
             utils.save_dict_as_json(
-                f"{results_folder}/segmentation_processing_manifest_{channel_to_segment}.json",
+                f"{results_folder}/{prefix}_processing_manifest_{channel_to_segment}.json",
                 copy_pipeline_config,
             )
 
     else:
         utils.save_dict_as_json(
-            f"{results_folder}/segmentation_processing_manifest_empty.json",
+            f"{results_folder}/{prefix}_processing_manifest_empty.json",
             pipeline_config.copy(),
         )
 
@@ -1627,8 +1631,25 @@ def run():
 
             # Handle segmentation manifests
             if need_prop:
-                create_segmentation_manifests(processing_manifest_data, results_folder)
+                create_segmentation_manifests(
+                    processing_manifest_data,
+                    results_folder,
+                    prefix="segmentation",
+                )
+
             elif need_class or need_quant:
+
+                copy_manifests = processing_manifest_data.copy()
+
+                # Setting channels to empty to avoid processing
+                copy_manifests["pipeline_processing"]["segmentation"]["channels"] = []
+                create_segmentation_manifests(
+                    copy_manifests,
+                    results_folder,
+                    prefix="segmentation"
+                )
+
+                # Copying cell segmentation data
                 cell_seg_dest = results_folder / "image_cell_segmentation"
                 utils.create_folder(cell_seg_dest)
 
@@ -1637,6 +1658,13 @@ def run():
                         processing_manifest_data, cell_seg_dest
                     )
                     shutil.copy(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
+
+                # Creating manifests for classification
+                create_segmentation_manifests(
+                    copy_manifests,
+                    results_folder,
+                    prefix="classification"
+                )
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
