@@ -1659,7 +1659,7 @@ def run():
 
                 # Creating manifests for classification
                 create_segmentation_manifests(
-                    copy_manifests,
+                    processing_manifest_data,
                     results_folder,
                     prefix="classification"
                 )
