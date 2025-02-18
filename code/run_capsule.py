@@ -1655,9 +1655,6 @@ def run():
                 utils.create_folder(cell_seg_dest)
 
                 for cell_folder in cell_seg_path.glob("Ex_*_Em_*"):
-                    create_segmentation_manifests(
-                        processing_manifest_data, cell_seg_dest
-                    )
                     shutil.copy(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
 
                 # Creating manifests for classification
