@@ -1625,7 +1625,7 @@ def run():
                 utils.create_folder(atlas_alignment_dest)
 
                 for ccf_folder in atlas_alignment_path.glob("Ex_*_Em_*"):
-                    shutil.copy(
+                    shutil.copytree(
                         ccf_folder, atlas_alignment_dest / f"ccf_{ccf_folder.stem}"
                     )
 
@@ -1655,7 +1655,7 @@ def run():
                 utils.create_folder(cell_seg_dest)
 
                 for cell_folder in cell_seg_path.glob("Ex_*_Em_*"):
-                    shutil.copy(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
+                    shutil.copytree(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
 
                 # Creating manifests for classification
                 create_segmentation_manifests(
