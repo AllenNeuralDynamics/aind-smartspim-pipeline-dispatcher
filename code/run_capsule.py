@@ -1569,6 +1569,8 @@ def run():
                 str(raw_path / "data_description.json")
             )
             investigators = data_description_dict.get("investigators")
+            dataset_name = data_description_dict.get("name")
+            print(f"Postprocessing dataset: {dataset_name}")
 
             processing_manifest_data = read_json_as_dict(processing_manifest_path)
             latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
