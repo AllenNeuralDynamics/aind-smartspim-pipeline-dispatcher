@@ -1087,21 +1087,29 @@ def create_segmentation_manifests(
 ):
     pipeline_config = processing_manifest["pipeline_processing"]
     segment_channels = pipeline_config["segmentation"]["channels"]
-    background_channel = processing_manifest["pipeline_processing"]["registration"][
-        "channels"
-    ][0]
 
     if len(segment_channels):
         print(f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}")
+        background_channel = processing_manifest["pipeline_processing"]["registration"][
+            "channels"
+        ]
+
+        background_channel = background_channel[0] if len(background_channel) else None
 
         for channel_to_segment in segment_channels:
             copy_pipeline_config = pipeline_config.copy()
 
             copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
             copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
-            copy_pipeline_config["segmentation"][
-                "background_channel"
-            ] = background_channel
+
+            if background_channel is None:
+                copy_pipeline_config["segmentation"][
+                    "background_channel"
+                ] = channel_to_segment
+            else:
+                copy_pipeline_config["segmentation"][
+                    "background_channel"
+                ] = background_channel
 
             # Creating quantification parameters
             copy_pipeline_config["quantification"] = {}
