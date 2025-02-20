@@ -1624,11 +1624,11 @@ def run():
 
                 # Providing these for the flatten connection in nextflow
                 utils.save_dict_as_json(
-                    results_folder / "segmentation_processing_manifest_empty.json", empty_pmd
+                    results_folder / "segmentation_processing_manifest_empty.json", empty_pmd["pipeline_processing"]
                 )
 
                 utils.save_dict_as_json(
-                    results_folder / "classification_processing_manifest_empty.json", empty_pmd
+                    results_folder / "classification_processing_manifest_empty.json", empty_pmd["pipeline_processing"]
                 )
 
             # If registration is needed, save the processing manifest
