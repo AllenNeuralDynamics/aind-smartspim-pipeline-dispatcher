@@ -1358,10 +1358,18 @@ def send_email_alerts(
 def copy_postprocessed_data(
     post_fuse_folder: str,
     ccf_folders: List[PathLike],
+    cell_folders: List[PathLike],
+    quantification_folders: List[PathLike],
     s3_path: str,
+    results_folder: str,
     logger: logging.Logger,
-    output_fusion="image_tile_fusing",
 ):
+    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
+    cell_s3_output = f"{s3_path}/image_cell_segmentation"
+    quantification_s3_output = f"{s3_path}/image_cell_quantification"
+    fusion_s3_output = f"{s3_path}/image_tile_fusing"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
     # Copying derived metadata
     output_dispatch_metadata = Path(output_dispatch_metadata)
     for out in utils.execute_command_helper(
@@ -1371,14 +1379,11 @@ def copy_postprocessed_data(
 
     # Copying preprocessed fused data to new data asset
     for out in utils.execute_command_helper(
-        f"aws s3 cp --recursive {post_fuse_folder} {s3_path}/{output_fusion}"
+        f"aws s3 cp --recursive {post_fuse_folder} {fusion_s3_output}"
     ):
         logger.info(out)
 
     # Copying ccf data
-    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
-    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
-
     for ccf_folder in ccf_folders:
         channel_name = re.search(regex_channels, ccf_folder).group()
 
@@ -1386,6 +1391,34 @@ def copy_postprocessed_data(
             f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
         ):
             logger.info(out)
+
+    # Moving data to the cell folder
+    for cell_folder in cell_folders:
+        channel_name = re.search(regex_channels, cell_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    # Moving data to the quantification folder
+    for quantification_folder in quantification_folders:
+        channel_name = re.search(regex_channels, quantification_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    utils.save_string_to_txt(
+        f"Results of cell segmentation saved in: {cell_s3_output}",
+        f"{results_folder}/output_cell.txt",
+    )
+
+    utils.save_string_to_txt(
+        f"Results of quantification saved in: {quantification_s3_output}",
+        f"{results_folder}/output_quantification.txt",
+    )
 
 
 def run():
@@ -1841,13 +1874,16 @@ def run():
             # Copying the data out to the respective folders
             fuse_folder = data_folder.joinpath("image_tile_fusing")
             ccf_folders = list(ccf_folder.glob("ccf_*"))
+            cell_folders = list(classification_folder.glob("cell_*"))
+            quantification_folders = list(quantification_folder.glob("quant_*"))
 
             copy_postprocessed_data(
                 post_fuse_folder=fuse_folder,
                 ccf_folders=ccf_folders,
+                cell_folders=cell_folders,
+                quantification_folders=quantification_folders,
                 s3_path=s3_path,
-                logger=logger,
-                output_fusion="image_tile_fusing",
+                results_folder=results_folder,
             )
 
         else:
