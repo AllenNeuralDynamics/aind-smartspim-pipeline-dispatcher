@@ -13,12 +13,11 @@ from typing import List, Tuple, Union
 
 import requests
 import yaml
+from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
 from ng_link import NgState
-
-from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from utils import utils
 
 logging.basicConfig(
@@ -1080,16 +1079,14 @@ def copy_intermediate_data(
     )
 
 
-def create_segmentation_manifests(
-    processing_manifest,
-    results_folder,
-    prefix
-):
+def create_segmentation_manifests(processing_manifest, results_folder, prefix):
     pipeline_config = processing_manifest["pipeline_processing"]
     segment_channels = pipeline_config["segmentation"]["channels"]
 
     if len(segment_channels):
-        print(f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}")
+        print(
+            f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}"
+        )
         background_channel = processing_manifest["pipeline_processing"]["registration"][
             "channels"
         ]
@@ -1358,6 +1355,39 @@ def send_email_alerts(
         logger.info("Email not sent: No investigators were provided")
 
 
+def copy_postprocessed_data(
+    post_fuse_folder: str,
+    ccf_folders: List[PathLike],
+    s3_path: str,
+    logger: logging.Logger,
+    output_fusion="image_tile_fusing",
+):
+    # Copying derived metadata
+    output_dispatch_metadata = Path(output_dispatch_metadata)
+    for out in utils.execute_command_helper(
+        f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
+    ):
+        logger.info(out)
+
+    # Copying preprocessed fused data to new data asset
+    for out in utils.execute_command_helper(
+        f"aws s3 cp --recursive {post_fuse_folder} {s3_path}/{output_fusion}"
+    ):
+        logger.info(out)
+
+    # Copying ccf data
+    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    for ccf_folder in ccf_folders:
+        channel_name = re.search(regex_channels, ccf_folder).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+        ):
+            logger.info(out)
+
+
 def run():
     """
     Run function allows the smartspim pipeline to execute
@@ -1548,7 +1578,7 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
-    elif "postprocess" in mode:
+    elif "postprocess-dispatch" in mode:
         logger.info("Starting post-processing...")
 
         # Raw data and stitched data folders
@@ -1569,14 +1599,20 @@ def run():
                 str(raw_path / "data_description.json")
             )
 
-             # Creating new metadata for stitched dataset
-            output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
-                data_folder=data_folder, results_folder=results_folder, logger=logger
+            # Creating new metadata for stitched dataset
+            output_dispatch_metadata, new_dataset_name = (
+                create_derived_stitched_metadata(
+                    data_folder=data_folder,
+                    results_folder=results_folder,
+                    logger=logger,
+                )
             )
 
             investigators = data_description_dict.get("investigators")
             dataset_name = data_description_dict.get("name")
-            print(f"Postprocessing dataset: {dataset_name} - New asset name: {new_dataset_name}")
+            print(
+                f"Postprocessing dataset: {dataset_name} - New asset name: {new_dataset_name}"
+            )
 
             processing_manifest_data = read_json_as_dict(processing_manifest_path)
             latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
@@ -1604,7 +1640,7 @@ def run():
 
             # Define important paths
             atlas_alignment_path = stitched_path / "image_atlas_alignment"
-            quantification_path = stitched_path / "image_cell_quantification"
+            # quantification_path = stitched_path / "image_cell_quantification"
             cell_seg_path = stitched_path / "image_cell_segmentation"
 
             print(f"Final config: {final_config}, {omezarr_folder}")
@@ -1630,11 +1666,13 @@ def run():
 
                 # Providing these for the flatten connection in nextflow
                 utils.save_dict_as_json(
-                    results_folder / "segmentation_processing_manifest_empty.json", empty_pmd["pipeline_processing"]
+                    results_folder / "segmentation_processing_manifest_empty.json",
+                    empty_pmd["pipeline_processing"],
                 )
 
                 utils.save_dict_as_json(
-                    results_folder / "classification_processing_manifest_empty.json", empty_pmd["pipeline_processing"]
+                    results_folder / "classification_processing_manifest_empty.json",
+                    empty_pmd["pipeline_processing"],
                 )
 
             # If registration is needed, save the processing manifest
@@ -1661,16 +1699,14 @@ def run():
                     results_folder,
                     prefix="segmentation",
                 )
-            
+
             else:
                 copy_manifests = processing_manifest_data.copy()
 
                 # Setting channels to empty to avoid processing
                 copy_manifests["pipeline_processing"]["segmentation"]["channels"] = []
                 create_segmentation_manifests(
-                    copy_manifests,
-                    results_folder,
-                    prefix="segmentation"
+                    copy_manifests, results_folder, prefix="segmentation"
                 )
 
             if need_class or need_quant:
@@ -1680,14 +1716,142 @@ def run():
                 utils.create_folder(cell_seg_dest)
 
                 for cell_folder in cell_seg_path.glob("Ex_*_Em_*"):
-                    shutil.copytree(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
+                    shutil.copytree(
+                        cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}"
+                    )
 
                 # Creating manifests for classification
                 create_segmentation_manifests(
-                    processing_manifest_data,
-                    results_folder,
-                    prefix="classification"
+                    processing_manifest_data, results_folder, prefix="classification"
                 )
+
+            processing_json_path = stitched_path.joinpath("processing.json")
+            if processing_json_path.exists():
+                output_proc_json = results_folder.joinpath("processing.json")
+                print(f"Copying {processing_json_path} to {output_proc_json}")
+                utils.copy_file(str(processing_json_path), str(output_proc_json))
+
+    elif "postprocess-clean" in mode:
+
+        ccf_folder = data_folder.joinpath("registration")
+        classification_folder = data_folder.joinpath("classification")
+        quantification_folder = data_folder.joinpath("quantification")
+        postprocess_dispatch_folder = data_folder.joinpath("postprocess_dispatch")
+
+        copy_ccf = False
+        copy_classification = False
+        copy_quantification = False
+
+        if ccf_folder.exists():
+            copy_ccf = bool(
+                len([a for a in list(ccf_folder.glob("ccf_*")) if a.is_dir()])
+            )
+
+        if classification_folder.exists():
+            copy_classification = bool(
+                len(
+                    [
+                        a
+                        for a in list(classification_folder.glob("cell_*"))
+                        if a.is_dir()
+                    ]
+                )
+            )
+
+        if quantification_folder.exists():
+            copy_quantification = bool(
+                len(
+                    [
+                        a
+                        for a in list(quantification_folder.glob("quant_*"))
+                        if a.is_dir()
+                    ]
+                )
+            )
+
+        if copy_ccf or copy_classification or copy_quantification:
+            # I need to copy fused data
+
+            metadata_folder = postprocess_dispatch_folder.joinpath(
+                "output_aind_metadata"
+            )
+
+            data_description_dict = utils.read_json_as_dict(
+                str(metadata_folder.joinpath("data_description.json"))
+            )
+
+            new_dataset_name = data_description_dict.get("name")
+
+            if new_dataset_name is None:
+                raise ValueError("New dataset name is None! Please, provide it.")
+
+            bucket_path = "aind-open-data"
+            s3_path = f"s3://{bucket_path}/{new_dataset_name}"
+            dest_zarr_path = f"{s3_path}/image_tile_fusing/OMEZarr"
+
+            # Creating neuroglancer link for new data asset
+            # Getting S3 paths for channels
+            s3_paths_for_channels = [
+                f"{dest_zarr_path}/{fused_zarr.name}"
+                for fused_zarr in fuse_folder.glob("*.zarr")
+            ]
+
+            axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
+                "resolution"
+            ]
+            output_json, ng_link_path = create_ng_link(
+                config={
+                    "bucket_path": bucket_path,
+                    "output_folder": results_folder,
+                    "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                    "z_res": axes_resolution[2]["resolution"],
+                    "y_res": axes_resolution[1]["resolution"],
+                    "x_res": axes_resolution[0]["resolution"],
+                },
+                s3_channel_paths=s3_paths_for_channels,
+                s3_dataset_path=s3_path,
+            )
+
+            email_message_params["ng_link_path"] = ng_link_path
+
+            # Creating QC Metrics
+            qc_evaluators = [
+                {
+                    "name": "Neuroglancer Link Evaluation",
+                    "description": "Checks that the whole-brain neuroglancer link was created",
+                    "notes": "",
+                    "stage": "Processing",
+                    "qc_metric_values": [
+                        {
+                            "name": "Dataset neuroglancer link",
+                            "description": "Qualitative check that the neuroglancer link was created",
+                            "value": "",
+                            "reference": ng_link_path,
+                            "status": "Pending",
+                        },
+                    ],
+                },
+            ]
+
+            utils.create_quality_control_metadata(
+                qc_eval_values=qc_evaluators,
+                output_path=metadata_folder,
+            )
+
+            # Copying the data out to the respective folders
+            fuse_folder = data_folder.joinpath("image_tile_fusing")
+            ccf_folders = list(ccf_folder.glob("ccf_*"))
+
+            copy_postprocessed_data(
+                post_fuse_folder=fuse_folder,
+                ccf_folders=ccf_folders,
+                s3_path=s3_path,
+                logger=logger,
+                output_fusion="image_tile_fusing",
+            )
+
+        else:
+            print("Avoiding copying data since there was nothing to copy.")
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
