@@ -1364,6 +1364,14 @@ def copy_postprocessed_data(
     results_folder: str,
     logger: logging.Logger,
 ):
+    if not len(ccf_folders) and not len(cell_folders) and not len(quantification_folders):
+        msg = (
+            f"Avoiding copy. CCF: {ccf_folders} - CELL: {cell_folders}"
+            f" - QUANT: {quantification_folders}"
+        )
+        logger.info(msg)
+        return None
+
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
     cell_s3_output = f"{s3_path}/image_cell_segmentation"
     quantification_s3_output = f"{s3_path}/image_cell_quantification"
