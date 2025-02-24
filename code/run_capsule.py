@@ -1568,9 +1568,15 @@ def run():
             data_description_dict = utils.read_json_as_dict(
                 str(raw_path / "data_description.json")
             )
+
+             # Creating new metadata for stitched dataset
+            output_dispatch_metadata, new_dataset_name = create_derived_stitched_metadata(
+                data_folder=data_folder, results_folder=results_folder, logger=logger
+            )
+
             investigators = data_description_dict.get("investigators")
             dataset_name = data_description_dict.get("name")
-            print(f"Postprocessing dataset: {dataset_name}")
+            print(f"Postprocessing dataset: {dataset_name} - New asset name: {new_dataset_name}")
 
             processing_manifest_data = read_json_as_dict(processing_manifest_path)
             latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
