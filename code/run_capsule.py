@@ -1,5 +1,6 @@
 """ Main script that works as a dispatcher in code ocean """
 
+import copy
 import json
 import logging
 import os
@@ -17,7 +18,9 @@ from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
+from aind_data_schema.core.processing import Processing, ProcessName
 from ng_link import NgState
+from pydantic import TypeAdapter
 from utils import utils
 
 logging.basicConfig(
@@ -1357,14 +1360,20 @@ def send_email_alerts(
 
 def copy_postprocessed_data(
     post_fuse_folder: str,
+    output_dispatch_metadata: str,
     ccf_folders: List[PathLike],
     cell_folders: List[PathLike],
     quantification_folders: List[PathLike],
     s3_path: str,
     results_folder: str,
+    new_processing_path: str,
     logger: logging.Logger,
 ):
-    if not len(ccf_folders) and not len(cell_folders) and not len(quantification_folders):
+    if (
+        not len(ccf_folders)
+        and not len(cell_folders)
+        and not len(quantification_folders)
+    ):
         msg = (
             f"Avoiding copy. CCF: {ccf_folders} - CELL: {cell_folders}"
             f" - QUANT: {quantification_folders}"
@@ -1382,6 +1391,12 @@ def copy_postprocessed_data(
     output_dispatch_metadata = Path(output_dispatch_metadata)
     for out in utils.execute_command_helper(
         f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
+    ):
+        logger.info(out)
+
+    # Copying new processing json
+    for out in utils.execute_command_helper(
+        f"aws s3 cp {new_processing_path} {s3_path}/processing.json"
     ):
         logger.info(out)
 
@@ -1427,6 +1442,55 @@ def copy_postprocessed_data(
         f"Results of quantification saved in: {quantification_s3_output}",
         f"{results_folder}/output_quantification.txt",
     )
+
+
+def remove_positions(lst, positions):
+    return [obj for idx, obj in enumerate(lst) if idx not in set(positions)]
+
+
+def get_filtered_proc_metadata(
+    input_proc_json, copy_ccf, copy_classification, copy_quantification
+):
+    if not input_proc_json.exists():
+        raise FileNotFoundError(
+            f"Processing.json was not provided in {input_proc_json}"
+        )
+
+    input_proc_json_data = read_json_as_dict(input_proc_json)
+    processing_adapter = TypeAdapter(Processing)
+    input_proc_json_data_obj = processing_adapter.validate_python(input_proc_json_data)
+    input_proc_json_data_obj_copy = copy.deepcopy(input_proc_json_data_obj)
+
+    if not copy_ccf and not copy_classification and not copy_quantification:
+        return input_proc_json_data_obj_copy, []
+
+    delete_pos = []
+    data_processes = input_proc_json_data_obj.processing_pipeline.data_processes
+    for i, dt_proc in enumerate(data_processes):
+
+        remove_reg = copy_ccf and (
+            "aind-ccf-registration" in dt_proc.code_url
+            or ProcessName.IMAGE_ATLAS_ALIGNMENT == dt_proc.name
+        )
+
+        remove_cell = copy_classification and (
+            "aind-SmartSPIM-segmentation" in dt_proc.code_url
+            or "aind-smartspim-classification" in dt_proc.code_url
+            or ProcessName.IMAGE_CELL_SEGMENTATION == dt_proc.name
+        )
+
+        remove_quant = copy_quantification and (
+            "aind-smartspim-quantification" in dt_proc.code_url
+            or ProcessName.IMAGE_CELL_QUANTIFICATION == dt_proc.name
+        )
+
+        if remove_reg or remove_cell or remove_quant:
+            delete_pos.append(i)
+
+    input_proc_json_data_obj_copy.processing_pipeline.data_processes = remove_positions(
+        data_processes, delete_pos
+    )
+    return input_proc_json_data_obj_copy, delete_pos
 
 
 def run():
@@ -1879,6 +1943,36 @@ def run():
                 output_path=metadata_folder,
             )
 
+            input_proc_json = postprocess_dispatch_folder.joinpath("processing.json")
+
+            filtered_proc_data, deleted_pos = get_filtered_proc_metadata(
+                input_proc_json, copy_ccf, copy_classification, copy_quantification
+            )
+
+            logger.info(f"Deleted pos from previous processing: {deleted_pos}")
+
+            new_data_procs = []
+
+            # Include ccf reg metadata
+            if copy_ccf:
+                new_data_procs.append()
+
+            # Include proposals and classification metadata
+            if copy_classification:
+                new_data_procs.append()
+
+            # Include quantification metadata
+            if copy_quantification:
+                new_data_procs.append()
+
+            # Including new data procs
+            if len(new_data_procs):
+                filtered_proc_data.processing_pipeline.data_processes.extend(
+                    new_data_procs
+                )
+
+            filtered_proc_data.write_standard_file(output_directory=str(results_folder))
+
             # Copying the data out to the respective folders
             fuse_folder = data_folder.joinpath("image_tile_fusing")
             ccf_folders = list(ccf_folder.glob("ccf_*"))
@@ -1887,11 +1981,13 @@ def run():
 
             copy_postprocessed_data(
                 post_fuse_folder=fuse_folder,
+                output_dispatch_metadata=metadata_folder,
                 ccf_folders=ccf_folders,
                 cell_folders=cell_folders,
                 quantification_folders=quantification_folders,
                 s3_path=s3_path,
                 results_folder=results_folder,
+                new_processing_path=str(results_folder.joinpath("processing.json")),
             )
 
         else:
