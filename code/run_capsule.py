@@ -1951,19 +1951,53 @@ def run():
 
             logger.info(f"Deleted pos from previous processing: {deleted_pos}")
 
+            # Copying the data out to the respective folders
+            fuse_folder = data_folder.joinpath("image_tile_fusing")
+            ccf_folders = list(ccf_folder.glob("ccf_*"))
+            cell_folders = list(classification_folder.glob("cell_*"))
+            quantification_folders = list(quantification_folder.glob("quant_*"))
+
             new_data_procs = []
+
+            processing_adapter = TypeAdapter(Processing)
 
             # Include ccf reg metadata
             if copy_ccf:
-                new_data_procs.append()
+                for ccf_folder in ccf_folders:
+                    ccf_proc = ccf_folder.joinpath('metadata/processing.json')
+                    curr_processing = read_json_as_dict(str(ccf_proc))
+                    curr_processing_obj = processing_adapter.validate_python(curr_processing)
+
+                    for data_process in curr_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
 
             # Include proposals and classification metadata
             if copy_classification:
-                new_data_procs.append()
+                for cell_folder in cell_folders:
+                    class_proc = cell_folder.joinpath('metadata/processing.json')
+                    proposals_proc = cell_folder.joinpath('proposals/metadata/processing.json')
+
+                    curr_cell_processing = read_json_as_dict(str(class_proc))
+                    curr_prop_processing = read_json_as_dict(str(proposals_proc))
+
+                    curr_cell_processing_obj = processing_adapter.validate_python(curr_cell_processing)
+                    curr_prop_processing_obj = processing_adapter.validate_python(curr_prop_processing)
+
+                    for data_process in curr_cell_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
+
+                    for data_process in curr_prop_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
 
             # Include quantification metadata
             if copy_quantification:
-                new_data_procs.append()
+                for quant_folder in quantification_folders:
+                    quant_proc = quant_folder.joinpath('metadata/processing.json')
+                    curr_processing = read_json_as_dict(str(quant_proc))
+                    curr_processing_obj = processing_adapter.validate_python(curr_processing)
+
+                    for data_process in curr_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
 
             # Including new data procs
             if len(new_data_procs):
@@ -1972,12 +2006,6 @@ def run():
                 )
 
             filtered_proc_data.write_standard_file(output_directory=str(results_folder))
-
-            # Copying the data out to the respective folders
-            fuse_folder = data_folder.joinpath("image_tile_fusing")
-            ccf_folders = list(ccf_folder.glob("ccf_*"))
-            cell_folders = list(classification_folder.glob("cell_*"))
-            quantification_folders = list(quantification_folder.glob("quant_*"))
 
             copy_postprocessed_data(
                 post_fuse_folder=fuse_folder,
