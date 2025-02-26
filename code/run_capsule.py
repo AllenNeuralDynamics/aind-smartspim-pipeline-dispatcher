@@ -1683,7 +1683,7 @@ def run():
             alert_bot_link=alert_bot_link,
         )
 
-    elif "postprocess-dispatch" in mode:
+    elif "postprocess-start" in mode:
         logger.info("Starting post-processing...")
 
         # Raw data and stitched data folders
