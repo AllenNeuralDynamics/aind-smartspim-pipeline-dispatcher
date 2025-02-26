@@ -1545,7 +1545,7 @@ def run():
             f"{data_folder}/input_aind_metadata/data_description.json",
         ]
 
-    if "postprocess" in mode:
+    if "postprocess-dispatch" in mode:
         required_input_elements = [
             f"{data_folder}/raw_data",
             f"{data_folder}/stitched_data",
