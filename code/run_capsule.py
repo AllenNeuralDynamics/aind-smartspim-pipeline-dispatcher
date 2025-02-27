@@ -1836,7 +1836,7 @@ def run():
                 print(f"Copying {processing_json_path} to {output_proc_json}")
                 utils.copy_file(str(processing_json_path), str(output_proc_json))
 
-    elif "postprocess-clean" in mode:
+    elif "postprocess-stop" in mode:
 
         ccf_folder = data_folder.joinpath("registration")
         classification_folder = data_folder.joinpath("classification")
