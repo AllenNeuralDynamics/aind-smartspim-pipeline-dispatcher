@@ -1,22 +1,27 @@
-""" Main script that works as a dispatcher in code ocean """
+"""Main script that works as a dispatcher in code ocean"""
 
+import copy
 import json
 import logging
 import os
 import re
+import shutil
 import sys
 import time
 from glob import glob
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
+import requests
 import yaml
 import numpy as np
+from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest, Source, Sources)
+from aind_data_schema.core.processing import Processing, ProcessName
+from pydantic import TypeAdapter
 from utils import utils
-from _init_ import __pipeline_version__, __maintainers__, __pipeline_notes__
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -34,6 +39,511 @@ logger.setLevel(logging.INFO)
 PathLike = Union[str, Path]
 
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
+
+PIPELINE_REPOS = [
+    ("aind-smartspim-microscope-to-zarr", "File format conversion"),
+    ("aind-smartspim-flatfield-estimation", "Image flat-field correction"),
+    ("aind-smartspim-destripe", "Image destriping"),
+    ("aind-smartspim-stitch", "Image tile alignment"),
+    ("aind-smartspim-fuse", "Image tile fusing"),
+    ("aind-smartspim-ccf-registration", "Image atlas alignment"),
+    ("aind-smartspim-segmentation", "Image cell segmentation"),
+    ("aind-smartspim-classification", "Image cell segmentation"),
+    ("aind-smartspim-quantification", "Image cell quantification"),
+]
+
+MANIFEST_STEP_NAMES = {
+    "stitching": {"possible_names": ["stitching"]},
+    "registration": {"possible_names": ["registration", "ccf_registration"]},
+    "segmentation": {"possible_names": ["segmentation", "cell_segmentation_channels"]},
+}
+
+
+def get_processing_manifest_path(raw_data_folder: str) -> str:
+    """
+    Gets the processing manifest path. It is necessary
+    since the processing manifest is in different paths
+    depending on the SmartSPIM version.
+
+    Parameters
+    ----------
+    raw_data_folder: str
+        Path of the raw data folder to perform
+        the recursive search.
+
+    Returns
+    -------
+    str
+        Path where the processing manifest is stored.
+
+    """
+    raw_data_folder = Path(raw_data_folder)
+
+    if not raw_data_folder.exists():
+        raise FileNotFoundError(f"Raw data folder does not exist: {raw_data_folder}")
+
+    processing_manifest_path = None
+
+    for path in [
+        raw_data_folder.joinpath("derivatives"),
+        raw_data_folder.joinpath("SPIM/derivatives"),
+    ]:
+        curr_proc_man = path.joinpath("processing_manifest.json")
+        if curr_proc_man.exists():
+            processing_manifest_path = curr_proc_man
+
+    return processing_manifest_path
+
+
+def read_json_as_dict(filepath: str) -> dict:
+    """
+    Reads a json as dictionary.
+
+    Parameters
+    ------------------------
+
+    filepath: PathLike
+        Path where the json is located.
+
+    Returns
+    ------------------------
+
+    dict:
+        Dictionary with the data the json has.
+
+    """
+
+    dictionary = {}
+
+    if os.path.exists(filepath):
+        with open(filepath) as json_file:
+            dictionary = json.load(json_file)
+
+    return dictionary
+
+
+def get_version(
+    owner: str, repo: str, path: str, branch: Optional[str] = "main"
+) -> str:
+    """
+    Gets the version of a repository,
+
+    Parameters
+    ----------
+    owner: str
+        Github owner of the repository.
+
+    repo: str
+        Repository name
+
+    path: str
+        Path within the repository
+
+    branch: Optional[str]
+        Branch from where we will pull
+        the version. Default: "main"
+
+    Returns
+    -------
+    str
+        String with the version
+    """
+    url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        match = re.search(r'__version__\s*=\s*"([^"]+)"', response.text)
+        return match.group(1) if match else "Version not found"
+    else:
+        return None
+
+
+def get_pipeline_versions(
+    pipeline_repos: List, owner: Optional[str] = "AllenNeuralDynamics"
+) -> Dict:
+    """
+    Gets the SmartSPIM pipeline version for
+    each of the image processing steps.
+
+    Parameters
+    ----------
+    pipeline_repos: List
+        List with tuples correspoding to Tuple[
+            repo_name, metadata name in aind schema
+        ]
+
+    owner: Optional[str]
+        Repository owner.
+        Default: "AllenNeuralDynamics"
+
+    Returns
+    -------
+    Dict
+        Dictionary with the versions of the latest
+        version of each of the SmartSPIM pipeline steps.
+    """
+    step_versions = {}
+
+    for repo, step_name in pipeline_repos:
+        if "ccf" in repo:
+            package_name = "aind_ccf_reg"
+        else:
+            package_name = repo.replace("-", "_")
+
+        version = get_version(owner, repo, path=f"code/{package_name}/__init__.py")
+        step_versions[f"{repo} - {step_name}"] = {
+            "version": version,
+        }
+
+    return step_versions
+
+
+def get_dataset_step_versions(dataset_path):
+    processing_path = Path(dataset_path).joinpath("processing.json")
+    dataset_step_versions = None
+
+    if processing_path.exists():
+        try:
+            processing_data = read_json_as_dict(filepath=str(processing_path))
+        except BaseException as e:
+            print(f"Error reading {processing_path}: {e}")
+            processing_data = {}
+
+        processing_pipeline = processing_data.get("processing_pipeline")
+        pipeline_steps = processing_data.get("data_processes")
+
+        if pipeline_steps is None:
+            pipeline_steps = (
+                processing_pipeline.get("data_processes")
+                if processing_pipeline
+                else None
+            )
+
+        if pipeline_steps:
+            dataset_step_versions = {}
+
+            for step in pipeline_steps:
+                code_url = step.get("code_url")
+                step_name = step.get("name")
+                code_version = step.get("software_version", step.get("version"))
+
+                package_name = code_url.split("/")[-1]
+                dataset_step_versions[f"{package_name} - {step_name}"] = {
+                    "version": code_version
+                }
+
+        else:
+            print(f"No pipeline steps found in {processing_path}: {processing_data}")
+
+    else:
+        print("PROCESSING PATH DOES NOT EXIST: ", dataset_path.stem, processing_path)
+
+    return dataset_step_versions
+
+
+def check_dataset_latest_version(
+    dataset_versions: Dict,
+    latest_versions: Dict,
+):
+    """
+    Checks within the metadata (processing.json)
+    and the image processing versions to see
+    if any of the steps need to be rerun. If it
+    is not the latest version, the step will
+    be flagged as True to reprocess.
+
+    Parameters
+    ----------
+    dataset_versions: Dict
+        Image processing steps with their versions
+        in the SmartSPIM pipeline for a given dataset.
+        This metadata can be found in the processing.json
+
+    latest_versions: Dict
+        Latest versions of the image processing steps
+        in the SmartSPIM pipeline. This is related to
+        the pipeline and not a specific dataset.
+
+    Returns
+    -------
+    Dict
+        Dictionary for each of the steps that dictates
+        if we need to process a specific step in the pipeline.
+    """
+    process_versions = {}
+
+    for step, values in latest_versions.items():
+        dataset_step = dataset_versions.get(step)
+
+        if dataset_step is None:
+            curr_key = None
+            if "tile alignment" in step:
+                curr_key = [
+                    d
+                    for d in list(dataset_versions.keys())
+                    if "tile alignment" in d.lower()
+                ]
+
+            elif "tile fusing" in step:
+                curr_key = [
+                    d
+                    for d in list(dataset_versions.keys())
+                    if "tile fusing" in d.lower()
+                ]
+
+            elif "atlas alignment" in step:
+                curr_key = [
+                    d
+                    for d in list(dataset_versions.keys())
+                    if "atlas alignment".lower() in d.lower()
+                ]
+
+            curr_key = curr_key[0] if curr_key and len(curr_key) else None
+            dataset_step = dataset_versions.get(curr_key)
+
+        values_version = values.get("version")
+
+        process_versions[step] = {
+            "process": True,
+            "latest_version": values_version,
+            "dataset_version": None,
+        }
+
+        if dataset_step:
+            dataset_step_version = dataset_step.get("version")
+            if dataset_step_version == values_version:
+                process_versions[step] = {
+                    "process": False,
+                    "dataset_version": dataset_step_version,
+                    "latest_version": values_version,
+                }
+
+            else:
+                process_versions[step]["dataset_version"] = dataset_step_version
+
+    return process_versions
+
+
+def get_standard_manifest_config(pipeline_processing: Dict, hashmap_stepnames: Dict):
+    """
+    Reads a processing manifest configuration
+    and converts it to the standard.
+
+    Parameters
+    ----------
+    pipeline_processing: Dict
+        Pipeline processing manifest.
+        This could be from a very old version.
+
+    hashmap_stepnames: Dict
+        Hashmap with the step names
+
+    Parameters
+    ----------
+    Dict
+        Dictionary with the new processing manifest.
+    """
+
+    if not len(pipeline_processing):
+        raise ValueError("Please, provide a valid processing manifest.")
+
+    standard_pipeline_processing = {}
+    for step_name, values in hashmap_stepnames.items():
+
+        standard_pipeline_processing[step_name] = {}
+
+        for possible_name in values["possible_names"]:
+            if possible_name in pipeline_processing:
+                config = {}
+                if "cell_segmentation_channels" == possible_name:
+                    # Cell finder's params
+                    config = {
+                        "channels": pipeline_processing[possible_name],
+                        "input_scale": "0",
+                        "chunksize": "128",
+                        "signal_start": "0",
+                        "signal_end": "-1",
+                    }
+
+                elif "ccf_registration" == possible_name:
+                    config = {
+                        "channels": pipeline_processing[possible_name],
+                        "input_scale": 3,
+                    }
+
+                else:
+                    config = pipeline_processing[possible_name]
+
+                standard_pipeline_processing[step_name] = config
+                break
+
+    return standard_pipeline_processing
+
+
+def get_omezarr_path(stitched_path: str) -> str:
+    """
+    Gets the path where the fused data
+    is stored. It is necessary since the
+    fused data could be in different folders
+    depending the SmartSPIM folder structure
+    version.
+
+    Parameters
+    ----------
+    stitched_path: str
+        Root path of the stitched data asset.
+
+    Returns
+    -------
+    str
+        Path where the OMEZarrs are stored.
+    """
+    stitched_path = Path(stitched_path)
+
+    if not stitched_path.exists():
+        raise FileNotFoundError(f"Path {stitched_path} does not exist!")
+
+    possible_omezarr_folders = ["processed", "image_tile_fusing"]
+
+    for pof in possible_omezarr_folders:
+        curr_folder = stitched_path.joinpath(pof)
+
+        if curr_folder.joinpath("OMEZarr").exists():
+            return curr_folder
+
+    return None
+
+
+def get_dataset_post_processing_config(
+    processed_step_versions: Dict, pipeline_processing: Dict, latest_step_versions: Dict
+):
+    """
+    Creates the configuration for the postprocessing pipeline.
+    The idea is that if the versions of the image processing
+    steps is different, then it will have to be executed.
+
+    However, a step will only be executed if it has a
+    configuration within the processing manifest.
+
+    Parameters
+    ----------
+    processed_step_version: Dict
+        Versions of the image processing steps that were
+        executed for the dataset.
+
+    pipeline_processing: Dict
+        Dictionary with the steps that need to be executed
+        for this dataset. It is the configuration within
+        the processing_manifest.json in derivatives.
+
+    latest_step_version: Dict
+        Dictionary with the latest versions of the
+        image processing steps published in the pipeline.
+
+    Returns
+    -------
+    Dict
+        Dictionary with the final configuration
+        for each of the image processing steps.
+    """
+    final_config = {
+        "pipeline_processing": pipeline_processing,
+        "need_registration": {},
+        "need_proposals": {},
+        "need_classification": {},
+        "need_quantification": {},
+    }
+
+    if processed_step_versions and pipeline_processing:
+
+        process_versions = check_dataset_latest_version(
+            processed_step_versions, latest_step_versions
+        )
+
+        image_reg_cfg = pipeline_processing.get("registration")
+        image_seg_cfg = pipeline_processing.get("segmentation")
+
+        reg_channels = image_reg_cfg.get("channels")
+        seg_channels = image_seg_cfg.get("channels")
+
+        version_control_reg = process_versions[
+            "aind-smartspim-ccf-registration - Image atlas alignment"
+        ]["process"]
+
+        # Checking if there's something in the manifest
+        manifest_reg = reg_channels[0] if reg_channels and len(reg_channels) else []
+        manifest_seg = seg_channels[0] if seg_channels and len(seg_channels) else []
+
+        version_control_proposals = process_versions[
+            "aind-smartspim-segmentation - Image cell segmentation"
+        ]["process"]
+
+        version_control_classification = process_versions[
+            "aind-smartspim-classification - Image cell segmentation"
+        ]["process"]
+
+        version_control_quantification = process_versions[
+            "aind-smartspim-quantification - Image cell quantification"
+        ]["process"]
+
+        if len(manifest_reg) and version_control_reg:
+            need_reg = process_versions[
+                "aind-smartspim-ccf-registration - Image atlas alignment"
+            ]
+
+        if len(manifest_seg):
+            # Might need segmentation, classification or quantification
+            if version_control_proposals:
+                final_config["need_proposals"] = process_versions[
+                    "aind-smartspim-segmentation - Image cell segmentation"
+                ]
+                final_config["need_classification"] = process_versions[
+                    "aind-smartspim-classification - Image cell segmentation"
+                ]
+                final_config["need_quantification"] = process_versions[
+                    "aind-smartspim-quantification - Image cell quantification"
+                ]
+
+            elif version_control_classification:
+                final_config["need_classification"] = process_versions[
+                    "aind-smartspim-classification - Image cell segmentation"
+                ]
+                final_config["need_quantification"] = process_versions[
+                    "aind-smartspim-quantification - Image cell quantification"
+                ]
+
+            elif version_control_quantification or len(need_reg):
+                final_config["need_quantification"] = process_versions[
+                    "aind-smartspim-quantification - Image cell quantification"
+                ]
+
+    elif pipeline_processing:
+        image_reg_cfg = pipeline_processing.get("registration")
+        image_seg_cfg = pipeline_processing.get("segmentation")
+
+        reg_channels = image_reg_cfg.get("channels")
+        seg_channels = image_seg_cfg.get("channels")
+
+        manifest_reg = reg_channels[0] if reg_channels and len(reg_channels) else []
+        manifest_seg = seg_channels[0] if seg_channels and len(seg_channels) else []
+
+        if len(manifest_reg):
+            final_config["need_registration"] = {"process": True}
+
+        # Trigger everything if processing.json does not exist
+        if len(manifest_seg):
+            # Might need segmentation, classification or quantification
+            final_config["need_proposals"] = {"process": True}
+            final_config["need_classification"] = {"process": True}
+            final_config["need_quantification"] = {"process": True}
+
+    else:
+        print(
+            f"[!!!] Problem getting the process versions: {process_versions} - manifest: {pipeline_processing}"
+        )
+
+    return final_config
+
 
 def wavelength_to_hex(wavelength: int) -> int:
     """
@@ -386,8 +896,10 @@ def dispatch(
                 f"{results_folder}/segmentation_processing_manifest_empty.json",
                 pipeline_config.copy(),
             )
-            
-            print(f"No segmentation channels provided, pipeline config: {pipeline_config}")
+
+            print(
+                f"No segmentation channels provided, pipeline config: {pipeline_config}"
+            )
 
     else:
         raise BaseException("Stopping pipeline, pipeline configuration.")
@@ -474,7 +986,7 @@ def clean_up(
         processing_paths += sub_list
 
     logger.info(f"Compiling processing paths: {processing_paths}")
-    
+
     if len(processing_paths) > 1:
         output_filename = utils.compile_processing_jsons(
             processing_paths=processing_paths,
@@ -527,7 +1039,7 @@ def clean_up(
             f"Results of quantification saved in: {quantification_s3_output}",
             f"{results_folder}/output_quantification.txt",
         )
-    
+
     else:
         print("No segmentation data to copy!")
         utils.save_dict_as_json(
@@ -768,6 +1280,72 @@ def copy_intermediate_data(
         f"Stitched dataset saved in: {s3_path}",
         f"{results_folder}/output_stitching.txt",
     )
+
+
+def create_segmentation_manifests(
+    processing_manifest: dict, results_folder: str, prefix: str
+):
+    """
+    Creates the segmentation manifests.
+
+    Parameters
+    ----------
+    processing_manifest: dict
+        Dictionary with the parameters
+        for the pipeline.
+
+    results_folder: str
+        Folder where we are going to store results.
+
+    prefix: str
+        Prefix when saving the manifests.
+    """
+    pipeline_config = processing_manifest["pipeline_processing"]
+    segment_channels = pipeline_config["segmentation"]["channels"]
+
+    if len(segment_channels):
+        print(
+            f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}"
+        )
+        background_channel = processing_manifest["pipeline_processing"]["registration"][
+            "channels"
+        ]
+
+        background_channel = background_channel[0] if len(background_channel) else None
+
+        for channel_to_segment in segment_channels:
+            copy_pipeline_config = pipeline_config.copy()
+
+            copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
+            copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
+
+            if background_channel is None:
+                copy_pipeline_config["segmentation"][
+                    "background_channel"
+                ] = channel_to_segment
+            else:
+                copy_pipeline_config["segmentation"][
+                    "background_channel"
+                ] = background_channel
+
+            # Creating quantification parameters
+            copy_pipeline_config["quantification"] = {}
+            copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
+            copy_pipeline_config["quantification"]["channel"] = channel_to_segment
+            copy_pipeline_config["quantification"]["save_path"] = "../results/"
+
+            print(copy_pipeline_config, channel_to_segment)
+
+            utils.save_dict_as_json(
+                f"{results_folder}/{prefix}_processing_manifest_{channel_to_segment}.json",
+                copy_pipeline_config,
+            )
+
+    else:
+        utils.save_dict_as_json(
+            f"{results_folder}/{prefix}_processing_manifest_empty.json",
+            pipeline_config.copy(),
+        )
 
 
 def create_derived_stitched_metadata(
@@ -1036,6 +1614,253 @@ def send_email_alerts(
         logger.info("Email not sent: No investigators were provided")
 
 
+def copy_postprocessed_data(
+    post_fuse_folder: str,
+    output_dispatch_metadata: str,
+    ccf_folders: List[PathLike],
+    cell_folders: List[PathLike],
+    quantification_folders: List[PathLike],
+    s3_path: str,
+    results_folder: str,
+    new_processing_path: str,
+    logger: logging.Logger,
+):
+    """
+    Copies the postprocessed data to the destination
+    bucket. We create a new data asset name with
+    new timestamps for this purpose by keeping the
+    old folder structure and metadata.
+
+    Parameters
+    ----------
+    post_fuse_folder: str
+        Fusion folder where the previous asset
+        had the fused channels.
+
+    output_dispatch_metadata: str
+        Path where the metadata that will be
+        copied to the new dataset is stored.
+
+    ccf_folders: List[PathLike]
+        CCF folders after processing, this comes
+        from the previous data asset or could come
+        from the new processing. Usually, it is
+        a single channel.
+
+    cell_folders: List[PathLike]
+        Cell folders after processing, this comes
+        from the previous data asset or could come
+        from the new processing.
+
+    quantification_folders: List[PathLike]
+        Quantification folders after processing, this comes
+        from the previous data asset or could come
+        from the new processing.
+
+    s3_path: str
+        S3 path where the data will be moved to. This corresponds
+        to s3://aind-open-data/SmartSPIM_{ID}_{timestamp}_stitched_{new_timestamp}.
+        It is automatically generated depending on the time of processing.
+
+    results_folder: str
+        Folder where results will be stored.
+
+    new_processing_path: str
+        New processing path after collecting old and new metadata.
+
+    logger: logging.Logger
+        Logging object.
+
+    """
+    if (
+        not len(ccf_folders)
+        and not len(cell_folders)
+        and not len(quantification_folders)
+    ):
+        msg = (
+            f"Avoiding copy. CCF: {ccf_folders} - CELL: {cell_folders}"
+            f" - QUANT: {quantification_folders}"
+        )
+        logger.info(msg)
+        return None
+
+    ccf_s3_output = f"{s3_path}/image_atlas_alignment"
+    cell_s3_output = f"{s3_path}/image_cell_segmentation"
+    quantification_s3_output = f"{s3_path}/image_cell_quantification"
+    fusion_s3_output = f"{s3_path}/image_tile_fusing"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+
+    # Copying derived metadata
+    output_dispatch_metadata = Path(output_dispatch_metadata)
+    for out in utils.execute_command_helper(
+        f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
+    ):
+        logger.info(out)
+
+    # Copying new processing json
+    for out in utils.execute_command_helper(
+        f"aws s3 cp {new_processing_path} {s3_path}/processing.json"
+    ):
+        logger.info(out)
+
+    # Copying ccf data
+    for ccf_folder in ccf_folders:
+        channel_name = re.search(regex_channels, str(ccf_folder)).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+        ):
+            logger.info(out)
+
+    # Moving data to the cell folder
+    for cell_folder in cell_folders:
+        channel_name = re.search(regex_channels, str(cell_folder)).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    # Moving data to the quantification folder
+    for quantification_folder in quantification_folders:
+        channel_name = re.search(regex_channels, str(quantification_folder)).group()
+
+        for out in utils.execute_command_helper(
+            f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+        ):
+            print(out)
+
+    # Copying preprocessed fused data to new data asset
+    for out in utils.execute_command_helper(
+        f"aws s3 cp --recursive {post_fuse_folder} {fusion_s3_output}"
+    ):
+        logger.info(out)
+
+    utils.save_string_to_txt(
+        f"Results of cell segmentation saved in: {cell_s3_output}",
+        f"{results_folder}/output_cell.txt",
+    )
+
+    utils.save_string_to_txt(
+        f"Results of quantification saved in: {quantification_s3_output}",
+        f"{results_folder}/output_quantification.txt",
+    )
+
+
+def remove_positions(lst: List, positions: List[int]) -> List:
+    """
+    Removes positions from a list.
+
+    Parameters
+    ----------
+    lst: List
+        List of objects.
+
+    positions: List[int]
+        List of integers correspoding to the
+        positions in the list.
+
+    Raises
+    ------
+    ValueError
+        In a situation where any of the positions
+        of the provided list is higher than the
+        number of positions of the list with the
+        objects.
+
+    Returns
+    -------
+    List
+        List of objects after removing the positions
+    """
+    len_objs = len(lst)
+    max_index = max(positions)
+    min_index = min(positions)
+
+    if min_index < 0 or max_index > len_objs:
+        msg = (
+            "Error in removal of positions"
+            f"Positions: {positions} - Len list: {len_objs}"
+        )
+        raise ValueError(msg)
+
+    return [obj for idx, obj in enumerate(lst) if idx not in set(positions)]
+
+
+def get_filtered_proc_metadata(
+    input_proc_json: dict,
+    copy_ccf: bool,
+    copy_classification: bool,
+    copy_quantification: bool,
+):
+    """
+    Returns the processing.json after removing the steps that will
+    be executed in the post-processing pipeline.
+
+    Note: We only provide classification since in the metadata
+    cell-segmentation is used for both detection and classification.
+
+    Parameters
+    ----------
+    input_proc_json: dict
+        Processing dictionary from the previous stitched data asset.
+
+    copy_ccf: bool
+        Boolean that dictates if we need to rerun ccf registration.
+
+    copy_classification: bool
+        Boolean that dictates if we need to rerun classification.
+
+    copy_quantification: bool
+        Boolean that dictates if we need to rerun quantification.
+
+    Returns
+    -------
+    Dict:
+        Filtered metadata.
+    """
+    if not input_proc_json.exists():
+        raise FileNotFoundError(
+            f"Processing.json was not provided in {input_proc_json}"
+        )
+
+    input_proc_json_data = read_json_as_dict(input_proc_json)
+    processing_adapter = TypeAdapter(Processing)
+    input_proc_json_data_obj = processing_adapter.validate_python(input_proc_json_data)
+    input_proc_json_data_obj_copy = copy.deepcopy(input_proc_json_data_obj)
+
+    if not copy_ccf and not copy_classification and not copy_quantification:
+        return input_proc_json_data_obj_copy, []
+
+    delete_pos = []
+    data_processes = input_proc_json_data_obj.processing_pipeline.data_processes
+    for i, dt_proc in enumerate(data_processes):
+
+        remove_reg = copy_ccf and (
+            "aind-ccf-registration" in dt_proc.code_url
+            or ProcessName.IMAGE_ATLAS_ALIGNMENT == dt_proc.name
+        )
+
+        remove_cell = copy_classification and (
+            "aind-SmartSPIM-segmentation" in dt_proc.code_url
+            or "aind-smartspim-classification" in dt_proc.code_url
+            or ProcessName.IMAGE_CELL_SEGMENTATION == dt_proc.name
+        )
+
+        remove_quant = copy_quantification and (
+            "aind-smartspim-quantification" in dt_proc.code_url
+            or ProcessName.IMAGE_CELL_QUANTIFICATION == dt_proc.name
+        )
+
+        if remove_reg or remove_cell or remove_quant:
+            delete_pos.append(i)
+
+    input_proc_json_data_obj_copy.processing_pipeline.data_processes = remove_positions(
+        data_processes, delete_pos
+    )
+    return input_proc_json_data_obj_copy, delete_pos
+
+
 def run():
     """
     Run function allows the smartspim pipeline to execute
@@ -1053,9 +1878,9 @@ def run():
     # Absolute paths of common Code Ocean folders
     data_folder = Path(os.path.abspath("../data"))
 
-    for d in data_folder.glob("*"):
-        if d.is_dir():
-            print(f"Data in {d}: {list(d.glob('*'))}")
+    #     for d in data_folder.glob("*"):
+    #         if d.is_dir():
+    #             print(f"Data in {d}: {list(d.glob('*'))}")
 
     results_folder = Path(os.path.abspath("../results"))
 
@@ -1074,6 +1899,7 @@ def run():
 
     logger.info(f"Alert bot link: {alert_bot_link}")
     logger.info(f"SES alert configs: {alert_configs}")
+    logger.info(f"Capsule mode: {mode}")
 
     # It is assumed that these files
     # will be in the data folder
@@ -1086,6 +1912,21 @@ def run():
         required_input_elements = [
             f"{data_folder}/modified_processing_manifest.json",
             f"{data_folder}/input_aind_metadata/data_description.json",
+        ]
+
+    if "postprocess-start" in mode:
+        required_input_elements = [
+            f"{data_folder}/raw_data",
+            f"{data_folder}/stitched_data",
+        ]
+
+    if "postprocess-stop" in mode:
+        required_input_elements = [
+            f"{data_folder}/registration",
+            f"{data_folder}/classification",
+            f"{data_folder}/quantification",
+            f"{data_folder}/postprocess_dispatch",
+            f"{data_folder}/stitched_data",
         ]
 
     missing_files = utils.validate_capsule_inputs(required_input_elements)
@@ -1228,6 +2069,383 @@ def run():
             results_folder=results_folder,
             alert_bot_link=alert_bot_link,
         )
+
+    elif "postprocess-start" in mode:
+        logger.info("Starting post-processing...")
+
+        # Raw data and stitched data folders
+        raw_path = data_folder.joinpath("raw_data")
+        stitched_path = data_folder.joinpath("stitched_data")
+
+        processing_manifest_path = get_processing_manifest_path(raw_path)
+
+        investigators = []
+
+        if processing_manifest_path is None:
+            print(f"[-] ERROR GETTING {processing_manifest_path.stem}")
+        else:
+            print(f"[+] Processing {raw_path.stem} - {processing_manifest_path}")
+
+            # Read necessary JSON files
+            data_description_dict = utils.read_json_as_dict(
+                str(raw_path / "data_description.json")
+            )
+
+            # Creating new metadata for stitched dataset
+            output_dispatch_metadata, new_dataset_name = (
+                create_derived_stitched_metadata(
+                    data_folder=data_folder,
+                    results_folder=results_folder,
+                    logger=logger,
+                )
+            )
+
+            investigators = data_description_dict.get("investigators")
+            dataset_name = data_description_dict.get("name")
+            print(
+                f"Postprocessing dataset: {dataset_name} - New asset name: {new_dataset_name}"
+            )
+
+            processing_manifest_data = read_json_as_dict(processing_manifest_path)
+            latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
+
+            # Standardize pipeline processing config
+            processing_manifest_data["pipeline_processing"] = (
+                get_standard_manifest_config(
+                    pipeline_processing=processing_manifest_data.get(
+                        "pipeline_processing"
+                    ),
+                    hashmap_stepnames=MANIFEST_STEP_NAMES,
+                )
+            )
+
+            processed_step_versions = get_dataset_step_versions(stitched_path)
+
+            # Get final processing configuration
+            final_config = get_dataset_post_processing_config(
+                processed_step_versions,
+                processing_manifest_data["pipeline_processing"],
+                latest_step_versions,
+            )
+
+            omezarr_folder = get_omezarr_path(stitched_path)
+
+            # Define important paths
+            atlas_alignment_path = stitched_path / "image_atlas_alignment"
+            # quantification_path = stitched_path / "image_cell_quantification"
+            cell_seg_path = stitched_path / "image_cell_segmentation"
+
+            print(f"Final config: {final_config}, {omezarr_folder}")
+
+            # Extract required processing steps
+            need_reg = final_config.get("need_registration", {}).get("process", False)
+            need_prop = final_config.get("need_proposals", {}).get("process", False)
+            need_class = final_config.get("need_classification", {}).get(
+                "process", False
+            )
+            need_quant = final_config.get("need_quantification", {}).get(
+                "process", False
+            )
+
+            if not need_reg and not need_prop and not need_class and not need_quant:
+                empty_pmd = processing_manifest_data.copy()
+                empty_pmd["pipeline_processing"]["registration"]["channels"] = []
+                empty_pmd["pipeline_processing"]["segmentation"]["channels"] = []
+
+                utils.save_dict_as_json(
+                    results_folder / "processing_manifest.json", empty_pmd
+                )
+
+                # Providing these for the flatten connection in nextflow
+                utils.save_dict_as_json(
+                    results_folder / "segmentation_processing_manifest_empty.json",
+                    empty_pmd["pipeline_processing"],
+                )
+
+                utils.save_dict_as_json(
+                    results_folder / "classification_processing_manifest_empty.json",
+                    empty_pmd["pipeline_processing"],
+                )
+
+            # If registration is needed, save the processing manifest
+            if need_reg:
+                utils.save_dict_as_json(
+                    results_folder / "processing_manifest.json",
+                    processing_manifest_data,
+                )
+
+            # If any further processing is needed, handle atlas alignment copying
+            elif need_prop or need_class or need_quant:
+                atlas_alignment_dest = results_folder / "image_atlas_alignment"
+                utils.create_folder(atlas_alignment_dest)
+
+                for ccf_folder in atlas_alignment_path.glob("Ex_*_Em_*"):
+                    shutil.copytree(
+                        ccf_folder, atlas_alignment_dest / f"ccf_{ccf_folder.stem}"
+                    )
+
+            # Handle segmentation manifests
+            if need_prop:
+                create_segmentation_manifests(
+                    processing_manifest_data,
+                    results_folder,
+                    prefix="segmentation",
+                )
+
+            else:
+                copy_manifests = processing_manifest_data.copy()
+
+                # Setting channels to empty to avoid processing
+                copy_manifests["pipeline_processing"]["segmentation"]["channels"] = []
+                create_segmentation_manifests(
+                    copy_manifests, results_folder, prefix="segmentation"
+                )
+
+            if need_class or need_quant:
+
+                # Copying cell segmentation data
+                cell_seg_dest = results_folder / "image_cell_segmentation"
+                utils.create_folder(cell_seg_dest)
+
+                for cell_folder in cell_seg_path.glob("Ex_*_Em_*"):
+                    shutil.copytree(
+                        cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}"
+                    )
+
+                # Creating manifests for classification
+                create_segmentation_manifests(
+                    processing_manifest_data, results_folder, prefix="classification"
+                )
+
+            processing_json_path = stitched_path.joinpath("processing.json")
+            if processing_json_path.exists():
+                output_proc_json = results_folder.joinpath("processing.json")
+                print(f"Copying {processing_json_path} to {output_proc_json}")
+                utils.copy_file(str(processing_json_path), str(output_proc_json))
+
+    elif "postprocess-stop" in mode:
+
+        ccf_folder = data_folder.joinpath("registration")
+        classification_folder = data_folder.joinpath("classification")
+        quantification_folder = data_folder.joinpath("quantification")
+        postprocess_dispatch_folder = data_folder.joinpath("postprocess_dispatch")
+        stitched_data = data_folder.joinpath("stitched_data")
+
+        pipeline_config = utils.read_json_as_dict(
+            str(postprocess_dispatch_folder.joinpath("processing_manifest.json"))
+        )
+
+        utils.save_dict_as_json(
+            f"{results_folder}/provided_processing_manifest.json",
+            pipeline_config.copy(),
+        )
+
+        copy_ccf = False
+        copy_classification = False
+        copy_quantification = False
+
+        if ccf_folder.exists():
+            copy_ccf = bool(
+                len([a for a in list(ccf_folder.glob("ccf_*")) if a.is_dir()])
+            )
+
+        if classification_folder.exists():
+            copy_classification = bool(
+                len(
+                    [
+                        a
+                        for a in list(classification_folder.glob("cell_*"))
+                        if a.is_dir()
+                    ]
+                )
+            )
+
+        if quantification_folder.exists():
+            copy_quantification = bool(
+                len(
+                    [
+                        a
+                        for a in list(quantification_folder.glob("quant_*"))
+                        if a.is_dir()
+                    ]
+                )
+            )
+
+        if copy_ccf or copy_classification or copy_quantification:
+            # I need to copy fused data
+
+            metadata_folder = postprocess_dispatch_folder.joinpath(
+                "output_aind_metadata"
+            )
+
+            data_description_dict = utils.read_json_as_dict(
+                str(metadata_folder.joinpath("data_description.json"))
+            )
+            new_dataset_name = data_description_dict.get("name")
+
+            if new_dataset_name is None:
+                raise ValueError("New dataset name is None! Please, provide it.")
+
+            bucket_path = "aind-open-data"
+            s3_path = f"s3://{bucket_path}/{new_dataset_name}"
+            dest_zarr_path = f"{s3_path}/image_tile_fusing/OMEZarr"
+
+            # Creating neuroglancer link for new data asset
+            # Getting S3 paths for channels
+            s3_paths_for_channels = [
+                f"{dest_zarr_path}/{fused_zarr.name}"
+                for fused_zarr in stitched_data.glob("image_tile_fusing/OMEZarr/*.zarr")
+            ]
+
+            if not len(s3_paths_for_channels):
+                raise FileNotFoundError(
+                    f"Problem finding zarr data in {stitched_data.joinpath('image_tile_fusing/OMEZarr')}"
+                )
+
+            axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
+                "resolution"
+            ]
+            output_json, ng_link_path = create_ng_link(
+                config={
+                    "bucket_path": bucket_path,
+                    "output_folder": results_folder,
+                    "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                    "z_res": axes_resolution[2]["resolution"],
+                    "y_res": axes_resolution[1]["resolution"],
+                    "x_res": axes_resolution[0]["resolution"],
+                },
+                s3_channel_paths=s3_paths_for_channels,
+                s3_dataset_path=s3_path,
+            )
+
+            email_message_params["ng_link_path"] = ng_link_path
+
+            # Creating QC Metrics
+            qc_evaluators = [
+                {
+                    "name": "Neuroglancer Link Evaluation",
+                    "description": "Checks that the whole-brain neuroglancer link was created",
+                    "notes": "",
+                    "stage": "Processing",
+                    "qc_metric_values": [
+                        {
+                            "name": "Dataset neuroglancer link",
+                            "description": "Qualitative check that the neuroglancer link was created",
+                            "value": "",
+                            "reference": ng_link_path,
+                            "status": "Pending",
+                        },
+                    ],
+                },
+            ]
+
+            utils.create_quality_control_metadata(
+                qc_eval_values=qc_evaluators,
+                output_path=metadata_folder,
+            )
+
+            logger.info(f"Data in stitched data: {list(stitched_data.glob('*'))}")
+            input_proc_json = stitched_data.joinpath("processing.json")
+
+            filtered_proc_data, deleted_pos = get_filtered_proc_metadata(
+                input_proc_json, copy_ccf, copy_classification, copy_quantification
+            )
+
+            logger.info(f"Deleted pos from previous processing: {deleted_pos}")
+
+            # Copying the data out to the respective folders
+            ccf_folders = list(ccf_folder.glob("ccf_*"))
+            cell_folders = list(classification_folder.glob("cell_*"))
+            quantification_folders = list(quantification_folder.glob("quant_*"))
+
+            new_data_procs = []
+
+            processing_adapter = TypeAdapter(Processing)
+
+            # Include ccf reg metadata
+            if copy_ccf:
+                for ccf_folder in ccf_folders:
+                    ccf_proc = ccf_folder.joinpath("metadata/processing.json")
+                    curr_processing = read_json_as_dict(str(ccf_proc))
+                    curr_processing_obj = processing_adapter.validate_python(
+                        curr_processing
+                    )
+
+                    for (
+                        data_process
+                    ) in curr_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
+
+            # Include proposals and classification metadata
+            if copy_classification:
+                for cell_folder in cell_folders:
+                    class_proc = cell_folder.joinpath("metadata/processing.json")
+                    proposals_proc = cell_folder.joinpath(
+                        "proposals/metadata/processing.json"
+                    )
+
+                    curr_cell_processing = read_json_as_dict(str(class_proc))
+                    curr_prop_processing = read_json_as_dict(str(proposals_proc))
+
+                    curr_cell_processing_obj = processing_adapter.validate_python(
+                        curr_cell_processing
+                    )
+                    curr_prop_processing_obj = processing_adapter.validate_python(
+                        curr_prop_processing
+                    )
+
+                    for (
+                        data_process
+                    ) in curr_cell_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
+
+                    for (
+                        data_process
+                    ) in curr_prop_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
+
+            # Include quantification metadata
+            if copy_quantification:
+                for quant_folder in quantification_folders:
+                    quant_proc = quant_folder.joinpath("metadata/processing.json")
+                    curr_processing = read_json_as_dict(str(quant_proc))
+                    curr_processing_obj = processing_adapter.validate_python(
+                        curr_processing
+                    )
+
+                    for (
+                        data_process
+                    ) in curr_processing_obj.processing_pipeline.data_processes:
+                        new_data_procs.append(data_process)
+
+            # Including new data procs
+            if len(new_data_procs):
+                filtered_proc_data.processing_pipeline.data_processes.extend(
+                    new_data_procs
+                )
+
+            filtered_proc_data.write_standard_file(output_directory=str(results_folder))
+
+            copy_postprocessed_data(
+                post_fuse_folder=stitched_data.joinpath("image_tile_fusing"),
+                output_dispatch_metadata=metadata_folder,
+                ccf_folders=ccf_folders,
+                cell_folders=cell_folders,
+                quantification_folders=quantification_folders,
+                s3_path=s3_path,
+                results_folder=results_folder,
+                new_processing_path=str(results_folder.joinpath("processing.json")),
+                logger=logger,
+            )
+
+            # Copying neuroglancer config out
+            for out in utils.execute_command_helper(
+                f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+            ):
+                logger.info(out)
+
+        else:
+            print("Avoiding copying data since there was nothing to copy.")
 
     else:
         raise NotImplementedError(f"The mode {mode} has not been implemented")
