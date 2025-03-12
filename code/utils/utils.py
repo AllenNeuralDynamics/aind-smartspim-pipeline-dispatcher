@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import dask.array as da
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -743,6 +744,86 @@ def compile_processing_jsons(
 
     return output_filename
 
+def calculate_dynamic_range(
+        fuse_folder: PathLike,
+        percentile: int,
+        level: int
+):
+    """
+    Calculates the default dynamic range for teh neuroglancer link
+    using a defined percentile from the downsampled zarr
+
+    Parameters
+    ----------
+    fuse_folder : PathLike
+        location of the zarrs created during fusion
+    percentile : 99
+        The top percentile value for setting the dynamic range
+    level : 3
+        level of zarr to use for calculating percentile
+
+    Returns
+    -------
+    dynamic_ranges : dict
+        The dynamic range and window range values for each channels zarr
+
+    """
+    
+    dynamic_ranges = {}
+    for fused_zarr in fuse_folder:
+        name = fused_zarr.split("/")[-1] 
+        img = da.from_zarr(fused_zarr, str(level)).squeeze()
+        range_max = da.percentile(img.flatten(), percentile).compute()[0]
+        window_max = int(range_max * 1.5)
+        dynamic_ranges[name] = [int(range_max), window_max]
+        
+    return dynamic_ranges 
+
+def generate_ng_link(
+        input_configs: dict,
+        s3_path: PathLike,
+        base_url = PathLike,
+        json_name = str,
+):
+    """
+    Creates the json state dictionary for the neuroglancer link
+
+    Parameters
+    ----------
+    input_configs : dict
+        Base and layer information needed for configuring json state
+    s3_path : PathLike
+        The bucket location where the neuroglancer file will be stored
+    base_url : PathLike
+        The neuroglancer instance that you want to host the visualization
+    json_name : str
+        The name of the neuroglancer json file
+
+    Returns
+    -------
+    json_state : dict
+        fully configured JSON for neuroglancer visualization
+    """
+    
+    ng_path = f"{s3_path}/{json_name}"
+
+    json_state = {
+        "ng_link": f"{base_url}#!{ng_path}",
+        "title": input_configs['title'],
+        "dimensions": input_configs['dimensions'],
+        "crossSectionOrientation": input_configs['crossSectionOrientation'],
+        "crossSectionScale": input_configs['crossSectionScale'],
+        "projectionScale": 16384,
+        "layers": input_configs['layers'],
+        "gpuMemoryLimit": 1500000000,
+        "selectedLayer": {
+            "visible": True,
+            "layer": input_configs['layers'][0]['name']
+        },
+        "layout": "4panel",
+    }
+    
+    return json_state
 
 class AlertBot:
     """Class to handle sending alerts and messages in MS Teams."""
