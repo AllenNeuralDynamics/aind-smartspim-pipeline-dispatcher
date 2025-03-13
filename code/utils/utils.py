@@ -746,8 +746,8 @@ def compile_processing_jsons(
 
 def calculate_dynamic_range(
         fuse_folder: PathLike,
-        percentile: int,
-        level: int
+        percentile: 99,
+        level: 3
 ):
     """
     Calculates the default dynamic range for teh neuroglancer link
@@ -770,14 +770,14 @@ def calculate_dynamic_range(
     """
     
     dynamic_ranges = {}
-    for fused_zarr in fuse_folder:
-        name = fused_zarr.split("/")[-1] 
+    for fused_zarr in fuse_folder.glob("*.zarr"):
+        
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
-        dynamic_ranges[name] = [int(range_max), window_max]
+        dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
         
-    return dynamic_ranges 
+    return dynamic_ranges
 
 def generate_ng_link(
         input_configs: dict,
