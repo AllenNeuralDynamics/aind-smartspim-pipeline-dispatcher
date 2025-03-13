@@ -12,9 +12,9 @@ from glob import glob
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import requests
 import yaml
-import numpy as np
 from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
@@ -349,7 +349,6 @@ def get_standard_manifest_config(pipeline_processing: Dict, hashmap_stepnames: D
 
     standard_pipeline_processing = {}
     for step_name, values in hashmap_stepnames.items():
-
         standard_pipeline_processing[step_name] = {}
 
         for possible_name in values["possible_names"]:
@@ -455,7 +454,6 @@ def get_dataset_post_processing_config(
     }
 
     if processed_step_versions and pipeline_processing:
-
         process_versions = check_dataset_latest_version(
             processed_step_versions, latest_step_versions
         )
@@ -631,6 +629,7 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
             return hex_val
     return hex_val  # hex_val is set to the last color in for loop
 
+
 def volume_orientation(acquisition_params: dict):
     """
     Uses the acquisition orientation to set the cross-section
@@ -652,14 +651,14 @@ def volume_orientation(acquisition_params: dict):
         orientation values for the neuroglancer link
 
     """
-    
+
     acquired = ["", "", ""]
-    
-    for axis in acquisition_params['axes']:
-        acquired[axis['dimension']] = axis['direction'][0]
-        
+
+    for axis in acquisition_params["axes"]:
+        acquired[axis["dimension"]] = axis["direction"][0]
+
     acquired = "".join(acquired)
-    
+
     if acquired in ["SPR", "SPL"]:
         orientation = [0.5, 0.5, 0.5, -0.5]
     elif acquired == "SAL":
@@ -667,14 +666,16 @@ def volume_orientation(acquisition_params: dict):
     elif acquired == "IAR":
         orientation = [0.5, -0.5, 0.5, 0.5]
     elif acquired == "RAS":
-        orientation = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
+        orientation = [np.cos(np.pi / 4), 0.0, 0.0, np.cos(np.pi / 4)]
     elif acquired == "RPI":
-        orientation = [np.cos(np.pi/4), 0.0, 0.0, -np.cos(np.pi/4)]
+        orientation = [np.cos(np.pi / 4), 0.0, 0.0, -np.cos(np.pi / 4)]
     elif acquired == "LAI":
-        orientation = [0.0, np.cos(np.pi/4), -np.cos(np.pi/4), 0.0]
+        orientation = [0.0, np.cos(np.pi / 4), -np.cos(np.pi / 4), 0.0]
     else:
-        raise ValueError("Acquisition orientation: {acquired} has unknown NG parameters")
-    
+        raise ValueError(
+            "Acquisition orientation: {acquired} has unknown NG parameters"
+        )
+
     return orientation
 
 
@@ -1413,8 +1414,8 @@ def create_derived_stitched_metadata(
 
 
 def create_ng_link(
-    config: dict, 
-    s3_channel_paths: List[str], 
+    config: dict,
+    s3_channel_paths: List[str],
     s3_dataset_path: str,
     orientation: dict,
     dynamic_ranges: dict,
@@ -1435,10 +1436,10 @@ def create_ng_link(
 
     s3_dataset_path: str
         S3 path where the dataset is stored
-        
+
     orientation: dict
         Acquisition orientation obtained from processing manifest
-        
+
     dynamic_ranges: dict
         Values for setting dynamic range for each channel
 
@@ -1476,7 +1477,11 @@ def create_ng_link(
         channel: int = int(channel_str.split("_")[-1])
         hex_val: int = wavelength_to_hex_alternate(channel)
         hex_code = f"#{str(hex(hex_val))[2:]}"
-        hex_str = '#uicontrol vec3 color color(default="' + hex_code + '")\n#uicontrol invlerp normalized\nvoid main() {\nemitRGB(color * normalized());\n}'
+        hex_str = (
+            '#uicontrol vec3 color color(default="'
+            + hex_code
+            + '")\n#uicontrol invlerp normalized\nvoid main() {\nemitRGB(color * normalized());\n}'
+        )
 
         colors.append(hex_str)
 
@@ -1500,7 +1505,7 @@ def create_ng_link(
                 "shaderControls": {
                     "normalized": {
                         "range": [0, dynamic_ranges[channel_name][0]],
-                        "window": [0, dynamic_ranges[channel_name][1]]
+                        "window": [0, dynamic_ranges[channel_name][1]],
                     }
                 },
             }
@@ -1509,32 +1514,32 @@ def create_ng_link(
     if segmentation:
         layers.append(
             {
-                "source":f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
+                "source": f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
                 "type": "image",
                 "tab": "source",
                 "name": "CCF_template",
                 "shaderControls": {
                     "normalized": {"range": [0, 300]},
-                    "window": [0, 1000]
-                }
+                    "window": [0, 1000],
+                },
             }
         )
 
         layers.append(
             {
-                "source":f"precomputed://{s3_dataset_path}/image_atlas_alignment/ccf_annotation_precomputed",
+                "source": f"precomputed://{s3_dataset_path}/image_atlas_alignment/ccf_annotation_precomputed",
                 "type": "segmentation",
                 "tab": "source",
                 "name": "CCF_parcellation",
             }
         )
-        
+
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
     else:
-        crossSectionOrientation = [np.cos(np.pi/4), 0.0, 0.0, np.cos(np.pi/4)]
+        crossSectionOrientation = [np.cos(np.pi / 4), 0.0, 0.0, np.cos(np.pi / 4)]
 
-    subject_id = Path(s3_dataset_path).name.split('_')[1]
+    subject_id = Path(s3_dataset_path).name.split("_")[1]
     crossSectionOrientation = volume_orientation(orientation)
     input_configs = {
         "title": subject_id,
@@ -1545,10 +1550,10 @@ def create_ng_link(
     }
 
     json_state = utils.generate_ng_link(
-        input_configs = input_configs,
-        s3_path = s3_dataset_path,
-        base_url = config['ng_base_url'],
-        json_name = "neuroglancer_config.json",
+        input_configs=input_configs,
+        s3_path=s3_dataset_path,
+        base_url=config["ng_base_url"],
+        json_name="neuroglancer_config.json",
     )
 
     if segmentation:
@@ -1835,7 +1840,6 @@ def get_filtered_proc_metadata(
     delete_pos = []
     data_processes = input_proc_json_data_obj.processing_pipeline.data_processes
     for i, dt_proc in enumerate(data_processes):
-
         remove_reg = copy_ccf and (
             "aind-ccf-registration" in dt_proc.code_url
             or ProcessName.IMAGE_ATLAS_ALIGNMENT == dt_proc.name
@@ -1966,10 +1970,10 @@ def run():
             f"{dest_zarr_path}/{fused_zarr.name}"
             for fused_zarr in fuse_folder.glob("*.zarr")
         ]
-        
+
         chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder, 99, 3)
-        orientation = pipeline_config['prelim_acquisition']
-        
+        orientation = pipeline_config["prelim_acquisition"]
+
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
@@ -1987,7 +1991,7 @@ def run():
             s3_dataset_path=s3_path,
             orientation=orientation,
             dynamic_ranges=chanel_dynamic_ranges,
-            segmentation=False
+            segmentation=False,
         )
 
         email_message_params["ng_link_path"] = ng_link_path
@@ -2036,8 +2040,8 @@ def run():
             f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
         ):
             logger.info(out)
-            
-        #TODO Add the function to make segmentation layer for reverse transforms
+
+        # TODO Add the function to make segmentation layer for reverse transforms
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
@@ -2092,12 +2096,13 @@ def run():
             )
 
             # Creating new metadata for stitched dataset
-            output_dispatch_metadata, new_dataset_name = (
-                create_derived_stitched_metadata(
-                    data_folder=data_folder,
-                    results_folder=results_folder,
-                    logger=logger,
-                )
+            (
+                output_dispatch_metadata,
+                new_dataset_name,
+            ) = create_derived_stitched_metadata(
+                data_folder=data_folder,
+                results_folder=results_folder,
+                logger=logger,
             )
 
             investigators = data_description_dict.get("investigators")
@@ -2110,13 +2115,11 @@ def run():
             latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
 
             # Standardize pipeline processing config
-            processing_manifest_data["pipeline_processing"] = (
-                get_standard_manifest_config(
-                    pipeline_processing=processing_manifest_data.get(
-                        "pipeline_processing"
-                    ),
-                    hashmap_stepnames=MANIFEST_STEP_NAMES,
-                )
+            processing_manifest_data[
+                "pipeline_processing"
+            ] = get_standard_manifest_config(
+                pipeline_processing=processing_manifest_data.get("pipeline_processing"),
+                hashmap_stepnames=MANIFEST_STEP_NAMES,
             )
 
             processed_step_versions = get_dataset_step_versions(stitched_path)
@@ -2202,7 +2205,6 @@ def run():
                 )
 
             if need_class or need_quant:
-
                 # Copying cell segmentation data
                 cell_seg_dest = results_folder / "image_cell_segmentation"
                 utils.create_folder(cell_seg_dest)
@@ -2224,7 +2226,6 @@ def run():
                 utils.copy_file(str(processing_json_path), str(output_proc_json))
 
     elif "postprocess-stop" in mode:
-
         ccf_folder = data_folder.joinpath("registration")
         classification_folder = data_folder.joinpath("classification")
         quantification_folder = data_folder.joinpath("quantification")
