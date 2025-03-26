@@ -745,7 +745,9 @@ def compile_processing_jsons(
     return output_filename
 
 
-def calculate_dynamic_range(fuse_folder: PathLike, percentile: 99, level: 3):
+def calculate_dynamic_range(
+    fuse_folder: PathLike, extension: str, percentile: 99, level: 3
+):
     """
     Calculates the default dynamic range for teh neuroglancer link
     using a defined percentile from the downsampled zarr
@@ -754,6 +756,8 @@ def calculate_dynamic_range(fuse_folder: PathLike, percentile: 99, level: 3):
     ----------
     fuse_folder : PathLike
         location of the zarrs created during fusion
+    extension: str
+        regex for locating zarr files within fuse_folder
     percentile : 99
         The top percentile value for setting the dynamic range
     level : 3
@@ -767,7 +771,7 @@ def calculate_dynamic_range(fuse_folder: PathLike, percentile: 99, level: 3):
     """
 
     dynamic_ranges = {}
-    for fused_zarr in fuse_folder.glob("*.zarr"):
+    for fused_zarr in fuse_folder.glob(extension):
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)

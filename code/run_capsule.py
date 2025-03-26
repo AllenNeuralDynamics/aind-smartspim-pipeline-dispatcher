@@ -1413,7 +1413,7 @@ def create_derived_stitched_metadata(
     return output_dispatch_metadata, new_dataset_name
 
 
-def create_ng_link(
+def create_neuroglancer_link(
     config: dict,
     s3_channel_paths: List[str],
     s3_dataset_path: str,
@@ -1971,14 +1971,16 @@ def run():
             for fused_zarr in fuse_folder.glob("*.zarr")
         ]
 
-        chanel_dynamic_ranges = utils.calculate_dynamic_range(fuse_folder, 99, 3)
+        chanel_dynamic_ranges = utils.calculate_dynamic_range(
+            fuse_folder=fuse_folder, extension="*.zarr", percentile=99, level=3
+        )
         orientation = pipeline_config["prelim_acquisition"]
 
         axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
             "resolution"
         ]
 
-        output_json, ng_link_path = create_ng_link(
+        output_json, ng_link_path = create_neuroglancer_link(
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
@@ -2303,21 +2305,35 @@ def run():
                     f"Problem finding zarr data in {stitched_data.joinpath('image_tile_fusing/OMEZarr')}"
                 )
 
+            chanel_dynamic_ranges = utils.calculate_dynamic_range(
+                fuse_folder=stitched_data,
+                extension="image_tile_fusing/OMEZarr/*.zarr",
+                percentile=99,
+                level=3,
+            )
+            orientation = pipeline_config["prelim_acquisition"]
+
             axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
                 "resolution"
             ]
-            output_json, ng_link_path = create_ng_link(
+
+            output_json, ng_link_path = create_neuroglancer_link(
                 config={
                     "bucket_path": bucket_path,
                     "output_folder": results_folder,
-                    "ng_base_url": "https://aind-neuroglancer-sauujisjxq-uw.a.run.app",
+                    "ng_base_url": "https://neuroglancer-demo.appspot.com/",
                     "z_res": axes_resolution[2]["resolution"],
                     "y_res": axes_resolution[1]["resolution"],
                     "x_res": axes_resolution[0]["resolution"],
                 },
                 s3_channel_paths=s3_paths_for_channels,
                 s3_dataset_path=s3_path,
+                orientation=orientation,
+                dynamic_ranges=chanel_dynamic_ranges,
+                segmentation=False,
             )
+
+            # TODO Add the function to make segmentation layer for reverse transforms
 
             email_message_params["ng_link_path"] = ng_link_path
 
