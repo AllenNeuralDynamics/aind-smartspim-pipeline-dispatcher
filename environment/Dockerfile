@@ -15,6 +15,7 @@ SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
 RUN pip install -U --no-cache-dir \
     dask[distributed]==2022.11.1 \
     boto3==1.36.14 \
+    zarr==2.13.6 \
     aind-codeocean-api==0.4.2 \
     aind-data-schema==1.3.0 \
     python-dotenv==0.21.1 \
