@@ -785,6 +785,7 @@ def generate_ng_link(
     s3_path: PathLike,
     base_url=PathLike,
     json_name=str,
+    segmentation=bool
 ):
     """
     Creates the json state dictionary for the neuroglancer link
@@ -799,6 +800,8 @@ def generate_ng_link(
         The neuroglancer instance that you want to host the visualization
     json_name : str
         The name of the neuroglancer json file
+    segmentation: boolean
+        Whether you are creating the reversed segmentation layer link
 
     Returns
     -------
@@ -806,7 +809,10 @@ def generate_ng_link(
         fully configured JSON for neuroglancer visualization
     """
 
-    ng_path = f"{s3_path}/{json_name}"
+    if segmenation:
+        ng_path = f"{s3_path}/image_atlas_alignment/{json_name}"
+    else:
+        ng_path = f"{s3_path}/{json_name}"
 
     json_state = {
         "ng_link": f"{base_url}#!{ng_path}",
