@@ -1561,7 +1561,7 @@ def create_neuroglancer_link(
         s3_path=s3_dataset_path,
         base_url=config["ng_base_url"],
         json_name="neuroglancer_config.json",
-        segmenation=segmentation
+        segmentation=segmentation
     )
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
