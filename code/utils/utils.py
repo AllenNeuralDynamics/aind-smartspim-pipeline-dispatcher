@@ -809,7 +809,7 @@ def generate_ng_link(
         fully configured JSON for neuroglancer visualization
     """
 
-    if segmenation:
+    if segmentation:
         ng_path = f"{s3_path}/image_atlas_alignment/{json_name}"
     else:
         ng_path = f"{s3_path}/{json_name}"
