@@ -1551,10 +1551,7 @@ def create_neuroglancer_link(
         "crossSectionOrientation": crossSectionOrientation,
         "crossSectionScale": crossSectionScale,
         "toolPalettes": {
-            "Shader controls": {
-                "row": 2,
-                "query": "type:shaderControl"
-            },
+            "Shader controls": {"row": 2, "query": "type:shaderControl"},
         },
     }
 
