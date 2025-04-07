@@ -1267,7 +1267,7 @@ def copy_intermediate_data(
 
     # Copying ccf data
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
-    regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
+    regex_channels = r"Ex_(\d{3})_Em_(\d{3})|ccf_reverse|ccf_annotation_precomputed"
 
     for ccf_folder in ccf_folders:
         channel_name = re.search(regex_channels, ccf_folder).group()
@@ -1471,6 +1471,13 @@ def create_neuroglancer_link(
         "t": [0.001, "s"],
     }
 
+    projectionOrientation = [
+        0.459884375333786,
+        0.6998259425163269,
+        -0.031935740262269974,
+        0.5456465482711792
+    ]
+
     colors = []
     for channel_str in s3_channel_paths:
         channel_str = str(Path(channel_str).stem).replace(".ome", "")
@@ -1514,19 +1521,6 @@ def create_neuroglancer_link(
     if segmentation:
         layers.append(
             {
-                "source": f"{s3_dataset_path}/image_atlas_alignment/ccf_reverse/OMEZarr/image.zarr",
-                "type": "image",
-                "tab": "source",
-                "name": "CCF_template",
-                "shaderControls": {
-                    "normalized": {"range": [0, 300]},
-                    "window": [0, 1000],
-                },
-            }
-        )
-
-        layers.append(
-            {
                 "source": f"precomputed://{s3_dataset_path}/image_atlas_alignment/ccf_annotation_precomputed",
                 "type": "segmentation",
                 "tab": "source",
@@ -1534,8 +1528,10 @@ def create_neuroglancer_link(
             }
         )
         crossSectionScale = 2
+        projectionScale = 1280
     else:
         crossSectionScale = 15
+        projectionScale = 10240
 
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
@@ -1550,6 +1546,8 @@ def create_neuroglancer_link(
         "layers": layers,
         "crossSectionOrientation": crossSectionOrientation,
         "crossSectionScale": crossSectionScale,
+        "projectionScale": projectionScale,
+        "projectionOrientation": projectionOrientation,
         "toolPalettes": {
             "Shader controls": {"row": 2, "query": "type:shaderControl"},
         },
@@ -1560,11 +1558,8 @@ def create_neuroglancer_link(
         s3_path=s3_dataset_path,
         base_url=config["ng_base_url"],
         json_name="neuroglancer_config.json",
+        segmentation=segmentation
     )
-
-    if segmentation:
-        ng_link = f"{config['ng_base_url']}#!{s3_dataset_path}/image_atlas_alignment/neuroglancer_config.json"
-        json_state["ng_link"] = ng_link
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
 
@@ -2049,7 +2044,26 @@ def run():
         ):
             logger.info(out)
 
-        # TODO Add the function to make segmentation layer for reverse transforms
+        output_json, ng_link_path = create_neuroglancer_link(
+            config={
+                "bucket_path": bucket_path,
+                "output_folder": results_folder,
+                "ng_base_url": "https://neuroglancer-demo.appspot.com/",
+                "z_res": axes_resolution[2]["resolution"],
+                "y_res": axes_resolution[1]["resolution"],
+                "x_res": axes_resolution[0]["resolution"],
+            },
+            s3_channel_paths=s3_paths_for_channels,
+            s3_dataset_path=s3_path,
+            orientation=orientation,
+            dynamic_ranges=chanel_dynamic_ranges,
+            segmentation=True,
+        )
+
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
+        ):
+            logger.info(out)
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
