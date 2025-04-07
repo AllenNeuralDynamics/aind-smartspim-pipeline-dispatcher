@@ -1527,11 +1527,7 @@ def create_neuroglancer_link(
                 "name": "CCF_parcellation",
             }
         )
-        crossSectionScale = 2
-        projectionScale = 1280
-    else:
-        crossSectionScale = 15
-        projectionScale = 10240
+
 
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
@@ -1545,8 +1541,8 @@ def create_neuroglancer_link(
         "dimensions": dimensions,
         "layers": layers,
         "crossSectionOrientation": crossSectionOrientation,
-        "crossSectionScale": crossSectionScale,
-        "projectionScale": projectionScale,
+        "crossSectionScale": 15,
+        "projectionScale": 10240,
         "projectionOrientation": projectionOrientation,
         "toolPalettes": {
             "Shader controls": {"row": 2, "query": "type:shaderControl"},
