@@ -745,7 +745,9 @@ def compile_processing_jsons(
     return output_filename
 
 
-def calculate_dynamic_range(fuse_folder: PathLike, percentile: 99, level: 3):
+def calculate_dynamic_range(
+    fuse_folder: PathLike, extension: str, percentile: 99, level: 3
+):
     """
     Calculates the default dynamic range for teh neuroglancer link
     using a defined percentile from the downsampled zarr
@@ -754,6 +756,8 @@ def calculate_dynamic_range(fuse_folder: PathLike, percentile: 99, level: 3):
     ----------
     fuse_folder : PathLike
         location of the zarrs created during fusion
+    extension: str
+        regex for locating zarr files within fuse_folder
     percentile : 99
         The top percentile value for setting the dynamic range
     level : 3
@@ -767,7 +771,7 @@ def calculate_dynamic_range(fuse_folder: PathLike, percentile: 99, level: 3):
     """
 
     dynamic_ranges = {}
-    for fused_zarr in fuse_folder.glob("*.zarr"):
+    for fused_zarr in fuse_folder.glob(extension):
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
@@ -781,6 +785,7 @@ def generate_ng_link(
     s3_path: PathLike,
     base_url=PathLike,
     json_name=str,
+    segmentation=bool
 ):
     """
     Creates the json state dictionary for the neuroglancer link
@@ -795,6 +800,8 @@ def generate_ng_link(
         The neuroglancer instance that you want to host the visualization
     json_name : str
         The name of the neuroglancer json file
+    segmentation: boolean
+        Whether you are creating the reversed segmentation layer link
 
     Returns
     -------
@@ -802,7 +809,10 @@ def generate_ng_link(
         fully configured JSON for neuroglancer visualization
     """
 
-    ng_path = f"{s3_path}/{json_name}"
+    if segmentation:
+        ng_path = f"{s3_path}/image_atlas_alignment/{json_name}"
+    else:
+        ng_path = f"{s3_path}/{json_name}"
 
     json_state = {
         "ng_link": f"{base_url}#!{ng_path}",
