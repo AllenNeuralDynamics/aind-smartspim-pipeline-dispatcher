@@ -658,13 +658,14 @@ def copy_intermediate_data(
     output_fusion = "image_tile_fusing"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
     dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
+    
+    if Path(flatfield_folder).exists():
+        cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
 
-    cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
+        logger.info(f"Executing CMD: {cmd}")
 
-    logger.info(f"Executing CMD: {cmd}")
-
-    for out in utils.execute_command_helper(cmd):
-        logger.info(out)
+        for out in utils.execute_command_helper(cmd):
+            logger.info(out)
 
     for fused_zarr in fuse_folder.glob("*.zarr"):
         fused_zarr_file_path = str(fused_zarr)
