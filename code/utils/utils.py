@@ -720,26 +720,36 @@ def compile_processing_jsons(
     data_processes = []
     for processing_path in processing_paths:
         curr_processing = read_json_as_dict(str(processing_path))
-        print(f"Reading processing: {curr_processing}")
-        processing_adapter = TypeAdapter(Processing)
-        curr_processing_obj = processing_adapter.validate_python(curr_processing)
+        print(f"Reading processing from {processing_path}: {curr_processing}")
 
-        for data_process in curr_processing_obj.processing_pipeline.data_processes:
-            data_processes.append(data_process)
+        if len(curr_processing):
+            processing_adapter = TypeAdapter(Processing)
+            curr_processing_obj = processing_adapter.validate_python(curr_processing)
 
+            for data_process in curr_processing_obj.processing_pipeline.data_processes:
+                data_processes.append(data_process)
+
+            msg = (
+                f"Adding {len(curr_processing_obj.processing_pipeline.data_processes)} "
+                f"processes from {curr_processing}"
+            )
+            print(msg)
+    
+    if len(data_processes):
+        output_filename = generate_processing(
+            data_processes=data_processes,
+            dest_processing=str(output_general_processing),
+            processor_full_name=processor_full_name,
+            pipeline_version=pipeline_version,
+            pipeline_notes=pipeline_notes,
+        )
+    
+    else:
+        output_filename = None
         msg = (
-            f"Adding {len(curr_processing_obj.processing_pipeline.data_processes)} "
-            f"processes from {curr_processing}"
+            f"Problem generating processing manifest from {processing_paths}"
         )
         print(msg)
-
-    output_filename = generate_processing(
-        data_processes=data_processes,
-        dest_processing=str(output_general_processing),
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_notes=pipeline_notes,
-    )
 
     return output_filename
 
