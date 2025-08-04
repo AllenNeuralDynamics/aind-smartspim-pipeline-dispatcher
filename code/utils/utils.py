@@ -1187,3 +1187,30 @@ def create_quality_control_metadata(
             serialized = q.model_dump_json()
             deserialized = QualityControl.model_validate_json(serialized)
             q.write_standard_file(output_directory=output_path)
+
+def get_resolution(acquisition_config: dict) -> Tuple[float]:
+    """
+    Get the image resolution from the acquisition.json metadata
+
+    Parameters
+    ----------
+    acquisition_config: dict
+        Acquisition metadata
+
+    Returns
+    -------
+    Tuple[float]
+        Tuple with the floats for image resolution
+    """
+
+    # Grabbing a tile with metadata from acquisition - we assume all dataset
+    # was acquired with the same resolution
+    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
+
+    scale_transform = [x["scale"] for x in tile_coord_transforms if x["type"] == "scale"][0]
+
+    x = float(scale_transform[0])
+    y = float(scale_transform[1])
+    z = float(scale_transform[2])
+
+    return x, y, z

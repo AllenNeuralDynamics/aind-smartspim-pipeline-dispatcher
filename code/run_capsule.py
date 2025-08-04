@@ -1939,6 +1939,13 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
+    acquisition_json = utils.read_json_as_dict("input_aind_metadata/acquisition.json")
+
+    if not len(acquisition_json):
+        raise FileNotFoundError("Please, provide an acquisition.json")
+
+    axes_resolution_xyz = get_resolution(acquisition_config=acquisition_json)
+
     email_message_params = {}
     if "dispatch" in mode:
         pipeline_config, dataset_name, investigators = get_data_config(
@@ -1973,18 +1980,14 @@ def run():
         )
         orientation = pipeline_config["prelim_acquisition"]
 
-        axes_resolution = pipeline_config["pipeline_processing"]["stitching"][
-            "resolution"
-        ]
-
         output_json, ng_link_path = create_neuroglancer_link(
             config={
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
                 "ng_base_url": "https://neuroglancer-demo.appspot.com/",
-                "z_res": axes_resolution[2]["resolution"],
-                "y_res": axes_resolution[1]["resolution"],
-                "x_res": axes_resolution[0]["resolution"],
+                "z_res": axes_resolution_xyz[2],
+                "y_res": axes_resolution_xyz[1],
+                "x_res": axes_resolution_xyz[0],
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
@@ -2045,9 +2048,9 @@ def run():
                 "bucket_path": bucket_path,
                 "output_folder": results_folder,
                 "ng_base_url": "https://neuroglancer-demo.appspot.com/",
-                "z_res": axes_resolution[2]["resolution"],
-                "y_res": axes_resolution[1]["resolution"],
-                "x_res": axes_resolution[0]["resolution"],
+                "z_res": axes_resolution_xyz[2],
+                "y_res": axes_resolution_xyz[1],
+                "x_res": axes_resolution_xyz[0],
             },
             s3_channel_paths=s3_paths_for_channels,
             s3_dataset_path=s3_path,
@@ -2338,9 +2341,9 @@ def run():
                     "bucket_path": bucket_path,
                     "output_folder": results_folder,
                     "ng_base_url": "https://neuroglancer-demo.appspot.com/",
-                    "z_res": axes_resolution[2]["resolution"],
-                    "y_res": axes_resolution[1]["resolution"],
-                    "x_res": axes_resolution[0]["resolution"],
+                    "z_res": axes_resolution_xyz[2],
+                    "y_res": axes_resolution_xyz[1],
+                    "x_res": axes_resolution_xyz[0],
                 },
                 s3_channel_paths=s3_paths_for_channels,
                 s3_dataset_path=s3_path,
