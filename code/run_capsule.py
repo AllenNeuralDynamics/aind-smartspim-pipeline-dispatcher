@@ -1939,7 +1939,7 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
-    acquisition_json = utils.read_json_as_dict("input_aind_metadata/acquisition.json")
+    acquisition_json = utils.read_json_as_dict(data_folder.joinpath("input_aind_metadata/acquisition.json"))
 
     if not len(acquisition_json):
         raise FileNotFoundError("Please, provide an acquisition.json")
