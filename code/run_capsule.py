@@ -1944,7 +1944,7 @@ def run():
     if not len(acquisition_json):
         raise FileNotFoundError("Please, provide an acquisition.json")
 
-    axes_resolution_xyz = get_resolution(acquisition_config=acquisition_json)
+    axes_resolution_xyz = utils.get_resolution(acquisition_config=acquisition_json)
 
     email_message_params = {}
     if "dispatch" in mode:
