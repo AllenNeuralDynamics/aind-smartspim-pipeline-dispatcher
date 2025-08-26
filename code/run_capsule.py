@@ -1475,7 +1475,7 @@ def create_neuroglancer_link(
         0.459884375333786,
         0.6998259425163269,
         -0.031935740262269974,
-        0.5456465482711792
+        0.5456465482711792,
     ]
 
     colors = []
@@ -1528,7 +1528,6 @@ def create_neuroglancer_link(
             }
         )
 
-
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
     else:
@@ -1554,7 +1553,7 @@ def create_neuroglancer_link(
         s3_path=s3_dataset_path,
         base_url=config["ng_base_url"],
         json_name="neuroglancer_config.json",
-        segmentation=segmentation
+        segmentation=segmentation,
     )
 
     ng_output_path = f"{config['output_folder']}/neuroglancer_config.json"
@@ -1939,7 +1938,9 @@ def run():
 
     logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 
-    acquisition_json = utils.read_json_as_dict(data_folder.joinpath("input_aind_metadata/acquisition.json"))
+    acquisition_json = utils.read_json_as_dict(
+        data_folder.joinpath("input_aind_metadata/acquisition.json")
+    )
 
     if not len(acquisition_json):
         raise FileNotFoundError("Please, provide an acquisition.json")
@@ -1947,7 +1948,35 @@ def run():
     axes_resolution_xyz = utils.get_resolution(acquisition_config=acquisition_json)
 
     email_message_params = {}
-    if "dispatch" in mode:
+    if "split_channels" in mode:
+        logger.info("Starting channel splitting...")
+
+        pipeline_config, dataset_name, investigators = get_data_config(
+            data_folder=data_folder,
+            data_description_path="input_aind_metadata/data_description.json",
+        )
+
+        bucket_name = "aind-open-data"
+
+        BASE_PATH = f"s3://{bucket_name}/"
+        prefix = f"{dataset_name}/SPIM"
+        BASE_PATH = f"{BASE_PATH}{prefix}"
+        channels = [
+            i
+            for i in utils.list_s3_folders(bucket=bucket_name, prefix=prefix)
+            if "Ex" in i
+        ]
+
+        for ch in channels:
+            utils.save_dict_as_json(
+                f"{results_folder}/preprocess_{ch}.json",
+                {
+                    "input_data": BASE_PATH,
+                    "channel": ch,
+                },
+            )
+
+    elif "dispatch" in mode:
         pipeline_config, dataset_name, investigators = get_data_config(
             data_folder=data_folder,
             data_description_path="input_aind_metadata/data_description.json",
@@ -2136,11 +2165,13 @@ def run():
             latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
 
             # Standardize pipeline processing config
-            processing_manifest_data[
-                "pipeline_processing"
-            ] = get_standard_manifest_config(
-                pipeline_processing=processing_manifest_data.get("pipeline_processing"),
-                hashmap_stepnames=MANIFEST_STEP_NAMES,
+            processing_manifest_data["pipeline_processing"] = (
+                get_standard_manifest_config(
+                    pipeline_processing=processing_manifest_data.get(
+                        "pipeline_processing"
+                    ),
+                    hashmap_stepnames=MANIFEST_STEP_NAMES,
+                )
             )
 
             processed_step_versions = get_dataset_step_versions(stitched_path)

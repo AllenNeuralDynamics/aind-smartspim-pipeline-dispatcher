@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import boto3
 import dask.array as da
@@ -785,7 +785,7 @@ def generate_ng_link(
     s3_path: PathLike,
     base_url=PathLike,
     json_name=str,
-    segmentation=bool
+    segmentation=bool,
 ):
     """
     Creates the json state dictionary for the neuroglancer link
@@ -1188,6 +1188,7 @@ def create_quality_control_metadata(
             deserialized = QualityControl.model_validate_json(serialized)
             q.write_standard_file(output_directory=output_path)
 
+
 def get_resolution(acquisition_config: dict) -> Tuple[float]:
     """
     Get the image resolution from the acquisition.json metadata
@@ -1207,7 +1208,9 @@ def get_resolution(acquisition_config: dict) -> Tuple[float]:
     # was acquired with the same resolution
     tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
 
-    scale_transform = [x["scale"] for x in tile_coord_transforms if x["type"] == "scale"][0]
+    scale_transform = [
+        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
+    ][0]
 
     x = float(scale_transform[0])
     y = float(scale_transform[1])
