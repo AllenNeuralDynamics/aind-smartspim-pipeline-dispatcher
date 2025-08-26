@@ -1047,7 +1047,21 @@ def send_ses_alerts(
             "https://allenneuraldynamics.github.io/assets/img/AIND_logo.png"
         )
 
-        if "dispatch" in mode:
+        if "split_channels" in mode:
+            message_data = f"""
+                <html>
+                <body>
+                    <h3>Hello {invest},</h3>
+                    <p>This is an email to inform you that your dataset <i>{dataset}</i> finished uploading and is being processed.</p>
+                    <p>Sincerely,<br><b>SmartSPIM Processing Team.</b><p>
+                    <img src="{aind_image_logo}" alt="Embedded Image" style="width:300px; height:auto;">
+                </body>
+                </html>
+            """
+
+            subject_data = f"SmartSPIM Notification - Pipeline Started - {dataset}"
+
+        elif "dispatch" in mode:
             ng_link_path = email_message_params.get("ng_link_path")
             ng_link_path = (
                 ng_link_path
