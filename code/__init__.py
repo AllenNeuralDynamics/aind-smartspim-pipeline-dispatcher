@@ -22,7 +22,7 @@ __maintainer_emails__ = [
 ]
 __title__ = "aind-smartspim-pipeline-dispatcher"
 __status__ = "Production"  # 'Production', 'Beta'
-__pipeline_version__ = "4.0.1"
+__pipeline_version__ = "4.0.0"
 __pipeline_notes__ = (
     "New folder structure in cell detection creating "
     "a proposals folder and visualization of proposals"
