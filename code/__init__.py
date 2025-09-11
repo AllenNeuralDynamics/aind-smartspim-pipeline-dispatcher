@@ -2,7 +2,7 @@
 Module init file
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __authors__ = ["Camilo Laiton", "Nicholas Lusk"]
 __author_emails__ = [
     "camilo.laiton@alleninstitute.org",
