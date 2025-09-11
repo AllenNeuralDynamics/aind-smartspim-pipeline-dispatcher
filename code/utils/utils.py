@@ -5,8 +5,10 @@ Utility functions
 import json
 import os
 import shutil
+import re
 import subprocess
 from datetime import datetime
+import pathlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -774,10 +776,11 @@ def calculate_dynamic_range(
 
     dynamic_ranges = {}
     for fused_zarr in fuse_folder.glob(extension):
+        channel = re.findall(r"Ex_\d+_Em_\d+", fused_zarr)[0]
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
-        dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
+        dynamic_ranges[channel] = [int(range_max), window_max]
 
     return dynamic_ranges
 
