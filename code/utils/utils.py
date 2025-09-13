@@ -776,7 +776,7 @@ def calculate_dynamic_range(
 
     dynamic_ranges = {}
     for fused_zarr in fuse_folder.glob(extension):
-        channel = re.findall(r"Ex_\d+_Em_\d+", fused_zarr)[0]
+        channel = re.findall(r"Ex_\d+_Em_\d+", str(fused_zarr))[0]
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
