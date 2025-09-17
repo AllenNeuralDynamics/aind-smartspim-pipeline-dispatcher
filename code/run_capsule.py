@@ -1488,9 +1488,13 @@ def create_neuroglancer_link(
 
     colors = []
     for channel_str in s3_channel_paths:
-        channel_str = str(Path(channel_str).stem).replace(".ome", "")
-        channel: int = int(channel_str.split("_")[-1])
-        hex_val: int = wavelength_to_hex_alternate(channel)
+        if ccf:
+            channel_str = str(channel_str).split('/')[-3]
+            channel = int(channel_str.split("_")[-1])
+        else:
+            channel_str = str(Path(channel_str).stem).replace(".ome", "")
+            channel = int(channel_str.split("_")[-1])
+        hex_val = wavelength_to_hex_alternate(channel)
         hex_code = f"#{str(hex(hex_val))[2:]}"
         hex_str = (
             '#uicontrol vec3 color color(default="'
@@ -2123,7 +2127,7 @@ def run():
         ccf_resolution = 25
         
         s3_paths_for_reg_channels = [
-            f"{dest_reg_path}/{reg_zarr.name[:4]}/OMEZarr/image.zarr"
+            f"{dest_reg_path}/{reg_zarr.name[:-4]}/OMEZarr/image.zarr"
             for reg_zarr in reg_folder.glob("ccf_Ex_*")
         ]
         
