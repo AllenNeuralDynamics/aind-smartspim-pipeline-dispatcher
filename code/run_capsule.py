@@ -2118,7 +2118,7 @@ def run():
         ccf_resolution = 25
         
         s3_paths_for_reg_channels = [
-            f"{dest_reg_path}/{reg_zarr.name[:-4]}/OMEZarr/image.zarr"
+            f"{dest_reg_path}/{reg_zarr.name[4:]}/OMEZarr/image.zarr"
             for reg_zarr in reg_folder.glob("ccf_Ex_*")
         ]
         
