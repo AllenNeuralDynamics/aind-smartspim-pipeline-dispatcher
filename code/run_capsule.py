@@ -1417,7 +1417,7 @@ def create_neuroglancer_link(
     config: dict,
     s3_channel_paths: List[str],
     s3_dataset_path: str,
-    orientation: dict,
+    orientation: Union[Dict, List],
     dynamic_ranges: dict,
     segmentation: bool,
     ccf: bool
@@ -1438,8 +1438,9 @@ def create_neuroglancer_link(
     s3_dataset_path: str
         S3 path where the dataset is stored
 
-    orientation: dict
-        Acquisition orientation obtained from processing manifest
+    orientation: Union[Dict, List]
+        Acquisition orientation obtained from processing manifest as a dict or
+        manual input as list
 
     dynamic_ranges: dict
         Values for setting dynamic range for each channel
@@ -1562,7 +1563,7 @@ def create_neuroglancer_link(
         crossSectionOrientation = [np.cos(np.pi / 4), 0.0, 0.0, np.cos(np.pi / 4)]
 
     subject_id = Path(s3_dataset_path).name.split("_")[1]
-    crossSectionOrientation = volume_orientation(orientation)
+
     input_configs = {
         "title": subject_id,
         "dimensions": dimensions,
