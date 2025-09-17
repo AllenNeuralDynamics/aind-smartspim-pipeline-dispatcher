@@ -1585,6 +1585,7 @@ def create_neuroglancer_link(
         base_url=config["ng_base_url"],
         json_name=ng_json_name,
         segmentation=segmentation,
+        ccf=ccf
     )
 
     ng_output_path = f"{config['output_folder']}/{ng_json_name}"

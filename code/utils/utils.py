@@ -791,6 +791,7 @@ def generate_ng_link(
     base_url=PathLike,
     json_name=str,
     segmentation=bool,
+    ccf=bool,
 ):
     """
     Creates the json state dictionary for the neuroglancer link
@@ -807,6 +808,8 @@ def generate_ng_link(
         The name of the neuroglancer json file
     segmentation: boolean
         Whether you are creating the reversed segmentation layer link
+    ccf: boolean
+        Whether you are creating the ccf registered link
 
     Returns
     -------
@@ -816,6 +819,8 @@ def generate_ng_link(
 
     if segmentation:
         ng_path = f"{s3_path}/image_atlas_alignment/{json_name}"
+    elif ccf:
+        ng_path = f"{s3_path}/image_atlas_alignment/ccf_visualization/{json_name}"
     else:
         ng_path = f"{s3_path}/{json_name}"
 
