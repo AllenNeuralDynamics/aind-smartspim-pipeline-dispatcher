@@ -1581,10 +1581,7 @@ def create_neuroglancer_link(
         },
     }
     
-    if ccf:
-        ng_json_name = "neuroglancer_ccf_config.json"
-    else:
-        ng_json_name = "neuroglancer_config.json"
+    ng_json_name = "neuroglancer_config.json"
 
     json_state = utils.generate_ng_link(
         input_configs=input_configs,
@@ -2141,11 +2138,11 @@ def run():
         ccf_resolution = 25
         
         s3_paths_for_reg_channels = [
-            f"{dest_reg_path}/{fused_zarr.name[:4]}/OMEZarr/image.zarr"
-            for fused_zarr in fuse_folder.glob("ccf_Ex_*")
+            f"{dest_reg_path}/{reg_zarr.name[:4]}/OMEZarr/image.zarr"
+            for reg_zarr in reg_folder.glob("ccf_Ex_*")
         ]
         
-        print(s3_paths_for_reg_channels)
+        logger.info(s3_paths_for_reg_channels)
         
         channel_dynamic_ranges = utils.calculate_dynamic_range(
             fuse_folder=reg_folder, extension="**/*.zarr", percentile=99, level=0
@@ -2171,7 +2168,7 @@ def run():
         )
         
         for out in utils.execute_command_helper(
-            f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
+            f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/ccf_visualization/{output_json.name}"
         ):
             logger.info(out)
 
