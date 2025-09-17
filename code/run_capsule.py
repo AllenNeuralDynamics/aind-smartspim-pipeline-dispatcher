@@ -2089,21 +2089,6 @@ def run():
             output_path=output_dispatch_metadata,
         )
 
-        copy_intermediate_data(
-            output_dispatch_metadata=output_dispatch_metadata,
-            flatfield_folder=flatfield_folder,
-            destripe_files=destripe_files,
-            stitch_folder=stitch_folder,
-            fuse_folder=fuse_folder,
-            ccf_folders=ccf_folders,
-            s3_path=s3_path,
-            results_folder=results_folder,
-            logger=logger,
-        )
-
-        data_results = glob(f"{results_folder}/*")
-        logger.info(f"Data in {results_folder}: {data_results}")
-
         # Copying neuroglancer config out
         for out in utils.execute_command_helper(
             f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
@@ -2171,6 +2156,21 @@ def run():
             f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/ccf_visualization/{output_json.name}"
         ):
             logger.info(out)
+
+        copy_intermediate_data(
+            output_dispatch_metadata=output_dispatch_metadata,
+            flatfield_folder=flatfield_folder,
+            destripe_files=destripe_files,
+            stitch_folder=stitch_folder,
+            fuse_folder=fuse_folder,
+            ccf_folders=ccf_folders,
+            s3_path=s3_path,
+            results_folder=results_folder,
+            logger=logger,
+        )
+
+        data_results = glob(f"{results_folder}/*")
+        logger.info(f"Data in {results_folder}: {data_results}")
 
         # Setting the stitching path in pipeline config
         pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
