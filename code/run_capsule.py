@@ -1488,12 +1488,8 @@ def create_neuroglancer_link(
 
     colors = []
     for channel_str in s3_channel_paths:
-        if ccf:
-            channel_str = str(channel_str).split('/')[-3]
-            channel = int(channel_str.split("_")[-1])
-        else:
-            channel_str = str(Path(channel_str).stem).replace(".ome", "")
-            channel = int(channel_str.split("_")[-1])
+        channel_str = re.findall(r"Ex_\d+_Em_\d+", str(channel_str))[0]
+        channel = int(channel_str.split("_")[-1])
         hex_val = wavelength_to_hex_alternate(channel)
         hex_code = f"#{str(hex(hex_val))[2:]}"
         hex_str = (
@@ -1506,13 +1502,8 @@ def create_neuroglancer_link(
 
     # Creating layer per channel
     layers = []
-    for idx in range(len(s3_channel_paths)):
-        
-        if ccf:
-            channel_name = s3_channel_paths[idx].split('/')[-3]
-        else:
-            channel_name = Path(s3_channel_paths[idx].replace('.zarr', '')).name
-            
+    for idx in range(len(s3_channel_paths)):     
+        channel_name = re.findall(r"Ex_\d+_Em_\d+", str(s3_channel_paths[idx]))[0]
 
         layers.append(
             {
