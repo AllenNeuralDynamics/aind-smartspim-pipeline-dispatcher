@@ -4,13 +4,14 @@ Utility functions
 
 import json
 import os
-import shutil
+import pathlib
 import re
+import shutil
 import subprocess
 from datetime import datetime
-import pathlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import boto3
 import dask.array as da
@@ -30,8 +31,6 @@ from aind_data_schema_models.platforms import Platform
 from botocore.exceptions import ClientError
 from pydantic import TypeAdapter
 from smartsheet_dataframe import get_sheet_as_df
-from urllib.parse import urlparse
-import boto3
 
 # IO types
 PathLike = Union[str, Path]
@@ -1241,6 +1240,7 @@ def get_resolution(acquisition_config: dict) -> Tuple[float]:
     z = float(scale_transform[2])
 
     return x, y, z
+
 
 def list_s3_folders(bucket: str, prefix: str, extension: Optional[str] = None) -> list:
     """
