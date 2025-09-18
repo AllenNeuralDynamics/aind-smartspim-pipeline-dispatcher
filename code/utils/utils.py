@@ -4,11 +4,14 @@ Utility functions
 
 import json
 import os
+import pathlib
+import re
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import boto3
 import dask.array as da
@@ -28,8 +31,6 @@ from aind_data_schema_models.platforms import Platform
 from botocore.exceptions import ClientError
 from pydantic import TypeAdapter
 from smartsheet_dataframe import get_sheet_as_df
-from urllib.parse import urlparse
-import boto3
 
 # IO types
 PathLike = Union[str, Path]
@@ -774,10 +775,11 @@ def calculate_dynamic_range(
 
     dynamic_ranges = {}
     for fused_zarr in fuse_folder.glob(extension):
+        channel = re.findall(r"Ex_\d+_Em_\d+", str(fused_zarr))[0]
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
-        dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
+        dynamic_ranges[channel] = [int(range_max), window_max]
 
     return dynamic_ranges
 
@@ -788,6 +790,7 @@ def generate_ng_link(
     base_url=PathLike,
     json_name=str,
     segmentation=bool,
+    ccf=bool,
 ):
     """
     Creates the json state dictionary for the neuroglancer link
@@ -804,6 +807,8 @@ def generate_ng_link(
         The name of the neuroglancer json file
     segmentation: boolean
         Whether you are creating the reversed segmentation layer link
+    ccf: boolean
+        Whether you are creating the ccf registered link
 
     Returns
     -------
@@ -813,6 +818,8 @@ def generate_ng_link(
 
     if segmentation:
         ng_path = f"{s3_path}/image_atlas_alignment/{json_name}"
+    elif ccf:
+        ng_path = f"{s3_path}/image_atlas_alignment/ccf_visualization/{json_name}"
     else:
         ng_path = f"{s3_path}/{json_name}"
 
@@ -1233,6 +1240,7 @@ def get_resolution(acquisition_config: dict) -> Tuple[float]:
     z = float(scale_transform[2])
 
     return x, y, z
+
 
 def list_s3_folders(bucket: str, prefix: str, extension: Optional[str] = None) -> list:
     """
