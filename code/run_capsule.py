@@ -1420,7 +1420,7 @@ def create_neuroglancer_link(
     orientation: Union[Dict, List],
     dynamic_ranges: dict,
     segmentation: bool,
-    ccf: bool
+    ccf: bool,
 ) -> str:
     """
     Creates the neuroglancer link for the processed dataset
@@ -1444,11 +1444,11 @@ def create_neuroglancer_link(
 
     dynamic_ranges: dict
         Values for setting dynamic range for each channel
-    
+
     segmentation: bool
         If you want to have a transformed CCF segmentation layer added
         in raw space
-        
+
     ccf: bool
         If you want to have a CCF segmentation layer added in CCF space
 
@@ -1503,7 +1503,7 @@ def create_neuroglancer_link(
 
     # Creating layer per channel
     layers = []
-    for idx in range(len(s3_channel_paths)):     
+    for idx in range(len(s3_channel_paths)):
         channel_name = re.findall(r"Ex_\d+_Em_\d+", str(s3_channel_paths[idx]))[0]
 
         layers.append(
@@ -1513,7 +1513,7 @@ def create_neuroglancer_link(
                 # use channel idx when source is the same
                 # in zarr to change channel otherwise 0
                 "channel": 0,
-                "name": channel_name + '.zarr',
+                "name": channel_name + ".zarr",
                 "opacity": 1,
                 "blend": "additive",
                 "tab": "rendering",
@@ -1536,7 +1536,7 @@ def create_neuroglancer_link(
                 "name": "CCF_parcellation",
             }
         )
-        
+
     if ccf:
         layers.append(
             {
@@ -1544,15 +1544,13 @@ def create_neuroglancer_link(
                 "source": "s3://tissuecyte-visualizations/data/221205/ccf_annotations/|neuroglancer-precomputed:",
                 "tab": "segments",
                 "segments": [],
-                "name": "CCF_parcellation"
-             
-             }
+                "name": "CCF_parcellation",
+            }
         )
-        
-        
+
     crossSectionScale = 15
     projectionScale = 1024
-    
+
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
     elif isinstance(orientation, list) and ccf:
@@ -1576,7 +1574,7 @@ def create_neuroglancer_link(
             "Shader controls": {"row": 2, "query": "type:shaderControl"},
         },
     }
-    
+
     ng_json_name = "neuroglancer_config.json"
 
     json_state = utils.generate_ng_link(
@@ -1585,7 +1583,7 @@ def create_neuroglancer_link(
         base_url=config["ng_base_url"],
         json_name=ng_json_name,
         segmentation=segmentation,
-        ccf=ccf
+        ccf=ccf,
     )
 
     ng_output_path = f"{config['output_folder']}/{ng_json_name}"
@@ -2041,7 +2039,7 @@ def run():
             fuse_folder=fuse_folder, extension="*.zarr", percentile=99, level=3
         )
         orientation = pipeline_config["prelim_acquisition"]
-        
+
         # Create Neuroglancer link for fused data
         output_json, ng_link_path = create_neuroglancer_link(
             config={
@@ -2057,7 +2055,7 @@ def run():
             orientation=orientation,
             dynamic_ranges=channel_dynamic_ranges,
             segmentation=False,
-            ccf=False
+            ccf=False,
         )
 
         email_message_params["ng_link_path"] = ng_link_path
@@ -2091,7 +2089,7 @@ def run():
             f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
         ):
             logger.info(out)
-        
+
         # Create Neuroglancer link for CCF overlay in raw space
         output_json, ng_link_path = create_neuroglancer_link(
             config={
@@ -2107,31 +2105,31 @@ def run():
             orientation=orientation,
             dynamic_ranges=channel_dynamic_ranges,
             segmentation=True,
-            ccf=False
+            ccf=False,
         )
 
         for out in utils.execute_command_helper(
             f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
         ):
             logger.info(out)
-            
+
         # Create Neuroglancer link for registered images with CCF Overlay
         reg_folder = Path(f"{data_folder}/ccf_registration_results")
         ccf_resolution = 25
-        
+
         s3_paths_for_reg_channels = [
             f"{dest_reg_path}/{reg_zarr.name[4:]}/OMEZarr/image.zarr"
             for reg_zarr in reg_folder.glob("ccf_Ex_*")
         ]
-        
+
         logger.info(s3_paths_for_reg_channels)
-        
+
         channel_dynamic_ranges = utils.calculate_dynamic_range(
             fuse_folder=reg_folder, extension="**/*.zarr", percentile=99, level=0
         )
-        
+
         print(channel_dynamic_ranges)
-            
+
         output_json, ng_link_path = create_neuroglancer_link(
             config={
                 "bucket_path": bucket_path,
@@ -2146,9 +2144,9 @@ def run():
             orientation=[0, 1, 0, 0],
             dynamic_ranges=channel_dynamic_ranges,
             segmentation=False,
-            ccf=True
+            ccf=True,
         )
-        
+
         for out in utils.execute_command_helper(
             f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/ccf_visualization/{output_json.name}"
         ):
@@ -2241,13 +2239,11 @@ def run():
             latest_step_versions = get_pipeline_versions(PIPELINE_REPOS)
 
             # Standardize pipeline processing config
-            processing_manifest_data["pipeline_processing"] = (
-                get_standard_manifest_config(
-                    pipeline_processing=processing_manifest_data.get(
-                        "pipeline_processing"
-                    ),
-                    hashmap_stepnames=MANIFEST_STEP_NAMES,
-                )
+            processing_manifest_data[
+                "pipeline_processing"
+            ] = get_standard_manifest_config(
+                pipeline_processing=processing_manifest_data.get("pipeline_processing"),
+                hashmap_stepnames=MANIFEST_STEP_NAMES,
             )
 
             processed_step_versions = get_dataset_step_versions(stitched_path)
@@ -2439,7 +2435,6 @@ def run():
             )
             orientation = pipeline_config["prelim_acquisition"]
 
-
             output_json, ng_link_path = create_neuroglancer_link(
                 config={
                     "bucket_path": bucket_path,
@@ -2454,7 +2449,7 @@ def run():
                 orientation=orientation,
                 dynamic_ranges=channel_dynamic_ranges,
                 segmentation=False,
-                ccf=False
+                ccf=False,
             )
 
             # TODO Add the function to make segmentation layer for reverse transforms
