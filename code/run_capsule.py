@@ -2451,8 +2451,75 @@ def run():
                 segmentation=False,
                 ccf=False,
             )
+            
+            # Copying neuroglancer config out
+            for out in utils.execute_command_helper(
+                f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+            ):
+                logger.info(out)
+            
+            # Create Neuroglancer link for CCF overlay in raw space
+            output_json, ng_link_path = create_neuroglancer_link(
+                config={
+                    "bucket_path": bucket_path,
+                    "output_folder": results_folder,
+                    "ng_base_url": "https://neuroglancer-demo.appspot.com/",
+                    "z_res": axes_resolution_xyz[2],
+                    "y_res": axes_resolution_xyz[1],
+                    "x_res": axes_resolution_xyz[0],
+                },
+                s3_channel_paths=s3_paths_for_channels,
+                s3_dataset_path=s3_path,
+                orientation=orientation,
+                dynamic_ranges=channel_dynamic_ranges,
+                segmentation=True,
+                ccf=False,
+            )
+            
+            # Copying raw annotation neuroglancer config out
+            for out in utils.execute_command_helper(
+                f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
+            ):
+                logger.info(out)
 
-            # TODO Add the function to make segmentation layer for reverse transforms
+            # Create Neuroglancer link for registered images with CCF Overlay
+            reg_folder = ccf_folder
+            ccf_resolution = 25
+
+            s3_paths_for_reg_channels = [
+                f"{dest_reg_path}/{reg_zarr.name[4:]}/OMEZarr/image.zarr"
+                for reg_zarr in reg_folder.glob("ccf_Ex_*")
+            ]
+
+            logger.info(s3_paths_for_reg_channels)
+
+            channel_dynamic_ranges = utils.calculate_dynamic_range(
+                fuse_folder=reg_folder, extension="**/*.zarr", percentile=99, level=0
+            )
+
+
+            output_json, ng_link_path = create_neuroglancer_link(
+                config={
+                    "bucket_path": bucket_path,
+                    "output_folder": results_folder,
+                    "ng_base_url": "https://neuroglancer-demo.appspot.com/",
+                    "z_res": ccf_resolution,
+                    "y_res": ccf_resolution,
+                    "x_res": ccf_resolution,
+                },
+                s3_channel_paths=s3_paths_for_reg_channels,
+                s3_dataset_path=s3_path,
+                orientation=[0, 1, 0, 0],
+                dynamic_ranges=channel_dynamic_ranges,
+                segmentation=False,
+                ccf=True,
+            )
+            
+            # Copy registered ccf annotation neuroglancer config out
+            for out in utils.execute_command_helper(
+                f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/ccf_visualization/{output_json.name}"
+            ):
+                logger.info(out)
 
             email_message_params["ng_link_path"] = ng_link_path
 
@@ -2574,11 +2641,7 @@ def run():
                 logger=logger,
             )
 
-            # Copying neuroglancer config out
-            for out in utils.execute_command_helper(
-                f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-            ):
-                logger.info(out)
+
 
         else:
             print("Avoiding copying data since there was nothing to copy.")
