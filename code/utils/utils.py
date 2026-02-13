@@ -4,11 +4,14 @@ Utility functions
 
 import json
 import os
+import pathlib
+import re
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import boto3
 import dask.array as da
@@ -772,10 +775,11 @@ def calculate_dynamic_range(
 
     dynamic_ranges = {}
     for fused_zarr in fuse_folder.glob(extension):
+        channel = re.findall(r"Ex_\d+_Em_\d+", str(fused_zarr))[0]
         img = da.from_zarr(fused_zarr, str(level)).squeeze()
         range_max = da.percentile(img.flatten(), percentile).compute()[0]
         window_max = int(range_max * 1.5)
-        dynamic_ranges[fused_zarr.name] = [int(range_max), window_max]
+        dynamic_ranges[channel] = [int(range_max), window_max]
 
     return dynamic_ranges
 
@@ -785,7 +789,8 @@ def generate_ng_link(
     s3_path: PathLike,
     base_url=PathLike,
     json_name=str,
-    segmentation=bool
+    segmentation=bool,
+    ccf=bool,
 ):
     """
     Creates the json state dictionary for the neuroglancer link
@@ -802,6 +807,8 @@ def generate_ng_link(
         The name of the neuroglancer json file
     segmentation: boolean
         Whether you are creating the reversed segmentation layer link
+    ccf: boolean
+        Whether you are creating the ccf registered link
 
     Returns
     -------
@@ -811,6 +818,8 @@ def generate_ng_link(
 
     if segmentation:
         ng_path = f"{s3_path}/image_atlas_alignment/{json_name}"
+    elif ccf:
+        ng_path = f"{s3_path}/image_atlas_alignment/ccf_visualization/{json_name}"
     else:
         ng_path = f"{s3_path}/{json_name}"
 
@@ -1047,7 +1056,21 @@ def send_ses_alerts(
             "https://allenneuraldynamics.github.io/assets/img/AIND_logo.png"
         )
 
-        if "dispatch" in mode:
+        if "split_channels" in mode:
+            message_data = f"""
+                <html>
+                <body>
+                    <h3>Hello {invest},</h3>
+                    <p>This is an email to inform you that your dataset <i>{dataset}</i> finished uploading and is being processed.</p>
+                    <p>Sincerely,<br><b>SmartSPIM Processing Team.</b><p>
+                    <img src="{aind_image_logo}" alt="Embedded Image" style="width:300px; height:auto;">
+                </body>
+                </html>
+            """
+
+            subject_data = f"SmartSPIM Notification - Pipeline Started - {dataset}"
+
+        elif "dispatch" in mode:
             ng_link_path = email_message_params.get("ng_link_path")
             ng_link_path = (
                 ng_link_path
@@ -1188,6 +1211,7 @@ def create_quality_control_metadata(
             deserialized = QualityControl.model_validate_json(serialized)
             q.write_standard_file(output_directory=output_path)
 
+
 def get_resolution(acquisition_config: dict) -> Tuple[float]:
     """
     Get the image resolution from the acquisition.json metadata
@@ -1207,10 +1231,117 @@ def get_resolution(acquisition_config: dict) -> Tuple[float]:
     # was acquired with the same resolution
     tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
 
-    scale_transform = [x["scale"] for x in tile_coord_transforms if x["type"] == "scale"][0]
+    scale_transform = [
+        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
+    ][0]
 
     x = float(scale_transform[0])
     y = float(scale_transform[1])
     z = float(scale_transform[2])
 
     return x, y, z
+
+
+def list_s3_folders(bucket: str, prefix: str, extension: Optional[str] = None) -> list:
+    """
+    List top-level 'folders' under a given S3 prefix that end with a given extension.
+
+    Parameters
+    ----------
+        bucket: str
+            Name of the S3 bucket.
+        prefix: str
+            S3 prefix path (e.g., "my/path/"), must end with "/".
+        extension: str
+            Extension to match folder names against (e.g., ".tif", ".zip").
+
+    Returns
+    -------
+        list: A list of matching folder prefixes (strings ending with "/").
+    """
+    if not prefix.endswith("/"):
+        prefix += "/"
+
+    s3 = boto3.client("s3")
+    paginator = s3.get_paginator("list_objects_v2")
+
+    folders = []
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/"):
+        for cp in page.get("CommonPrefixes", []):
+            folder_name = Path(cp["Prefix"].rstrip("/")).name
+            if extension is None or folder_name.endswith(extension):
+                folders.append(folder_name)
+
+    return folders
+
+
+def list_s3_files(bucket: str, prefix: str, extension: str) -> list:
+    """
+    List files under a given S3 prefix that end with a given extension.
+
+    Parameters
+    ----------
+    bucket: str
+        Name of the S3 bucket.
+    prefix: str
+        S3 prefix path (e.g., "my/path/"), must end with "/".
+    extension: str
+        Extension to match file names against (e.g., ".tif", ".zip").
+
+    Returns
+    -------
+    list: A list of matching file keys.
+    """
+    if not prefix.endswith("/"):
+        prefix += "/"
+
+    s3 = boto3.client("s3")
+    paginator = s3.get_paginator("list_objects_v2")
+
+    files = []
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/"):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            if key.endswith(extension):
+                files.append(key)
+
+    return files
+
+
+def is_s3_path(path: str) -> bool:
+    """
+    Checks if a path is an s3 path
+
+    Parameters
+    ----------
+    path: str
+        Provided path
+
+    Returns
+    -------
+    bool
+        True if it is a S3 path,
+        False if not.
+    """
+    parsed = urlparse(str(path))
+    return parsed.scheme == "s3"
+
+
+def split_s3_path(s3_path: str):
+    """
+    Split an S3 URI into bucket and prefix.
+
+    Parameters
+    ----------
+    s3_path : str
+        Example: "s3://my-bucket/folder1/folder2/"
+
+    Returns
+    -------
+    (bucket, prefix) : tuple[str, str]
+    """
+    parsed = urlparse(s3_path)
+    bucket = parsed.netloc
+    # remove leading slash
+    prefix = parsed.path.lstrip("/")
+    return bucket, prefix
