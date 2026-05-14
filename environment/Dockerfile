@@ -1,27 +1,6 @@
-# hash:sha256:3c09b543c48e44c5101c6214c0ea6b12b9be7764a1be670f4e8152f31acd1e1d
-FROM registry.codeocean.allenneuraldynamics.org/codeocean/jupyterlab:3.0.9-miniconda4.9.2-python3.8-ubuntu20.04
+ARG REGISTRY_HOST
+FROM $REGISTRY_HOST/codeocean/aind-smartspim-dispatch:si-2.0.0
 
 ARG DEBIAN_FRONTEND=noninteractive
-
 ARG GIT_ASKPASS
-ARG GIT_ACCESS_TOKEN
-COPY git-askpass /
-
-# Creating a new conda environment for argschema python bug
-RUN conda create -n dispatcher python=3.8
-
-# Make RUN commands use the new environment:
-SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
-RUN pip install -U --no-cache-dir \
-    dask[distributed]==2022.11.1 \
-    boto3==1.36.14 \
-    zarr==2.13.6 \
-    aind-codeocean-api==0.4.2 \
-    aind-data-schema==1.3.0 \
-    python-dotenv==0.21.1 \
-    smartsheet-dataframe==0.3.4 \
-    PyYAML==6.0.2 \
-    pyOpenSSL==24.2.1 \
-    boto3
-
-RUN conda install conda-forge::awscli
+COPY git-ask-pass /
