@@ -24,6 +24,7 @@ def clean_up(
     data_folder: PathLike,
     results_folder: PathLike,
     alert_bot_link: str,
+    cloud_mode: bool = True,
 ):
     """
     Moves all segmentation and quantification data to the destination S3 bucket.
@@ -97,32 +98,53 @@ def clean_up(
 
         logger.info(f"Compiled processing.json in path {output_filename}")
 
+        # s3_path is a local path in local mode (written by dispatch)
         s3_path = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
         cell_s3_output = f"{s3_path}/image_cell_segmentation"
         quantification_s3_output = f"{s3_path}/image_cell_quantification"
 
         regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp {output_filename}/processing.json {s3_path}/processing.json"
-        ):
-            print(out)
-
-        for cell_folder in cell_folders:
-            channel_name = re.search(regex_channels, cell_folder).group()
-
+        if cloud_mode:
             for out in utils.execute_command_helper(
-                f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+                f"aws s3 cp {output_filename}/processing.json {s3_path}/processing.json"
             ):
                 print(out)
 
-        for quantification_folder in quantification_folders:
-            channel_name = re.search(regex_channels, quantification_folder).group()
+            for cell_folder in cell_folders:
+                channel_name = re.search(regex_channels, cell_folder).group()
+                for out in utils.execute_command_helper(
+                    f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+                ):
+                    print(out)
 
+            for quantification_folder in quantification_folders:
+                channel_name = re.search(regex_channels, quantification_folder).group()
+                for out in utils.execute_command_helper(
+                    f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+                ):
+                    print(out)
+
+        else:
+            utils.create_folder(s3_path)
             for out in utils.execute_command_helper(
-                f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+                f"cp {output_filename}/processing.json {s3_path}/processing.json"
             ):
                 print(out)
+
+            for cell_folder in cell_folders:
+                channel_name = re.search(regex_channels, cell_folder).group()
+                dest = f"{cell_s3_output}/{channel_name}"
+                utils.create_folder(dest)
+                for out in utils.execute_command_helper(f"mv {cell_folder}/* {dest}/"):
+                    print(out)
+
+            for quantification_folder in quantification_folders:
+                channel_name = re.search(regex_channels, quantification_folder).group()
+                dest = f"{quantification_s3_output}/{channel_name}"
+                utils.create_folder(dest)
+                for out in utils.execute_command_helper(f"mv {quantification_folder}/* {dest}/"):
+                    print(out)
 
         utils.save_string_to_txt(
             f"Results of cell segmentation saved in: {cell_s3_output}",
@@ -152,6 +174,7 @@ def handle_clean(
     results_folder: PathLike,
     alert_bot_link: str,
     logger: logging.Logger,
+    cloud_mode: bool = True,
 ) -> Tuple[str, list, dict]:
     """
     Handles the clean mode: collects segmentation and quantification results,
@@ -176,6 +199,7 @@ def handle_clean(
         data_folder=data_folder,
         results_folder=results_folder,
         alert_bot_link=alert_bot_link,
+        cloud_mode=cloud_mode,
     )
 
     return dataset_name, investigators or [], {}

@@ -137,6 +137,7 @@ def copy_postprocessed_data(
     results_folder: PathLike,
     new_processing_path: str,
     logger: logging.Logger,
+    cloud_mode: bool = True,
 ):
     """
     Copies postprocessed CCF, cell, and quantification results to S3.
@@ -177,44 +178,80 @@ def copy_postprocessed_data(
     regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
 
     output_dispatch_metadata = Path(output_dispatch_metadata)
-    for out in utils.execute_command_helper(
-        f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
-    ):
-        logger.info(out)
 
-    for out in utils.execute_command_helper(
-        f"aws s3 cp {new_processing_path} {s3_path}/processing.json"
-    ):
-        logger.info(out)
-
-    for ccf_folder in ccf_folders:
-        channel_name = re.search(regex_channels, str(ccf_folder)).group()
-
+    if cloud_mode:
         for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+            f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
         ):
             logger.info(out)
 
-    for cell_folder in cell_folders:
-        channel_name = re.search(regex_channels, str(cell_folder)).group()
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {new_processing_path} {s3_path}/processing.json"
+        ):
+            logger.info(out)
+
+        for ccf_folder in ccf_folders:
+            channel_name = re.search(regex_channels, str(ccf_folder)).group()
+            for out in utils.execute_command_helper(
+                f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+            ):
+                logger.info(out)
+
+        for cell_folder in cell_folders:
+            channel_name = re.search(regex_channels, str(cell_folder)).group()
+            for out in utils.execute_command_helper(
+                f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+            ):
+                print(out)
+
+        for quantification_folder in quantification_folders:
+            channel_name = re.search(regex_channels, str(quantification_folder)).group()
+            for out in utils.execute_command_helper(
+                f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+            ):
+                print(out)
 
         for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
+            f"aws s3 cp --recursive {post_fuse_folder} {fusion_s3_output}"
         ):
-            print(out)
+            logger.info(out)
 
-    for quantification_folder in quantification_folders:
-        channel_name = re.search(regex_channels, str(quantification_folder)).group()
+    else:
+        utils.create_folder(s3_path)
+        for out in utils.execute_command_helper(
+            f"cp -r {output_dispatch_metadata}/. {s3_path}/"
+        ):
+            logger.info(out)
 
         for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
+            f"cp {new_processing_path} {s3_path}/processing.json"
         ):
-            print(out)
+            logger.info(out)
 
-    for out in utils.execute_command_helper(
-        f"aws s3 cp --recursive {post_fuse_folder} {fusion_s3_output}"
-    ):
-        logger.info(out)
+        for ccf_folder in ccf_folders:
+            channel_name = re.search(regex_channels, str(ccf_folder)).group()
+            dest = f"{ccf_s3_output}/{channel_name}"
+            utils.create_folder(dest)
+            for out in utils.execute_command_helper(f"mv {ccf_folder}/* {dest}/"):
+                logger.info(out)
+
+        for cell_folder in cell_folders:
+            channel_name = re.search(regex_channels, str(cell_folder)).group()
+            dest = f"{cell_s3_output}/{channel_name}"
+            utils.create_folder(dest)
+            for out in utils.execute_command_helper(f"mv {cell_folder}/* {dest}/"):
+                print(out)
+
+        for quantification_folder in quantification_folders:
+            channel_name = re.search(regex_channels, str(quantification_folder)).group()
+            dest = f"{quantification_s3_output}/{channel_name}"
+            utils.create_folder(dest)
+            for out in utils.execute_command_helper(f"mv {quantification_folder}/* {dest}/"):
+                print(out)
+
+        utils.create_folder(fusion_s3_output)
+        for out in utils.execute_command_helper(f"cp -r {post_fuse_folder}/. {fusion_s3_output}/"):
+            logger.info(out)
 
     utils.save_string_to_txt(
         f"Results of cell segmentation saved in: {cell_s3_output}",
@@ -508,11 +545,12 @@ def handle_postprocess_start(
 def handle_postprocess_stop(
     data_folder: PathLike,
     results_folder: PathLike,
-    output_bucket: str,
+    output_path: str,
     ng_base_url: str,
     ccf_annotation_s3: str,
     axes_resolution_xyz: List,
     logger: logging.Logger,
+    cloud_mode: bool = True,
 ) -> Tuple[str, list, dict]:
     """
     Handles the postprocess-stop mode: collects updated CCF, segmentation,
@@ -578,11 +616,15 @@ def handle_postprocess_stop(
 
         dataset_name = new_dataset_name
 
-        bucket_path = output_bucket
-        if not bucket_path:
-            logger.warning("OUTPUT_BUCKET not set; S3 copy will be skipped.")
-        s3_path = f"s3://{bucket_path}/{new_dataset_name}" if bucket_path else ""
-        dest_zarr_path = f"{s3_path}/image_tile_fusing/OMEZarr"
+        bucket_path = output_path if cloud_mode else ""
+        if not output_path:
+            logger.warning("Output path not set; copy steps will be skipped.")
+        dest_root = (
+            f"s3://{output_path}/{new_dataset_name}" if cloud_mode
+            else f"{output_path}/{new_dataset_name}"
+        )
+        s3_path = dest_root
+        dest_zarr_path = f"{dest_root}/image_tile_fusing/OMEZarr"
 
         s3_paths_for_channels = [
             f"{dest_zarr_path}/{fused_zarr.name}"
@@ -722,12 +764,18 @@ def handle_postprocess_stop(
             results_folder=results_folder,
             new_processing_path=str(results_folder.joinpath("processing.json")),
             logger=logger,
+            cloud_mode=cloud_mode,
         )
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-        ):
-            logger.info(out)
+        if cloud_mode:
+            for out in utils.execute_command_helper(
+                f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
+            ):
+                logger.info(out)
+        else:
+            utils.create_folder(s3_path)
+            for out in utils.execute_command_helper(f"cp {output_json} {s3_path}/{output_json.name}"):
+                logger.info(out)
 
     else:
         print("Avoiding copying data since there was nothing to copy.")

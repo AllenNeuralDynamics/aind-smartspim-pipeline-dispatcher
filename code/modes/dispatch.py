@@ -235,6 +235,7 @@ def copy_intermediate_data(
     s3_path: str,
     results_folder: PathLike,
     logger: logging.Logger,
+    cloud_mode: bool = True,
 ):
     """
     Copies the destripe, stitch and fusion metadata
@@ -319,76 +320,89 @@ def copy_intermediate_data(
 
     logger.info(f"Compiled processing.json in path {output_filename}")
 
-    # Copying derived metadata
     output_dispatch_metadata = Path(output_dispatch_metadata)
-    for out in utils.execute_command_helper(
-        f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
-    ):
-        logger.info(out)
-
-    # Copying out fused data
     output_fusion = "image_tile_fusing"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
     dest_zarr_path = f"{s3_path}/{output_fusion}/OMEZarr"
-
-    cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
-
-    logger.info(f"Executing CMD: {cmd}")
-
-    for out in utils.execute_command_helper(cmd):
-        logger.info(out)
-
-    for fused_zarr in fuse_folder.glob("*.zarr"):
-        fused_zarr_file_path = str(fused_zarr)
-        fused_zarr_filename = str(fused_zarr.name)
-
-        logger.info(
-            f"Copying data from {fused_zarr_file_path} to {dest_zarr_path}/{fused_zarr_filename}"
-        )
-
-        cmd = f"aws s3 cp --recursive {fused_zarr_file_path} {dest_zarr_path}/{fused_zarr_filename}"
-
-        logger.info(f"Executing CMD: {cmd}")
-
-        for out in utils.execute_command_helper(cmd):
-            logger.info(out)
-
-    fused_metadata_files = list(fuse_folder.glob("*.yaml")) + list(
-        fuse_folder.glob("*.json")
-    )
-    for fused_metadata in fused_metadata_files:
-        fused_mdata_file_path = str(fused_metadata)
-        fused_mdata_filename = str(fused_metadata.name)
-
-        logger.info(
-            f"Copying data from {fused_mdata_file_path} to {dest_metadata_path}/fuse/{fused_mdata_filename}"
-        )
-
-        cmd = f"aws s3 cp {fused_mdata_file_path} {dest_metadata_path}/fusion/{fused_mdata_filename}"
-        logger.info(f"Executing CMD: {cmd}")
-
-        for out in utils.execute_command_helper(cmd):
-            logger.info(out)
-
-    logger.info(f"Copying data from {stitch_folder} to {dest_metadata_path}/stitching")
-
-    cmd = f"aws s3 cp --recursive {stitch_folder} {dest_metadata_path}/stitching"
-    logger.info(f"Executing CMD: {cmd}")
-
-    for out in utils.execute_command_helper(cmd):
-        logger.info(out)
-
-    # Copying ccf data
     ccf_s3_output = f"{s3_path}/image_atlas_alignment"
     regex_channels = r"Ex_(\d{3})_Em_(\d{3})|ccf_reverse|ccf_annotation_precomputed"
 
-    for ccf_folder in ccf_folders:
-        channel_name = re.search(regex_channels, ccf_folder).group()
-
+    if cloud_mode:
+        # ── Cloud: push to S3 ────────────────────────────────────────────────
         for out in utils.execute_command_helper(
-            f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+            f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
         ):
             logger.info(out)
+
+        cmd = f"aws s3 cp --recursive {flatfield_folder} {dest_metadata_path}/flatfield_correction"
+        logger.info(f"Executing CMD: {cmd}")
+        for out in utils.execute_command_helper(cmd):
+            logger.info(out)
+
+        for fused_zarr in fuse_folder.glob("*.zarr"):
+            cmd = f"aws s3 cp --recursive {fused_zarr} {dest_zarr_path}/{fused_zarr.name}"
+            logger.info(f"Executing CMD: {cmd}")
+            for out in utils.execute_command_helper(cmd):
+                logger.info(out)
+
+        for fused_metadata in list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json")):
+            cmd = f"aws s3 cp {fused_metadata} {dest_metadata_path}/fusion/{fused_metadata.name}"
+            logger.info(f"Executing CMD: {cmd}")
+            for out in utils.execute_command_helper(cmd):
+                logger.info(out)
+
+        cmd = f"aws s3 cp --recursive {stitch_folder} {dest_metadata_path}/stitching"
+        logger.info(f"Executing CMD: {cmd}")
+        for out in utils.execute_command_helper(cmd):
+            logger.info(out)
+
+        for ccf_folder in ccf_folders:
+            channel_name = re.search(regex_channels, ccf_folder).group()
+            for out in utils.execute_command_helper(
+                f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
+            ):
+                logger.info(out)
+
+    else:
+        # ── Local: rearrange on the filesystem ───────────────────────────────
+        utils.create_folder(dest_metadata_path)
+        utils.create_folder(dest_zarr_path)
+
+        for out in utils.execute_command_helper(
+            f"cp {output_dispatch_metadata}/*.json {s3_path}/"
+        ):
+            logger.info(out)
+
+        dest_ff = f"{dest_metadata_path}/flatfield_correction"
+        utils.create_folder(dest_ff)
+        for out in utils.execute_command_helper(f"cp -r {flatfield_folder}/. {dest_ff}/"):
+            logger.info(out)
+
+        for fused_zarr in fuse_folder.glob("*.zarr"):
+            dest = f"{dest_zarr_path}/{fused_zarr.name}"
+            utils.create_folder(dest)
+            for out in utils.execute_command_helper(f"cp -r {fused_zarr}/. {dest}/"):
+                logger.info(out)
+
+        dest_fusion_meta = f"{dest_metadata_path}/fusion"
+        utils.create_folder(dest_fusion_meta)
+        for fused_metadata in list(fuse_folder.glob("*.yaml")) + list(fuse_folder.glob("*.json")):
+            for out in utils.execute_command_helper(
+                f"cp {fused_metadata} {dest_fusion_meta}/{fused_metadata.name}"
+            ):
+                logger.info(out)
+
+        dest_stitch = f"{dest_metadata_path}/stitching"
+        utils.create_folder(dest_stitch)
+        for out in utils.execute_command_helper(f"cp -r {stitch_folder}/. {dest_stitch}/"):
+            logger.info(out)
+
+        for ccf_folder in ccf_folders:
+            channel_name = re.search(regex_channels, ccf_folder).group()
+            dest_ccf = f"{ccf_s3_output}/{channel_name}"
+            utils.create_folder(dest_ccf)
+            for out in utils.execute_command_helper(f"mv {ccf_folder}/* {dest_ccf}/"):
+                logger.info(out)
 
     utils.save_string_to_txt(
         f"Stitched dataset saved in: {s3_path}",
@@ -463,12 +477,13 @@ def create_derived_stitched_metadata(
 def handle_dispatch(
     data_folder: PathLike,
     results_folder: PathLike,
-    output_bucket: str,
+    output_path: str,
     ng_base_url: str,
     ccf_annotation_s3: str,
     co_domain: str,
     axes_resolution_xyz: List,
     logger: logging.Logger,
+    cloud_mode: bool = True,
 ) -> Tuple[str, list, dict]:
     """
     Handles the dispatch mode: registers the stitched dataset, builds
@@ -496,12 +511,16 @@ def handle_dispatch(
     fuse_folder = data_folder.joinpath("fused")
     ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
 
-    bucket_path = output_bucket
-    if not bucket_path:
-        logger.warning("OUTPUT_BUCKET not set; S3 copy and dispatch will be skipped.")
-    s3_path = f"s3://{bucket_path}/{new_dataset_name}" if bucket_path else ""
-    dest_zarr_path = f"{s3_path}/image_tile_fusing/OMEZarr"
-    dest_reg_path = f"{s3_path}/image_atlas_alignment"
+    # bucket_path is used for Code Ocean registration and NG links (cloud only)
+    bucket_path = output_path if cloud_mode else ""
+    if not output_path:
+        logger.warning("Output path not set; copy and dispatch steps will be skipped.")
+    dest_root = (
+        f"s3://{output_path}/{new_dataset_name}" if cloud_mode
+        else f"{output_path}/{new_dataset_name}"
+    )
+    dest_zarr_path = f"{dest_root}/image_tile_fusing/OMEZarr"
+    dest_reg_path = f"{dest_root}/image_atlas_alignment"
 
     s3_paths_for_channels = [
         f"{dest_zarr_path}/{fused_zarr.name}"
@@ -523,7 +542,7 @@ def handle_dispatch(
             "x_res": axes_resolution_xyz[0],
         },
         s3_channel_paths=s3_paths_for_channels,
-        s3_dataset_path=s3_path,
+        s3_dataset_path=dest_root,
         orientation=orientation,
         dynamic_ranges=channel_dynamic_ranges,
         segmentation=False,
@@ -556,10 +575,15 @@ def handle_dispatch(
         output_path=output_dispatch_metadata,
     )
 
-    for out in utils.execute_command_helper(
-        f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-    ):
-        logger.info(out)
+    if cloud_mode:
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {dest_root}/{output_json.name}"
+        ):
+            logger.info(out)
+    else:
+        utils.create_folder(dest_root)
+        for out in utils.execute_command_helper(f"cp {output_json} {dest_root}/{output_json.name}"):
+            logger.info(out)
 
     # CCF overlay in raw space
     output_json, ng_link_path = create_neuroglancer_link(
@@ -572,7 +596,7 @@ def handle_dispatch(
             "x_res": axes_resolution_xyz[0],
         },
         s3_channel_paths=s3_paths_for_channels,
-        s3_dataset_path=s3_path,
+        s3_dataset_path=dest_root,
         orientation=orientation,
         dynamic_ranges=channel_dynamic_ranges,
         segmentation=True,
@@ -580,10 +604,17 @@ def handle_dispatch(
         ccf_annotation_s3=ccf_annotation_s3,
     )
 
-    for out in utils.execute_command_helper(
-        f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/{output_json.name}"
-    ):
-        logger.info(out)
+    if cloud_mode:
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {dest_root}/image_atlas_alignment/{output_json.name}"
+        ):
+            logger.info(out)
+    else:
+        utils.create_folder(f"{dest_root}/image_atlas_alignment")
+        for out in utils.execute_command_helper(
+            f"cp {output_json} {dest_root}/image_atlas_alignment/{output_json.name}"
+        ):
+            logger.info(out)
 
     # Registered images with CCF overlay
     reg_folder = Path(f"{data_folder}/ccf_registration_results")
@@ -612,7 +643,7 @@ def handle_dispatch(
             "x_res": ccf_resolution,
         },
         s3_channel_paths=s3_paths_for_reg_channels,
-        s3_dataset_path=s3_path,
+        s3_dataset_path=dest_root,
         orientation=[0, 1, 0, 0],
         dynamic_ranges=channel_dynamic_ranges,
         segmentation=False,
@@ -620,10 +651,17 @@ def handle_dispatch(
         ccf_annotation_s3=ccf_annotation_s3,
     )
 
-    for out in utils.execute_command_helper(
-        f"aws s3 cp {output_json} {s3_path}/image_atlas_alignment/ccf_visualization/{output_json.name}"
-    ):
-        logger.info(out)
+    if cloud_mode:
+        for out in utils.execute_command_helper(
+            f"aws s3 cp {output_json} {dest_root}/image_atlas_alignment/ccf_visualization/{output_json.name}"
+        ):
+            logger.info(out)
+    else:
+        utils.create_folder(f"{dest_root}/image_atlas_alignment/ccf_visualization")
+        for out in utils.execute_command_helper(
+            f"cp {output_json} {dest_root}/image_atlas_alignment/ccf_visualization/{output_json.name}"
+        ):
+            logger.info(out)
 
     copy_intermediate_data(
         output_dispatch_metadata=output_dispatch_metadata,
@@ -632,15 +670,16 @@ def handle_dispatch(
         stitch_folder=stitch_folder,
         fuse_folder=fuse_folder,
         ccf_folders=ccf_folders,
-        s3_path=s3_path,
+        s3_path=dest_root,
         results_folder=results_folder,
         logger=logger,
+        cloud_mode=cloud_mode,
     )
 
     data_results = glob(f"{results_folder}/*")
     logger.info(f"Data in {results_folder}: {data_results}")
 
-    pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = s3_path
+    pipeline_config["pipeline_processing"]["stitching"]["s3_path"] = dest_root
 
     dispatch(
         processing_manifest=pipeline_config,
