@@ -1,5 +1,6 @@
 """Main script that works as a dispatcher in code ocean"""
 
+import argparse
 import logging
 import os
 import sys
@@ -49,6 +50,39 @@ MANIFEST_STEP_NAMES = {
 }
 
 
+def _parse_args() -> argparse.Namespace:
+    ap = argparse.ArgumentParser(
+        prog="run_capsule.py",
+        description="SmartSPIM pipeline dispatcher.",
+    )
+    ap.add_argument(
+        "mode",
+        help="Pipeline stage: dispatch|clean|split_channels|postprocess-start|postprocess-stop",
+    )
+    ap.add_argument(
+        "cloud_mode_pos",
+        nargs="?",
+        default=None,
+        metavar="CLOUD",
+        help="true|false (positional; Nextflow compat). Overridden by --cloud-mode.",
+    )
+    ap.add_argument(
+        "output_path_pos",
+        nargs="?",
+        default=None,
+        metavar="OUTPUT_PATH",
+        help="S3 bucket or local path (positional; Nextflow compat). Overridden by --output-path.",
+    )
+    ap.add_argument("--cloud-mode",        default=None, help="Overrides CLOUD_MODE env var")
+    ap.add_argument("--output-path",       default=None, help="Overrides OUTPUT_BUCKET / OUTPUT_PATH env vars")
+    ap.add_argument("--data-folder",       default=None, help="Overrides DATA_FOLDER env var")
+    ap.add_argument("--results-folder",    default=None, help="Overrides RESULTS_FOLDER env var")
+    ap.add_argument("--ng-base-url",       default=None, help="Overrides NG_BASE_URL env var")
+    ap.add_argument("--ccf-annotation-s3", default=None, help="Overrides CCF_ANNOTATION_S3 env var")
+    ap.add_argument("--co-domain",         default=None, help="Overrides CODEOCEAN_DOMAIN env var")
+    return ap.parse_args()
+
+
 def run():
     """
     Run function allows the smartspim pipeline to execute
@@ -61,31 +95,48 @@ def run():
     - "clean": This mode cleans up all the results from the
     downstream capsules because our data is being copied to the
     destination bucket.
+
+    Set CLOUD_MODE=false to run on SLURM or any environment without AWS access.
+    Set DATA_FOLDER and RESULTS_FOLDER to override the Code Ocean path defaults.
     """
 
-    data_folder = Path(os.path.abspath("../data"))
-    results_folder = Path(os.path.abspath("../results"))
-
-    mode = str(sys.argv[1:])
-    mode = mode.replace("[", "").replace("]", "").casefold()
-    sys.argv = [sys.argv[0]]
+    args = _parse_args()
+    mode = args.mode.casefold()
 
     # Load .env file if present (env vars already set take precedence)
     load_dotenv()
 
-    alert_bot_link = os.environ["CUSTOM_KEY"]
-    alert_configs = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
+    # ── Execution mode: named flag > positional arg > env var > default ───────
+    _cloud_raw = (args.cloud_mode or args.cloud_mode_pos or os.getenv("CLOUD_MODE", "true")).strip().lower()
+    cloud_mode = _cloud_raw == "true"
 
-    # Configurable values — read from environment, fall back to defaults where safe
-    output_bucket = os.getenv("OUTPUT_BUCKET")
-    ng_base_url = os.getenv("NG_BASE_URL", "https://neuroglancer-demo.appspot.com/")
-    ccf_annotation_s3 = os.getenv("CCF_ANNOTATION_S3")
-    source_email = os.getenv("SOURCE_EMAIL")
-    co_domain = os.getenv("CODEOCEAN_DOMAIN")
+    # ── Paths: named flag > env var > Code Ocean default ─────────────────────
+    _data_env    = (args.data_folder    or os.getenv("DATA_FOLDER",    "")).strip()
+    _results_env = (args.results_folder or os.getenv("RESULTS_FOLDER", "")).strip()
+    data_folder    = Path(_data_env)    if _data_env    else Path(os.path.abspath("../data"))
+    results_folder = Path(_results_env) if _results_env else Path(os.path.abspath("../results"))
 
-    logger.info(f"Alert bot link: {alert_bot_link}")
+    # ── Output destination: named flag > positional arg > env var ─────────────
+    output_bucket    = os.getenv("OUTPUT_BUCKET")
+    output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
+    _output_explicit = args.output_path or args.output_path_pos
+    effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
+
+    # ── Notifications ─────────────────────────────────────────────────────────
+    alert_bot_link = os.getenv("CUSTOM_KEY")
+    if not alert_bot_link:
+        logger.warning("CUSTOM_KEY not set; Teams alerts will be skipped.")
+    alert_configs  = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
+
+    # ── Visualisation / CO: named flag > env var ──────────────────────────────
+    ng_base_url       = args.ng_base_url       or os.getenv("NG_BASE_URL", "https://neuroglancer-demo.appspot.com/")
+    ccf_annotation_s3 = args.ccf_annotation_s3 or os.getenv("CCF_ANNOTATION_S3")
+    source_email      = os.getenv("SOURCE_EMAIL")
+    co_domain         = args.co_domain         or os.getenv("CODEOCEAN_DOMAIN")
+
+    logger.info(f"Capsule mode: {mode} — cloud_mode: {cloud_mode}")
+    logger.info(f"Data folder: {data_folder} — Results folder: {results_folder}")
     logger.info(f"SES alert configs: {alert_configs}")
-    logger.info(f"Capsule mode: {mode}")
 
     required_input_elements = [
         f"{data_folder}/processing_manifest.json",
@@ -139,7 +190,8 @@ def run():
         dataset_name, investigators, email_message_params = handle_split_channels(
             data_folder=data_folder,
             results_folder=results_folder,
-            output_bucket=output_bucket,
+            output_path=effective_output,
+            cloud_mode=cloud_mode,
             logger=logger,
         )
 
@@ -147,7 +199,8 @@ def run():
         dataset_name, investigators, email_message_params = handle_dispatch(
             data_folder=data_folder,
             results_folder=results_folder,
-            output_bucket=output_bucket,
+            output_path=effective_output,
+            cloud_mode=cloud_mode,
             ng_base_url=ng_base_url,
             ccf_annotation_s3=ccf_annotation_s3,
             co_domain=co_domain,
@@ -160,6 +213,7 @@ def run():
             data_folder=data_folder,
             results_folder=results_folder,
             alert_bot_link=alert_bot_link,
+            cloud_mode=cloud_mode,
             logger=logger,
         )
 
@@ -176,7 +230,8 @@ def run():
         dataset_name, investigators, email_message_params = handle_postprocess_stop(
             data_folder=data_folder,
             results_folder=results_folder,
-            output_bucket=output_bucket,
+            output_path=effective_output,
+            cloud_mode=cloud_mode,
             ng_base_url=ng_base_url,
             ccf_annotation_s3=ccf_annotation_s3,
             axes_resolution_xyz=axes_resolution_xyz,
