@@ -18,12 +18,16 @@ PathLike = Union[str, Path]
 def handle_split_channels(
     data_folder: PathLike,
     results_folder: PathLike,
-    output_bucket: str,
+    output_path: str,
     logger: logging.Logger,
+    cloud_mode: bool = True,
 ) -> Tuple[str, list, dict]:
     """
-    Handles the split_channels mode: lists S3 channels and writes per-channel
-    preprocessing manifest JSON files.
+    Handles the split_channels mode: lists available channels and writes
+    per-channel preprocessing manifest JSON files.
+
+    In cloud mode, channels are discovered via S3.  In local mode, they are
+    read from subdirectories under {output_path}/{dataset_name}/SPIM/.
 
     Returns
     -------
@@ -37,13 +41,12 @@ def handle_split_channels(
         data_description_path="input_aind_metadata/data_description.json",
     )
 
-    bucket_name = output_bucket
-    if not bucket_name:
-        logger.warning("OUTPUT_BUCKET not set; skipping split_channels S3 listing.")
-    else:
-        BASE_PATH = f"s3://{bucket_name}/"
+    if not output_path:
+        logger.warning("Output path not set; skipping split_channels channel listing.")
+    elif cloud_mode:
+        bucket_name = output_path
+        BASE_PATH = f"s3://{bucket_name}/{dataset_name}/SPIM"
         prefix = f"{dataset_name}/SPIM"
-        BASE_PATH = f"{BASE_PATH}{prefix}"
         channels = [
             i
             for i in utils.list_s3_folders(bucket=bucket_name, prefix=prefix)
@@ -58,5 +61,20 @@ def handle_split_channels(
                     "channel": ch,
                 },
             )
+
+    else:
+        spim_path = Path(output_path) / dataset_name / "SPIM"
+        if not spim_path.exists():
+            logger.warning(f"SPIM path does not exist: {spim_path}; skipping split_channels.")
+        else:
+            channels = [d.name for d in spim_path.iterdir() if d.is_dir() and "Ex" in d.name]
+            for ch in channels:
+                utils.save_dict_as_json(
+                    f"{results_folder}/preprocess_{ch}.json",
+                    {
+                        "input_data": str(spim_path),
+                        "channel": ch,
+                    },
+                )
 
     return dataset_name, investigators or [], {}
