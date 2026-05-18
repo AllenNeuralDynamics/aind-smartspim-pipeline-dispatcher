@@ -89,7 +89,7 @@ def volume_orientation(acquisition_params: dict) -> List[float]:
     ValueError
         If the orientation string is not recognised.
 
-    Note: the ValueError message is missing its f-string prefix (BUGS.md #3),
+    Note: the ValueError message is missing its f-string prefix,
     so the variable {acquired} is printed literally. Behaviour preserved.
     """
     axes = acquisition_params.get("axes", [])
