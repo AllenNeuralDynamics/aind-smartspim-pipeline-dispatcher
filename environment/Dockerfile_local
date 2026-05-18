@@ -59,7 +59,6 @@ COPY --from=builder /opt/conda/envs/dispatcher /opt/conda/envs/dispatcher
 # Environment variables
 ENV PATH=/opt/conda/envs/dispatcher/bin:/usr/local/bin:$PATH
 ENV CONDA_DEFAULT_ENV=dispatcher
-ENV LD_LIBRARY_PATH=/opt/conda/envs/dispatcher/lib:$LD_LIBRARY_PATH
 
 # Verify installation
 RUN python --version && aws --version
