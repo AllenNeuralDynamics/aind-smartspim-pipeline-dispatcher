@@ -1,0 +1,70 @@
+# Builder stage
+FROM continuumio/miniconda3:23.9.0-0 AS builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies needed during build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AWS CLI
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip" \
+    && unzip /tmp/awscliv2.zip -d /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Create conda environment
+RUN conda create -n dispatcher python=3.8 -y
+
+# Use the environment for subsequent RUN commands
+SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -U \
+    aind-codeocean-api==0.4.2 \
+    aind-data-schema==1.3.0 \
+    python-dotenv==0.21.1 \
+    smartsheet-dataframe==0.3.4 \
+    PyYAML==6.0.2 \
+    pyOpenSSL==24.2.1 \
+    dask[distributed]==2022.11.1 \
+    boto3==1.36.14 \
+    zarr==2.13.6
+
+# Clean conda/pip caches
+RUN conda clean -afy
+
+# Runtime stage
+FROM continuumio/miniconda3:23.9.0-0
+
+LABEL maintainer="Camilo Laiton <camilo.laiton@alleninstitute.org>" \
+    org.opencontainers.image.title="Pipeline Dispatcher" \
+    org.opencontainers.image.description="Container for the Pipeline Dispatcher." \
+    org.opencontainers.image.version="2.0.0" \
+    org.opencontainers.image.licenses="MIT"
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Copy AWS CLI installation
+COPY --from=builder /usr/local/aws-cli /usr/local/aws-cli
+
+# Recreate symlink instead of copying binary directly
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
+
+# Copy conda environment
+COPY --from=builder /opt/conda/envs/dispatcher /opt/conda/envs/dispatcher
+
+# Environment variables
+ENV PATH=/opt/conda/envs/dispatcher/bin:/usr/local/bin:$PATH
+ENV CONDA_DEFAULT_ENV=dispatcher
+ENV LD_LIBRARY_PATH=/opt/conda/envs/dispatcher/lib:$LD_LIBRARY_PATH
+
+# Verify installation
+RUN python --version && aws --version
+
+# Default shell
+SHELL ["/bin/bash", "-c"]
+
+CMD ["python"]
