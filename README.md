@@ -57,7 +57,6 @@ aind-smartspim-pipeline-dispatcher/
 ├── environment/
 │   └── Dockerfile
 ├── .env.example                    # Environment variable template for external users
-├── BUGS.md                         # Documented bugs (not yet fixed)
 ├── pyproject.toml                  # pytest configuration
 └── README.md
 ```
@@ -167,7 +166,3 @@ For re-processing existing stitched datasets the `postprocess-start` / `postproc
 pair is used instead of `dispatch` / `clean`.
 
 ---
-
-## Known Bugs
-
-See [BUGS.md](BUGS.md) for a full list of documented bugs with reproduction notes and suggested fixes.

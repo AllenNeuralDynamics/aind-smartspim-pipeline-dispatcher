@@ -156,9 +156,7 @@ def check_type_helper(value: Any, val_type: type) -> bool:
     Checks if a value belongs to a specific type.
 
     Note: the current implementation is inverted — it checks if type(value)
-    is an instance of val_type rather than checking value itself. This is a
-    known bug (see BUGS.md #5); behaviour preserved intentionally to avoid
-    logic changes.
+    is an instance of val_type rather than checking value itself.
     """
     if not isinstance(type(value), val_type):
         return False
