@@ -5,8 +5,6 @@ It exploits the Code Ocean "flatten connection" feature to fan out per-channel w
 downstream capsules (segmentation, CCF registration, quantification) and later collects their
 results.
 
-**Capsule version:** 1.0.4 &nbsp;|&nbsp; **Pipeline version:** 5.0.0
-
 ---
 
 ## Capsule Modes
@@ -65,22 +63,7 @@ aind-smartspim-pipeline-dispatcher/
 
 ## Dependencies
 
-Installed in the capsule Docker image (see [environment/Dockerfile](environment/Dockerfile)):
-
-| Package | Version |
-|---|---|
-| Python | 3.8 |
-| dask[distributed] | 2022.11.1 |
-| boto3 | 1.36.14 |
-| zarr | 2.13.6 |
-| aind-codeocean-api | 0.4.2 |
-| aind-data-schema | 1.3.0 |
-| python-dotenv | 0.21.1 |
-| smartsheet-dataframe | 0.3.4 |
-| PyYAML | 6.0.2 |
-| pyOpenSSL | 24.2.1 |
-| awscli | (conda-forge) |
-
+Installed in the capsule Docker image (see [environment/Dockerfile_local](environment/Dockerfile_local)):
 ---
 
 ## Configuration for External Use
