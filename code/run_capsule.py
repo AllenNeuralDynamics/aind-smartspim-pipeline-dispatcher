@@ -134,9 +134,20 @@ def run():
     source_email      = os.getenv("SOURCE_EMAIL")
     co_domain         = args.co_domain         or os.getenv("CODEOCEAN_DOMAIN")
 
-    logger.info(f"Capsule mode: {mode} — cloud_mode: {cloud_mode}")
-    logger.info(f"Data folder: {data_folder} — Results folder: {results_folder}")
-    logger.info(f"SES alert configs: {alert_configs}")
+    logger.info("=" * 30)
+    logger.info("Parameters")
+    logger.info("=" * 30)
+    logger.info(f"  mode             : {mode}")
+    logger.info(f"  cloud_mode       : {cloud_mode}")
+    logger.info(f"  data_folder      : {data_folder}")
+    logger.info(f"  results_folder   : {results_folder}")
+    logger.info(f"  effective_output : {effective_output}")
+    logger.info(f"  ng_base_url      : {ng_base_url}")
+    logger.info(f"  ccf_annotation_s3: {ccf_annotation_s3}")
+    logger.info(f"  co_domain        : {co_domain}")
+    logger.info(f"  source_email     : {source_email}")
+    logger.info(f"  alert_bot_link   : {'set' if alert_bot_link else 'not set'}")
+    logger.info("=" * 30)
 
     required_input_elements = [
         f"{data_folder}/processing_manifest.json",
