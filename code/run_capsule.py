@@ -3,7 +3,6 @@
 import argparse
 import logging
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -104,7 +103,7 @@ def run():
     mode = args.mode.casefold()
 
     # Load .env file if present (env vars already set take precedence)
-    load_dotenv()
+    load_dotenv(SCRIPT_DIR / ".env")
 
     # ── Execution mode: named flag > positional arg > env var > default ───────
     _cloud_raw = (args.cloud_mode or args.cloud_mode_pos or os.getenv("CLOUD_MODE", "true")).strip().lower()
