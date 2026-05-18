@@ -122,9 +122,9 @@ def run():
     effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
 
     # ── Notifications ─────────────────────────────────────────────────────────
-    alert_bot_link = os.getenv("CUSTOM_KEY")
+    alert_bot_link = os.getenv("ALERT_BOT_LINK")
     if not alert_bot_link:
-        logger.warning("CUSTOM_KEY not set; Teams alerts will be skipped.")
+        logger.warning("ALERT_BOT_LINK not set; Teams alerts will be skipped.")
     alert_configs  = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
 
     # ── Visualisation / CO: named flag > env var ──────────────────────────────
