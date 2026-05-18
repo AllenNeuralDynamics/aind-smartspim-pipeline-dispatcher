@@ -17,7 +17,7 @@ def get_messenger_credentails(secret_id: str) -> Dict:
     Gets messenger credentials from AWS Secrets Manager.
 
     Note: contains a known dead-code `return secret_dict` after `return None`
-    on the exception path (BUGS.md #6). Behaviour preserved intentionally.
+    on the exception path. Behaviour preserved intentionally.
     """
     client = boto3.client("secretsmanager", region_name="us-west-2")
 
@@ -36,7 +36,7 @@ def get_messenger_credentails(secret_id: str) -> Dict:
         print(f"Error retrieving secret: {e}")
         return None
 
-    return secret_dict  # noqa: F821 — unreachable (BUGS.md #6)
+    return secret_dict  # noqa: F821 — unreachable
 
 
 def get_messanger_credentails(secret_id):
@@ -44,7 +44,6 @@ def get_messanger_credentails(secret_id):
     Pulls data from AWS Secrets Manager.
 
     Duplicate of get_messenger_credentails() with a different (misspelled) name.
-    See BUGS.md #8 for details.
     """
     client = boto3.client("secretsmanager", region_name="us-west-2")
 
@@ -62,7 +61,7 @@ def get_messanger_credentails(secret_id):
         print(f"Error retrieving secret: {e}")
         return None
 
-    return secret_dict  # noqa: F821 — unreachable (BUGS.md #7)
+    return secret_dict  # noqa: F821
 
 
 def list_s3_folders(bucket: str, prefix: str, extension: Optional[str] = None) -> list:
