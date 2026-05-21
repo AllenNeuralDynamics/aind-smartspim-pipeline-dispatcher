@@ -231,8 +231,7 @@ def create_neuroglancer_link(
     for channel_str in s3_channel_paths:
         channel_str = re.findall(r"Ex_\d+_Em_\d+", str(channel_str))[0]
         channel = int(channel_str.split("_")[-1])
-        hex_val = wavelength_to_hex_alternate(channel)
-        hex_code = f"#{str(hex(hex_val))[2:]}"
+        hex_code = wavelength_to_hex_alternate(channel)
         hex_str = (
             '#uicontrol vec3 color color(default="'
             + hex_code
