@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -105,6 +106,8 @@ def run():
         "software_version": __version__,
     })
 
+    start_time = time.monotonic()
+
     # ── Execution mode: named flag > positional arg > env var > default ───────
     _cloud_raw = (args.cloud_mode or args.cloud_mode_pos or os.getenv("CLOUD_MODE", "true")).strip().lower()
     cloud_mode = _cloud_raw == "true"
@@ -136,6 +139,7 @@ def run():
     logger.info(
         "Dispatcher started",
         extra={
+            "event_type": "stage_start",
             "mode": mode,
             "cloud_mode": cloud_mode,
             "data_folder": str(data_folder),
@@ -149,119 +153,145 @@ def run():
         },
     )
 
-    required_input_elements = [
-        f"{data_folder}/processing_manifest.json",
-        f"{data_folder}/input_aind_metadata/data_description.json",
-    ]
-
-    if "clean" in mode:
-        required_input_elements = [
-            f"{data_folder}/modified_processing_manifest.json",
-            f"{data_folder}/input_aind_metadata/data_description.json",
-        ]
-
-    if "postprocess-start" in mode:
-        required_input_elements = [
-            f"{data_folder}/raw_data",
-            f"{data_folder}/stitched_data",
-        ]
-
-    if "postprocess-stop" in mode:
-        required_input_elements = [
-            f"{data_folder}/registration",
-            f"{data_folder}/classification",
-            f"{data_folder}/quantification",
-            f"{data_folder}/postprocess_dispatch",
-            f"{data_folder}/stitched_data",
-        ]
-
-    missing_files = utils.validate_capsule_inputs(required_input_elements)
-
-    if len(missing_files):
-        raise ValueError(
-            f"We miss the following files in the capsule input: {missing_files}"
-        )
-
-    logger.info(f"Data in data folder: {os.listdir(data_folder)}")
-
-    acquisition_json = utils.read_json_as_dict(
-        data_folder.joinpath("input_aind_metadata/acquisition.json")
-    )
-
-    if not len(acquisition_json):
-        raise FileNotFoundError("Please, provide an acquisition.json")
-
-    axes_resolution_xyz = utils.get_resolution(acquisition_config=acquisition_json)
-
     dataset_name = ""
     investigators = []
     email_message_params = {}
 
-    if "split_channels" in mode:
-        dataset_name, investigators, email_message_params = handle_split_channels(
-            data_folder=data_folder,
-            results_folder=results_folder,
-            output_path=effective_output,
-            cloud_mode=cloud_mode,
-            logger=logger,
+    try:
+        required_input_elements = [
+            f"{data_folder}/processing_manifest.json",
+            f"{data_folder}/input_aind_metadata/data_description.json",
+        ]
+
+        if "clean" in mode:
+            required_input_elements = [
+                f"{data_folder}/modified_processing_manifest.json",
+                f"{data_folder}/input_aind_metadata/data_description.json",
+            ]
+
+        if "postprocess-start" in mode:
+            required_input_elements = [
+                f"{data_folder}/raw_data",
+                f"{data_folder}/stitched_data",
+            ]
+
+        if "postprocess-stop" in mode:
+            required_input_elements = [
+                f"{data_folder}/registration",
+                f"{data_folder}/classification",
+                f"{data_folder}/quantification",
+                f"{data_folder}/postprocess_dispatch",
+                f"{data_folder}/stitched_data",
+            ]
+
+        missing_files = utils.validate_capsule_inputs(required_input_elements)
+
+        if len(missing_files):
+            raise ValueError(
+                f"We miss the following files in the capsule input: {missing_files}"
+            )
+
+        logger.info(f"Data in data folder: {os.listdir(data_folder)}")
+
+        acquisition_json = utils.read_json_as_dict(
+            data_folder.joinpath("input_aind_metadata/acquisition.json")
         )
 
-    elif "dispatch" in mode:
-        dataset_name, investigators, email_message_params = handle_dispatch(
-            data_folder=data_folder,
-            results_folder=results_folder,
-            output_path=effective_output,
-            cloud_mode=cloud_mode,
-            ng_base_url=ng_base_url,
-            ccf_annotation_s3=ccf_annotation_s3,
-            co_domain=co_domain,
-            axes_resolution_xyz=axes_resolution_xyz,
-            logger=logger,
-        )
+        if not len(acquisition_json):
+            raise FileNotFoundError("Please, provide an acquisition.json")
 
-    elif "clean" in mode:
-        dataset_name, investigators, email_message_params = handle_clean(
-            data_folder=data_folder,
-            results_folder=results_folder,
-            alert_bot_link=alert_bot_link,
-            cloud_mode=cloud_mode,
-            logger=logger,
-        )
+        axes_resolution_xyz = utils.get_resolution(acquisition_config=acquisition_json)
 
-    elif "postprocess-start" in mode:
-        dataset_name, investigators, email_message_params = handle_postprocess_start(
-            data_folder=data_folder,
-            results_folder=results_folder,
-            pipeline_repos=PIPELINE_REPOS,
-            manifest_step_names=MANIFEST_STEP_NAMES,
-            logger=logger,
-        )
+        if "split_channels" in mode:
+            dataset_name, investigators, email_message_params = handle_split_channels(
+                data_folder=data_folder,
+                results_folder=results_folder,
+                output_path=effective_output,
+                cloud_mode=cloud_mode,
+                logger=logger,
+            )
 
-    elif "postprocess-stop" in mode:
-        dataset_name, investigators, email_message_params = handle_postprocess_stop(
-            data_folder=data_folder,
-            results_folder=results_folder,
-            output_path=effective_output,
-            cloud_mode=cloud_mode,
-            ng_base_url=ng_base_url,
-            ccf_annotation_s3=ccf_annotation_s3,
-            axes_resolution_xyz=axes_resolution_xyz,
-            logger=logger,
-        )
+        elif "dispatch" in mode:
+            dataset_name, investigators, email_message_params = handle_dispatch(
+                data_folder=data_folder,
+                results_folder=results_folder,
+                output_path=effective_output,
+                cloud_mode=cloud_mode,
+                ng_base_url=ng_base_url,
+                ccf_annotation_s3=ccf_annotation_s3,
+                co_domain=co_domain,
+                axes_resolution_xyz=axes_resolution_xyz,
+                logger=logger,
+            )
 
-    else:
-        raise NotImplementedError(f"The mode {mode} has not been implemented")
+        elif "clean" in mode:
+            dataset_name, investigators, email_message_params = handle_clean(
+                data_folder=data_folder,
+                results_folder=results_folder,
+                alert_bot_link=alert_bot_link,
+                cloud_mode=cloud_mode,
+                logger=logger,
+            )
 
-    if investigators:
-        send_email_alerts(
-            mode=mode,
-            alert_configs=alert_configs,
-            investigators=investigators,
-            dataset_name=dataset_name,
-            logger=logger,
-            email_message_params=email_message_params,
-            source_email=source_email,
+        elif "postprocess-start" in mode:
+            dataset_name, investigators, email_message_params = handle_postprocess_start(
+                data_folder=data_folder,
+                results_folder=results_folder,
+                pipeline_repos=PIPELINE_REPOS,
+                manifest_step_names=MANIFEST_STEP_NAMES,
+                logger=logger,
+            )
+
+        elif "postprocess-stop" in mode:
+            dataset_name, investigators, email_message_params = handle_postprocess_stop(
+                data_folder=data_folder,
+                results_folder=results_folder,
+                output_path=effective_output,
+                cloud_mode=cloud_mode,
+                ng_base_url=ng_base_url,
+                ccf_annotation_s3=ccf_annotation_s3,
+                axes_resolution_xyz=axes_resolution_xyz,
+                logger=logger,
+            )
+
+        else:
+            raise NotImplementedError(f"The mode {mode} has not been implemented")
+
+        if investigators:
+            send_email_alerts(
+                mode=mode,
+                alert_configs=alert_configs,
+                investigators=investigators,
+                dataset_name=dataset_name,
+                logger=logger,
+                email_message_params=email_message_params,
+                source_email=source_email,
+            )
+
+    except Exception:
+        duration_seconds = round(time.monotonic() - start_time, 3)
+        logger.error(
+            "Dispatcher failed",
+            exc_info=True,
+            extra={
+                "event_type": "stage_failure",
+                "mode": mode,
+                "dataset_name": dataset_name,
+                "duration_seconds": duration_seconds,
+            },
         )
+        raise
+
+    duration_seconds = round(time.monotonic() - start_time, 3)
+    logger.info(
+        "Dispatcher completed",
+        extra={
+            "event_type": "stage_complete",
+            "mode": mode,
+            "dataset_name": dataset_name,
+            "duration_seconds": duration_seconds,
+        },
+    )
 
 
 if __name__ == "__main__":
