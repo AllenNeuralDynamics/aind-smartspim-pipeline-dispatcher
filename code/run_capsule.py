@@ -6,7 +6,9 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from schlog import setup_logging
 
+from __init__ import __pipeline_name__, __title__, __version__
 from utils import utils
 from utils.io import get_yaml_config
 from utils.notifications import send_email_alerts
@@ -15,18 +17,7 @@ from modes.dispatch import handle_dispatch
 from modes.postprocess import handle_postprocess_start, handle_postprocess_stop
 from modes.split_channels import handle_split_channels
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s : %(message)s",
-    datefmt="%Y-%m-%d %H:%M",
-    handlers=[
-        logging.StreamHandler(),
-        # logging.FileHandler("test.log", "a"),
-    ],
-)
-logging.disable("DEBUG")
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 
@@ -105,6 +96,15 @@ def run():
     # Load .env file if present (env vars already set take precedence)
     load_dotenv(SCRIPT_DIR / ".env")
 
+    process_name = f"{__title__}-{mode}"
+
+    setup_logging(model={
+        "pipeline_name": __pipeline_name__,
+        "process_name": process_name,
+        "software_name": __title__,
+        "software_version": __version__,
+    })
+
     # ── Execution mode: named flag > positional arg > env var > default ───────
     _cloud_raw = (args.cloud_mode or args.cloud_mode_pos or os.getenv("CLOUD_MODE", "true")).strip().lower()
     cloud_mode = _cloud_raw == "true"
@@ -133,20 +133,21 @@ def run():
     source_email      = os.getenv("SOURCE_EMAIL")
     co_domain         = args.co_domain         or os.getenv("CODEOCEAN_DOMAIN")
 
-    logger.info("=" * 30)
-    logger.info("Parameters")
-    logger.info("=" * 30)
-    logger.info(f"  mode             : {mode}")
-    logger.info(f"  cloud_mode       : {cloud_mode}")
-    logger.info(f"  data_folder      : {data_folder}")
-    logger.info(f"  results_folder   : {results_folder}")
-    logger.info(f"  effective_output : {effective_output}")
-    logger.info(f"  ng_base_url      : {ng_base_url}")
-    logger.info(f"  ccf_annotation_s3: {ccf_annotation_s3}")
-    logger.info(f"  co_domain        : {co_domain}")
-    logger.info(f"  source_email     : {source_email}")
-    logger.info(f"  alert_bot_link   : {'set' if alert_bot_link else 'not set'}")
-    logger.info("=" * 30)
+    logger.info(
+        "Dispatcher started",
+        extra={
+            "mode": mode,
+            "cloud_mode": cloud_mode,
+            "data_folder": str(data_folder),
+            "results_folder": str(results_folder),
+            "effective_output": effective_output,
+            "ng_base_url": ng_base_url,
+            "ccf_annotation_s3": ccf_annotation_s3,
+            "co_domain": co_domain,
+            "source_email": source_email,
+            "alert_bot_link_set": bool(alert_bot_link),
+        },
+    )
 
     required_input_elements = [
         f"{data_folder}/processing_manifest.json",

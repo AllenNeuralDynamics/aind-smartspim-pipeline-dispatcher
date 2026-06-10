@@ -16,7 +16,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/aws
     && rm -rf /tmp/aws /tmp/awscliv2.zip
 
 # Create conda environment
-RUN conda create -n dispatcher python=3.8 -y
+RUN conda create -n dispatcher python=3.9 -y
 
 # Use the environment for subsequent RUN commands
 SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
@@ -31,7 +31,8 @@ RUN pip install --no-cache-dir -U \
     pyOpenSSL==24.2.1 \
     dask[distributed]==2022.11.1 \
     boto3==1.36.14 \
-    zarr==2.13.6
+    zarr==2.13.6 \
+    log-schema==0.2.10.dev1
 
 # Clean conda/pip caches
 RUN conda clean -afy
