@@ -21,6 +21,7 @@ __maintainer_emails__ = [
     "nicholas.lusk@alleninstitute.org",
 ]
 __title__ = "aind-smartspim-pipeline-dispatcher"
+__pipeline_name__ = "SmartSPIM Pipeline"
 __status__ = "Production"  # 'Production', 'Beta'
 __pipeline_version__ = "5.0.0"
 __pipeline_notes__ = (
