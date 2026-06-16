@@ -88,30 +88,29 @@ def volume_orientation(acquisition_params: dict) -> List[float]:
     ------
     ValueError
         If the orientation string is not recognised.
-
-    Note: the ValueError message is missing its f-string prefix,
-    so the variable {acquired} is printed literally. Behaviour preserved.
     """
-    axes = acquisition_params.get("axes", [])
-    acquired = ""
-    for axis in axes:
-        acquired += axis.get("direction", "")
+    acquired = ["", "", ""]
 
-    if acquired == "RAS":
-        orientation = [0.0, 0.0, 0.0, 1.0]
-    elif acquired == "LPS":
-        orientation = [0.0, 1.0, 0.0, 0.0]
-    elif acquired == "LSA":
+    for axis in acquisition_params["axes"]:
+        acquired[axis["dimension"]] = axis["direction"][0]
+
+    acquired = "".join(acquired)
+
+    if acquired in ["SPR", "SPL"]:
+        orientation = [0.5, 0.5, 0.5, -0.5]
+    elif acquired == "SAL":
+        orientation = [0.5, 0.5, -0.5, 0.5]
+    elif acquired == "IAR":
+        orientation = [0.5, -0.5, 0.5, 0.5]
+    elif acquired == "RAS":
         orientation = [np.cos(np.pi / 4), 0.0, 0.0, np.cos(np.pi / 4)]
-    elif acquired == "RSA":
+    elif acquired == "RPI":
         orientation = [np.cos(np.pi / 4), 0.0, 0.0, -np.cos(np.pi / 4)]
     elif acquired == "LAI":
         orientation = [0.0, np.cos(np.pi / 4), -np.cos(np.pi / 4), 0.0]
-    elif acquired == "RPI":
-        orientation = [np.cos(np.pi / 4), 0.0, 0.0, -np.cos(np.pi / 4)]
     else:
         raise ValueError(
-            "Acquisition orientation: {acquired} has unknown NG parameters"
+            f"Acquisition orientation: {acquired} has unknown NG parameters"
         )
 
     return orientation
