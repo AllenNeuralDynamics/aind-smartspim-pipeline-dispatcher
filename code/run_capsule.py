@@ -671,9 +671,11 @@ def volume_orientation(acquisition_params: dict):
         orientation = [np.cos(np.pi / 4), 0.0, 0.0, -np.cos(np.pi / 4)]
     elif acquired == "LAI":
         orientation = [0.0, np.cos(np.pi / 4), -np.cos(np.pi / 4), 0.0]
+    elif acquired == "LPS":
+        orientation = [0.0, np.cos(np.pi / 4), np.cos(np.pi / 4), 0.0]
     else:
         raise ValueError(
-            "Acquisition orientation: {acquired} has unknown NG parameters"
+            f"Acquisition orientation: {acquired} has unknown NG parameters"
         )
 
     return orientation
