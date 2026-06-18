@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from schlog import setup_logging
+from log_schema import setup_logging
 
 from __init__ import __pipeline_name__, __title__, __version__
 from utils import utils
