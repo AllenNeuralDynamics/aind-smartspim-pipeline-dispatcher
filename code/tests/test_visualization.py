@@ -21,23 +21,32 @@ def test_wavelength_to_hex_alternate_high():
 
 
 def test_volume_orientation_ras():
-    params = {"axes": [{"direction": "R"}, {"direction": "A"}, {"direction": "S"}]}
+    params = {"axes": [
+        {"dimension": 0, "direction": "R"},
+        {"dimension": 1, "direction": "A"},
+        {"dimension": 2, "direction": "S"},
+    ]}
     result = volume_orientation(params)
     assert result == [0.0, 0.0, 0.0, 1.0]
 
 
 def test_volume_orientation_lps():
-    params = {"axes": [{"direction": "L"}, {"direction": "P"}, {"direction": "S"}]}
+    params = {"axes": [
+        {"dimension": 0, "direction": "L"},
+        {"dimension": 1, "direction": "P"},
+        {"dimension": 2, "direction": "S"},
+    ]}
     result = volume_orientation(params)
     assert result == [0.0, 1.0, 0.0, 0.0]
 
 
-def test_volume_orientation_unknown_raises_with_literal_braces():
-    """
-    BUG #3: ValueError message uses {acquired} without f-string prefix, so the
-    variable name appears literally in the message text (not its value).
-    """
-    params = {"axes": [{"direction": "X"}, {"direction": "Y"}, {"direction": "Z"}]}
+def test_volume_orientation_unknown_raises():
+    """ValueError is raised for unrecognised orientations."""
+    params = {"axes": [
+        {"dimension": 0, "direction": "X"},
+        {"dimension": 1, "direction": "Y"},
+        {"dimension": 2, "direction": "Z"},
+    ]}
     with pytest.raises(ValueError) as exc_info:
         volume_orientation(params)
-    assert "{acquired}" in str(exc_info.value)
+    assert "XYZ" in str(exc_info.value)
