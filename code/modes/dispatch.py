@@ -19,7 +19,7 @@ from aind_codeocean_api.models.data_assets_requests import (
     Sources,
 )
 
-from __init__ import __maintainers__, __pipeline_notes__, __pipeline_version__
+from __init__ import __pipeline_name__, __pipeline_version__, __url__
 from utils import utils
 from manifests.builder import get_data_config
 
@@ -309,9 +309,9 @@ def copy_intermediate_data(
         output_filename = utils.compile_processing_jsons(
             processing_paths=processing_paths,
             output_general_processing=output_dispatch_metadata,
-            processor_full_name=__maintainers__[0],
+            pipeline_name=__pipeline_name__,
             pipeline_version=__pipeline_version__,
-            pipeline_notes=__pipeline_notes__,
+            pipeline_url=__url__,
         )
 
     except Exception as e:

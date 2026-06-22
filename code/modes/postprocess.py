@@ -100,28 +100,28 @@ def get_filtered_proc_metadata(
         return input_proc_json_data_obj_copy, []
 
     delete_pos = []
-    data_processes = input_proc_json_data_obj.processing_pipeline.data_processes
+    data_processes = input_proc_json_data_obj.data_processes
     for i, dt_proc in enumerate(data_processes):
         remove_reg = copy_ccf and (
-            "aind-ccf-registration" in dt_proc.code_url
-            or ProcessName.IMAGE_ATLAS_ALIGNMENT == dt_proc.name
+            "aind-ccf-registration" in dt_proc.code.url
+            or ProcessName.IMAGE_ATLAS_ALIGNMENT == dt_proc.process_type
         )
 
         remove_cell = copy_classification and (
-            "aind-SmartSPIM-segmentation" in dt_proc.code_url
-            or "aind-smartspim-classification" in dt_proc.code_url
-            or ProcessName.IMAGE_CELL_SEGMENTATION == dt_proc.name
+            "aind-SmartSPIM-segmentation" in dt_proc.code.url
+            or "aind-smartspim-classification" in dt_proc.code.url
+            or ProcessName.IMAGE_CELL_SEGMENTATION == dt_proc.process_type
         )
 
         remove_quant = copy_quantification and (
-            "aind-smartspim-quantification" in dt_proc.code_url
-            or ProcessName.IMAGE_CELL_QUANTIFICATION == dt_proc.name
+            "aind-smartspim-quantification" in dt_proc.code.url
+            or ProcessName.IMAGE_CELL_QUANTIFICATION == dt_proc.process_type
         )
 
         if remove_reg or remove_cell or remove_quant:
             delete_pos.append(i)
 
-    input_proc_json_data_obj_copy.processing_pipeline.data_processes = remove_positions(
+    input_proc_json_data_obj_copy.data_processes = remove_positions(
         data_processes, delete_pos
     )
     return input_proc_json_data_obj_copy, delete_pos
@@ -714,7 +714,7 @@ def handle_postprocess_stop(
                 curr_processing = read_json_as_dict(str(ccf_proc))
                 curr_processing_obj = processing_adapter.validate_python(curr_processing)
 
-                for data_process in curr_processing_obj.processing_pipeline.data_processes:
+                for data_process in curr_processing_obj.data_processes:
                     new_data_procs.append(data_process)
 
         if copy_classification:
@@ -734,10 +734,10 @@ def handle_postprocess_stop(
                     curr_prop_processing
                 )
 
-                for data_process in curr_cell_processing_obj.processing_pipeline.data_processes:
+                for data_process in curr_cell_processing_obj.data_processes:
                     new_data_procs.append(data_process)
 
-                for data_process in curr_prop_processing_obj.processing_pipeline.data_processes:
+                for data_process in curr_prop_processing_obj.data_processes:
                     new_data_procs.append(data_process)
 
         if copy_quantification:
@@ -746,11 +746,11 @@ def handle_postprocess_stop(
                 curr_processing = read_json_as_dict(str(quant_proc))
                 curr_processing_obj = processing_adapter.validate_python(curr_processing)
 
-                for data_process in curr_processing_obj.processing_pipeline.data_processes:
+                for data_process in curr_processing_obj.data_processes:
                     new_data_procs.append(data_process)
 
         if len(new_data_procs):
-            filtered_proc_data.processing_pipeline.data_processes.extend(new_data_procs)
+            filtered_proc_data.data_processes.extend(new_data_procs)
 
         filtered_proc_data.write_standard_file(output_directory=str(results_folder))
 

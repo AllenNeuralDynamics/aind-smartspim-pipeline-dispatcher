@@ -51,7 +51,7 @@ def test_read_json_missing_file(tmp_path):
 def test_save_string_to_txt(tmp_path):
     out = tmp_path / "out.txt"
     save_string_to_txt("hello world", str(out))
-    assert out.read_text() == "hello world"
+    assert out.read_text() == "hello world\n"
 
 
 def test_validate_capsule_inputs_all_exist(tmp_path):

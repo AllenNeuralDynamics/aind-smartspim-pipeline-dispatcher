@@ -30,7 +30,7 @@ def get_messenger_credentails(secret_id: str) -> Dict:
             secret_dict = json.loads(secret_string)
             return secret_dict
         else:
-            return response.get("SecretBinary")
+            return json.loads(response.get("SecretBinary"))
 
     except Exception as e:
         print(f"Error retrieving secret: {e}")
