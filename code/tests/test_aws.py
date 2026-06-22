@@ -1,11 +1,35 @@
 """Tests for utils/aws.py"""
 
 import json
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from utils.aws import get_messenger_credentails, is_s3_path, split_s3_path
+# Stub optional deps not installed in lightweight test environments
+_STUBS = [
+    "smartsheet_dataframe",
+    "pytz",
+    "dask",
+    "dask.array",
+    "dask.distributed",
+    "aind_codeocean_api",
+    "aind_codeocean_api.codeocean",
+    "aind_codeocean_api.models",
+    "aind_codeocean_api.models.data_assets_requests",
+    "boto3",
+    "botocore",
+    "botocore.exceptions",
+    "requests",
+    "zarr",
+]
+for _mod in _STUBS:
+    sys.modules.setdefault(_mod, MagicMock())
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from utils.aws import get_messenger_credentails, is_s3_path, split_s3_path  # noqa: E402
 
 
 def test_is_s3_path_true():
