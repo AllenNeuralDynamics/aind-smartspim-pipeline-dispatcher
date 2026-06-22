@@ -3,15 +3,23 @@ AIND data-schema generation and processing metadata utilities.
 """
 
 import json
-from datetime import datetime
+import platform
+import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-import pytz
-from aind_data_schema.core.data_description import DerivedDataDescription, Funding
-from aind_data_schema.core.processing import DataProcess, PipelineProcess, Processing
+import psutil
+from aind_data_schema.components.identifiers import Code
+from aind_data_schema.core.data_description import DataDescription
+from aind_data_schema.core.processing import (
+    DataProcess,
+    Processing,
+    ProcessStage,
+    ResourceTimestamped,
+    ResourceUsage,
+)
 from aind_data_schema.core.quality_control import (
-    QCEvaluation,
     QCMetric,
     QCStatus,
     QualityControl,
@@ -19,10 +27,7 @@ from aind_data_schema.core.quality_control import (
     Status,
 )
 from aind_data_schema_models.modalities import Modality
-from aind_data_schema_models.organizations import Organization
-from aind_data_schema_models.pid_names import PIDName
-from aind_data_schema_models.platforms import Platform
-from pydantic import TypeAdapter
+from aind_data_schema_models.units import MemoryUnit
 
 from utils.io import copy_file, read_json_as_dict
 
@@ -53,45 +58,11 @@ def generate_data_description(
 
     Returns the new derived dataset name.
     """
-    f = open(raw_data_description_path, "r")
-    data = json.load(f)
+    with open(raw_data_description_path, "r") as f:
+        data = json.load(f)
 
-    if isinstance(data["institution"], dict) and "abbreviation" in data["institution"]:
-        institution = data["institution"]["abbreviation"]
-
-    investigators = data.get("investigators", [])
-
-    if len(investigators) and len(investigators[0]):
-        investigators = [PIDName.parse_obj(inv) for inv in investigators]
-    else:
-        investigators = [PIDName(name="Unknown")]
-
-    funding_adapter = TypeAdapter(Funding)
-    try:
-        funding_sources = [
-            funding_adapter.validate_python(fund) for fund in data["funding_source"]
-        ]
-    except Exception as e:
-        print(f"Error getting the funding source into the schema!")
-        funding_sources = []
-
-    if not len(funding_sources):
-        funding_sources = [Funding(funder=Organization.AI)]
-
-    derived = DerivedDataDescription(
-        creation_time=datetime.now(),
-        input_data_name=data["name"],
-        process_name=process_name,
-        institution=Organization.from_abbreviation(institution),
-        funding_source=funding_sources,
-        group=data["group"],
-        investigators=investigators,
-        platform=Platform.SMARTSPIM,
-        project_name=data["project_name"],
-        restrictions=data["restrictions"],
-        modality=[Modality.SPIM],
-        subject_id=data["subject_id"],
-    )
+    raw_dd = DataDescription.model_validate(data)
+    derived = DataDescription.from_raw(raw_dd, process_name=process_name)
 
     with open(f"{dest_data_description}/data_description.json", "w") as f:
         f.write(derived.model_dump_json())
@@ -122,39 +93,82 @@ def copy_available_metadata(
     return found_metadata
 
 
+class ResourceMonitor:
+    """Tracks CPU and RAM usage in a background thread."""
+
+    def __init__(self, interval_seconds: Optional[float] = 1.0):
+        self._interval = interval_seconds
+        self._cpu_usage: List[ResourceTimestamped] = []
+        self._ram_usage: List[ResourceTimestamped] = []
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def _run(self) -> None:
+        while not self._stop_event.is_set():
+            now = datetime.now(timezone.utc)
+            self._cpu_usage.append(
+                ResourceTimestamped(timestamp=now, usage=psutil.cpu_percent(interval=None))
+            )
+            self._ram_usage.append(
+                ResourceTimestamped(timestamp=now, usage=psutil.virtual_memory().percent)
+            )
+            self._stop_event.wait(self._interval)
+
+    def start(self) -> "ResourceMonitor":
+        psutil.cpu_percent(interval=None)  # prime the first sample
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        self._thread.join(timeout=self._interval + 1)
+
+    def __enter__(self) -> "ResourceMonitor":
+        return self.start()
+
+    def __exit__(self, *exc_info) -> None:
+        self.stop()
+
+    def to_resource_usage(self, cpu_cores: Optional[int] = None) -> ResourceUsage:
+        total_gb = round(psutil.virtual_memory().total / (1024**3), 2)
+        return ResourceUsage(
+            os=platform.system(),
+            architecture=platform.machine(),
+            cpu_cores=cpu_cores,
+            system_memory=total_gb,
+            system_memory_unit=MemoryUnit.GB,
+            ram=total_gb,
+            ram_unit=MemoryUnit.GB,
+            cpu_usage=self._cpu_usage,
+            ram_usage=self._ram_usage,
+        )
+
+
 def generate_processing(
     data_processes: List[DataProcess],
-    dest_processing: str,
-    processor_full_name: str,
+    dest_processing: PathLike,
+    pipeline_name: str,
     pipeline_version: str,
-    pipeline_notes: str,
-) -> str:
+    pipeline_url: str,
+) -> None:
     """
     Writes a processing.json to dest_processing.
     """
-    processing_pipeline = PipelineProcess(
+    pipelines = [Code(url=pipeline_url, name=pipeline_name, version=pipeline_version)]
+    processing = Processing.create_with_sequential_process_graph(
         data_processes=data_processes,
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+        pipelines=pipelines,
+        notes="SmartSPIM light-sheet microscopy image processing pipeline",
     )
-
-    processing = Processing(
-        processing_pipeline=processing_pipeline,
-        notes=pipeline_notes,
-    )
-
-    print(f"Output compiled processing {processing} to {dest_processing}")
     processing.write_standard_file(output_directory=dest_processing)
-    return dest_processing
 
 
 def compile_processing_jsons(
     processing_paths: List[str],
     output_general_processing: str,
-    processor_full_name: str,
+    pipeline_name: str,
     pipeline_version: str,
-    pipeline_notes: str,
+    pipeline_url: str,
 ) -> str:
     """
     Merges multiple processing.json files into one and writes the result.
@@ -163,27 +177,26 @@ def compile_processing_jsons(
     for processing_path in processing_paths:
         curr_processing = read_json_as_dict(str(processing_path))
         print(f"Reading processing: {curr_processing}")
-        processing_adapter = TypeAdapter(Processing)
-        curr_processing_obj = processing_adapter.validate_python(curr_processing)
+        curr_processing_obj = Processing.model_validate(curr_processing)
 
-        for data_process in curr_processing_obj.processing_pipeline.data_processes:
+        for data_process in curr_processing_obj.data_processes:
             data_processes.append(data_process)
 
         msg = (
-            f"Adding {len(curr_processing_obj.processing_pipeline.data_processes)} "
+            f"Adding {len(curr_processing_obj.data_processes)} "
             f"processes from {curr_processing}"
         )
         print(msg)
 
-    output_filename = generate_processing(
+    generate_processing(
         data_processes=data_processes,
         dest_processing=str(output_general_processing),
-        processor_full_name=processor_full_name,
+        pipeline_name=pipeline_name,
         pipeline_version=pipeline_version,
-        pipeline_notes=pipeline_notes,
+        pipeline_url=pipeline_url,
     )
 
-    return output_filename
+    return str(output_general_processing)
 
 
 def create_quality_control_metadata(
@@ -195,48 +208,38 @@ def create_quality_control_metadata(
     qc_metrics = []
 
     if len(qc_eval_values):
-        pst_timezone = pytz.timezone(time_zone)
-        curr_time = datetime.now(pst_timezone)
+        curr_time = datetime.now(timezone.utc)
         stage_lookup = {item.value: item for item in Stage}
         status_lookup = {item.value: item for item in Status}
 
-        print("stage lookup: ", stage_lookup)
-        evaluations = []
         for curr_qc_eval in qc_eval_values:
-            qc_metric_values = curr_qc_eval.get("qc_metric_values")
+            qc_metric_values = curr_qc_eval.get("qc_metric_values", [])
+            eval_stage = stage_lookup.get(curr_qc_eval.get("stage"))
+            eval_name = curr_qc_eval.get("name", "")
 
-            print(curr_qc_eval)
-            qc_metrics = [
-                QCMetric(
-                    name=curr_dict.get("name", ""),
-                    description=curr_dict.get("desc", ""),
-                    value=curr_dict.get("value", ""),
-                    reference=curr_dict.get("reference"),
-                    status_history=[
-                        QCStatus(
-                            evaluator="Automated",
-                            status=status_lookup.get(curr_dict.get("status")),
-                            timestamp=curr_time,
-                        )
-                    ],
+            for curr_dict in qc_metric_values:
+                qc_metrics.append(
+                    QCMetric(
+                        name=curr_dict.get("name", ""),
+                        modality=Modality.SPIM,
+                        stage=eval_stage,
+                        description=curr_dict.get("desc"),
+                        value=curr_dict.get("value", ""),
+                        reference=curr_dict.get("reference"),
+                        status_history=[
+                            QCStatus(
+                                evaluator="Automated",
+                                status=status_lookup.get(curr_dict.get("status")),
+                                timestamp=curr_time,
+                            )
+                        ],
+                        tags={"evaluation": eval_name} if eval_name else {},
+                    )
                 )
-                for curr_dict in qc_metric_values
-            ]
 
-            evaluations.append(
-                QCEvaluation(
-                    name=curr_qc_eval.get("name"),
-                    description=curr_qc_eval.get("description"),
-                    modality=Modality.SPIM,
-                    stage=stage_lookup.get(curr_qc_eval.get("stage")),
-                    metrics=qc_metrics,
-                    notes=curr_qc_eval.get("notes", ""),
-                    created=curr_time,
-                )
-            )
-
-        if len(evaluations):
-            q = QualityControl(evaluations=evaluations)
-            serialized = q.model_dump_json()
-            deserialized = QualityControl.model_validate_json(serialized)
-            q.write_standard_file(output_directory=output_path)
+    if qc_metrics:
+        q = QualityControl(
+            metrics=qc_metrics,
+            default_grouping=["evaluation"],
+        )
+        q.write_standard_file(output_directory=output_path)
