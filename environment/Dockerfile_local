@@ -32,7 +32,8 @@ RUN pip install --no-cache-dir -U \
     PyYAML==6.0.2 \
     pyOpenSSL==24.2.1 \
     dask[distributed]==2026.6.0 \
-    zarr==2.13.6 \
+    zarr==3.2.1 \
+    numcodecs==0.16.5 \
     boto3 \
     log-schema==0.2.10.dev1
 
