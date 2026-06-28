@@ -313,6 +313,12 @@ def compile_processing_jsons(
         curr_processing = read_json_as_dict(str(processing_path))
         print(f"Reading processing: {curr_processing}")
 
+        # Skip missing/empty files (read_json_as_dict returns {} when the path
+        # does not exist) so an absent processing.json doesn't abort the merge.
+        if not curr_processing:
+            logger.warning("Skipping missing/empty processing.json: %s", processing_path)
+            continue
+
         # Warn-and-skip: a single malformed upstream processing.json should not
         # abort the whole merge.
         try:
