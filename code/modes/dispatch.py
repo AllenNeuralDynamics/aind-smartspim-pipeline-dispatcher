@@ -628,7 +628,7 @@ def handle_dispatch(
     logger.info(s3_paths_for_reg_channels)
 
     channel_dynamic_ranges = utils.calculate_dynamic_range(
-        fuse_folder=reg_folder, extension="**/*.zarr", percentile=99, level=0
+        fuse_folder=reg_folder, extension="ccf_Ex_*/OMEZarr/image.zarr", percentile=99, level=0
     )
 
     print(channel_dynamic_ranges)
