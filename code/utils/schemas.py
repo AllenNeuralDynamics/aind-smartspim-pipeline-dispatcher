@@ -37,6 +37,7 @@ from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.units import MemoryUnit
 from pydantic import ValidationError
 
+from utils import metadata_compat
 from utils.io import copy_file, read_json_as_dict
 
 logger = logging.getLogger(__name__)
@@ -88,14 +89,7 @@ def get_resolution(acquisition_config: dict) -> Tuple[float, float, float]:
     """
     Extracts voxel resolution (x, y, z) from an acquisition.json config.
     """
-    tile_coord_transforms = acquisition_config["tiles"][0]["coordinate_transformations"]
-    scale_transform = [
-        x["scale"] for x in tile_coord_transforms if x["type"] == "scale"
-    ][0]
-    x = float(scale_transform[0])
-    y = float(scale_transform[1])
-    z = float(scale_transform[2])
-    return x, y, z
+    return metadata_compat.get_voxel_resolution(acquisition_config)
 
 
 def _build_raw_dd_from_v1(data: dict) -> DataDescription:

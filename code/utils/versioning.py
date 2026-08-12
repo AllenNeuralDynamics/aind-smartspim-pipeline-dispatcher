@@ -111,11 +111,18 @@ def get_dataset_step_versions(dataset_path):
             dataset_step_versions = {}
 
             for step in pipeline_steps:
-                code_url = step.get("code_url")
-                step_name = step.get("name")
-                code_version = step.get("software_version", step.get("version"))
+                # v1 steps carry flat code_url/software_version fields, while
+                # v2 steps nest them inside a "code" object
+                code = step.get("code") or {}
+                code_url = step.get("code_url") or code.get("url")
+                step_name = step.get("name") or step.get("process_type")
+                code_version = (
+                    step.get("software_version")
+                    or step.get("version")
+                    or code.get("version")
+                )
 
-                package_name = code_url.split("/")[-1]
+                package_name = code_url.split("/")[-1] if code_url else "unknown"
                 dataset_step_versions[f"{package_name} - {step_name}"] = {
                     "version": code_version
                 }

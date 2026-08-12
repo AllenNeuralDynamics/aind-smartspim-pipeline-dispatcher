@@ -128,8 +128,9 @@ def dispatch(
     ]
 
     if co_domain:
+        # The SmartSPIM_ prefix is optional: v2 asset names drop it
         pattern = (
-            r"SmartSPIM_\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
+            r"(?:SmartSPIM_)?\d+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
             r"_stitched_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}"
         )
         found_pattern = re.findall(pattern=pattern, string=dataset_to_register)
@@ -532,6 +533,12 @@ def handle_dispatch(
     )
     orientation = pipeline_config["prelim_acquisition"]
 
+    # Getting the subject id from the metadata since v2 asset names
+    # do not follow the SmartSPIM_<subject_id>_... convention
+    subject_id = utils.read_json_as_dict(
+        str(data_folder.joinpath("input_aind_metadata/data_description.json"))
+    ).get("subject_id")
+
     output_json, ng_link_path = create_neuroglancer_link(
         config={
             "bucket_path": bucket_path,
@@ -548,6 +555,7 @@ def handle_dispatch(
         segmentation=False,
         ccf=False,
         ccf_annotation_s3=ccf_annotation_s3,
+        subject_id=subject_id,
     )
 
     email_message_params = {"ng_link_path": ng_link_path}
@@ -602,6 +610,7 @@ def handle_dispatch(
         segmentation=True,
         ccf=False,
         ccf_annotation_s3=ccf_annotation_s3,
+        subject_id=subject_id,
     )
 
     if cloud_mode:
@@ -649,6 +658,7 @@ def handle_dispatch(
         segmentation=False,
         ccf=True,
         ccf_annotation_s3=ccf_annotation_s3,
+        subject_id=subject_id,
     )
 
     if cloud_mode:

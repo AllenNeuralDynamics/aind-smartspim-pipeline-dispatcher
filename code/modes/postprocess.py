@@ -615,6 +615,7 @@ def handle_postprocess_stop(
             raise ValueError("New dataset name is None! Please, provide it.")
 
         dataset_name = new_dataset_name
+        subject_id = data_description_dict.get("subject_id")
 
         bucket_path = output_path if cloud_mode else ""
         if not output_path:
@@ -662,6 +663,7 @@ def handle_postprocess_stop(
             segmentation=False,
             ccf=False,
             ccf_annotation_s3=ccf_annotation_s3,
+            subject_id=subject_id,
         )
 
         # TODO Add the function to make segmentation layer for reverse transforms
