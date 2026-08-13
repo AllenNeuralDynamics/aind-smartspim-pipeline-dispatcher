@@ -53,6 +53,8 @@ def handle_split_channels(
             if "Ex" in i
         ]
 
+        logger.info(f"[Cloud mode] Base path: {BASE_PATH} - channels: {channels}")
+
         for ch in channels:
             utils.save_dict_as_json(
                 f"{results_folder}/preprocess_{ch}.json",
