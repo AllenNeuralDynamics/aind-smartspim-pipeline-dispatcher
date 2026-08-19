@@ -18,7 +18,7 @@ PathLike = Union[str, Path]
 def handle_split_channels(
     data_folder: PathLike,
     results_folder: PathLike,
-    output_path: str,
+    input_path: str,
     logger: logging.Logger,
     cloud_mode: bool = True,
 ) -> Tuple[str, list, dict]:
@@ -26,8 +26,9 @@ def handle_split_channels(
     Handles the split_channels mode: lists available channels and writes
     per-channel preprocessing manifest JSON files.
 
-    In cloud mode, channels are discovered via S3.  In local mode, they are
-    read from subdirectories under {output_path}/{dataset_name}/SPIM/.
+    In cloud mode, channels are discovered from the raw data in
+    s3://{input_path}/{dataset_name}/SPIM/.  In local mode, they are
+    read from subdirectories under {input_path}/{dataset_name}/SPIM/.
 
     Returns
     -------
@@ -41,10 +42,10 @@ def handle_split_channels(
         data_description_path="input_aind_metadata/data_description.json",
     )
 
-    if not output_path:
-        logger.warning("Output path not set; skipping split_channels channel listing.")
+    if not input_path:
+        logger.warning("Input path not set; skipping split_channels channel listing.")
     elif cloud_mode:
-        bucket_name = output_path
+        bucket_name = input_path
         BASE_PATH = f"s3://{bucket_name}/{dataset_name}/SPIM"
         prefix = f"{dataset_name}/SPIM"
         channels = [
@@ -68,7 +69,7 @@ def handle_split_channels(
             raise ValueError(f"No channels were identified in {BASE_PATH}/{prefix}")
 
     else:
-        spim_path = Path(output_path) / dataset_name / "SPIM"
+        spim_path = Path(input_path) / dataset_name / "SPIM"
         if not spim_path.exists():
             logger.warning(f"SPIM path does not exist: {spim_path}; skipping split_channels.")
         else:

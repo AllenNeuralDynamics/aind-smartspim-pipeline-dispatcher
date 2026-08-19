@@ -64,14 +64,58 @@ def _parse_args() -> argparse.Namespace:
         metavar="OUTPUT_PATH",
         help="S3 bucket or local path (positional; Nextflow compat). Overridden by --output-path.",
     )
+    ap.add_argument(
+        "input_path_pos",
+        nargs="?",
+        default=None,
+        metavar="INPUT_PATH",
+        help=(
+            "S3 bucket or local path with the raw acquisition data "
+            "(positional; Nextflow compat). Overridden by --input-path. "
+            "Defaults to the output path."
+        ),
+    )
     ap.add_argument("--cloud-mode",        default=None, help="Overrides CLOUD_MODE env var")
     ap.add_argument("--output-path",       default=None, help="Overrides OUTPUT_BUCKET / OUTPUT_PATH env vars")
+    ap.add_argument("--input-path",        default=None, help="Overrides INPUT_BUCKET / INPUT_PATH env vars")
     ap.add_argument("--data-folder",       default=None, help="Overrides DATA_FOLDER env var")
     ap.add_argument("--results-folder",    default=None, help="Overrides RESULTS_FOLDER env var")
     ap.add_argument("--ng-base-url",       default=None, help="Overrides NG_BASE_URL env var")
     ap.add_argument("--ccf-annotation-s3", default=None, help="Overrides CCF_ANNOTATION_S3 env var")
     ap.add_argument("--co-domain",         default=None, help="Overrides CODEOCEAN_DOMAIN env var")
     return ap.parse_args()
+
+
+def _resolve_buckets(args: argparse.Namespace, cloud_mode: bool):
+    """
+    Resolves the effective input and output locations with the
+    precedence: named flag > positional arg > env var.
+
+    The output location is the bucket (cloud) or root directory (local)
+    where derived results are copied. The input location is where the raw
+    acquisition data is read from (used by split_channels); it falls back
+    to the output location so single-bucket setups keep working.
+
+    Returns
+    -------
+    Tuple[str, str]
+        (effective_input, effective_output)
+    """
+    output_bucket    = os.getenv("OUTPUT_BUCKET")
+    output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
+    _output_explicit = args.output_path or args.output_path_pos
+    effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
+
+    input_bucket    = os.getenv("INPUT_BUCKET")
+    input_path_env  = os.getenv("INPUT_PATH", "").strip()
+    _input_explicit = args.input_path or args.input_path_pos
+    effective_input = (
+        _input_explicit
+        or (input_bucket if cloud_mode else input_path_env)
+        or effective_output
+    )
+
+    return effective_input, effective_output
 
 
 def run():
@@ -118,11 +162,9 @@ def run():
     data_folder    = Path(_data_env)    if _data_env    else Path(os.path.abspath("../data"))
     results_folder = Path(_results_env) if _results_env else Path(os.path.abspath("../results"))
 
-    # ── Output destination: named flag > positional arg > env var ─────────────
-    output_bucket    = os.getenv("OUTPUT_BUCKET")
-    output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
-    _output_explicit = args.output_path or args.output_path_pos
-    effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
+    # ── Input/output locations: named flag > positional arg > env var ─────────
+    # Input (raw data) falls back to the output location when not provided.
+    effective_input, effective_output = _resolve_buckets(args, cloud_mode)
 
     # ── Notifications ─────────────────────────────────────────────────────────
     alert_bot_link = os.getenv("ALERT_BOT_LINK")
@@ -144,6 +186,7 @@ def run():
             "cloud_mode": cloud_mode,
             "data_folder": str(data_folder),
             "results_folder": str(results_folder),
+            "effective_input": effective_input,
             "effective_output": effective_output,
             "ng_base_url": ng_base_url,
             "ccf_annotation_s3": ccf_annotation_s3,
@@ -206,7 +249,7 @@ def run():
             dataset_name, investigators, email_message_params = handle_split_channels(
                 data_folder=data_folder,
                 results_folder=results_folder,
-                output_path=effective_output,
+                input_path=effective_input,
                 cloud_mode=cloud_mode,
                 logger=logger,
             )
