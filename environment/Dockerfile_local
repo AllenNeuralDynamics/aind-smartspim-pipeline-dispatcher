@@ -33,10 +33,9 @@ RUN pip install --no-cache-dir -U \
     pyOpenSSL==24.2.1 \
     dask[distributed]==2026.6.0 \
     zarr==3.1.6 \
-    numcodecs==0.16.5 \
+    numcodecs==0.15.1 \
     boto3 \
     log-schema==0.2.10.dev1
-
 # Clean conda/pip caches
 RUN conda clean -afy
 
