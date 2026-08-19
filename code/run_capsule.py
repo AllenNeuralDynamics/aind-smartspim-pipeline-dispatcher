@@ -58,21 +58,27 @@ def _parse_args() -> argparse.Namespace:
         help="true|false (positional; Nextflow compat). Overridden by --cloud-mode.",
     )
     ap.add_argument(
-        "output_path_pos",
+        "path_pos_1",
         nargs="?",
         default=None,
-        metavar="OUTPUT_PATH",
-        help="S3 bucket or local path (positional; Nextflow compat). Overridden by --output-path.",
+        metavar="PATH_1",
+        help=(
+            "S3 bucket or local path (positional; Nextflow compat). "
+            "For split_channels this is the INPUT (raw data) location; "
+            "for every other mode it is the OUTPUT location. "
+            "Overridden by --input-path / --output-path."
+        ),
     )
     ap.add_argument(
-        "input_path_pos",
+        "path_pos_2",
         nargs="?",
         default=None,
-        metavar="INPUT_PATH",
+        metavar="PATH_2",
         help=(
-            "S3 bucket or local path with the raw acquisition data "
-            "(positional; Nextflow compat). Overridden by --input-path. "
-            "Defaults to the output path."
+            "S3 bucket or local path (positional; Nextflow compat). "
+            "For split_channels this is the OUTPUT location; "
+            "for every other mode it is the INPUT (raw data) location. "
+            "Overridden by --input-path / --output-path."
         ),
     )
     ap.add_argument("--cloud-mode",        default=None, help="Overrides CLOUD_MODE env var")
@@ -86,7 +92,7 @@ def _parse_args() -> argparse.Namespace:
     return ap.parse_args()
 
 
-def _resolve_buckets(args: argparse.Namespace, cloud_mode: bool):
+def _resolve_buckets(args: argparse.Namespace, cloud_mode: bool, mode: str = ""):
     """
     Resolves the effective input and output locations with the
     precedence: named flag > positional arg > env var.
@@ -96,19 +102,28 @@ def _resolve_buckets(args: argparse.Namespace, cloud_mode: bool):
     acquisition data is read from (used by split_channels); it falls back
     to the output location so single-bucket setups keep working.
 
+    Positional meaning is mode-dependent (Nextflow compat):
+    - split_channels:  <mode> <cloud> <input> [<output>]
+    - every other mode: <mode> <cloud> <output> [<input>]
+
     Returns
     -------
     Tuple[str, str]
         (effective_input, effective_output)
     """
+    if "split_channels" in mode:
+        input_pos, output_pos = args.path_pos_1, args.path_pos_2
+    else:
+        output_pos, input_pos = args.path_pos_1, args.path_pos_2
+
     output_bucket    = os.getenv("OUTPUT_BUCKET")
     output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
-    _output_explicit = args.output_path or args.output_path_pos
+    _output_explicit = args.output_path or output_pos
     effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
 
     input_bucket    = os.getenv("INPUT_BUCKET")
     input_path_env  = os.getenv("INPUT_PATH", "").strip()
-    _input_explicit = args.input_path or args.input_path_pos
+    _input_explicit = args.input_path or input_pos
     effective_input = (
         _input_explicit
         or (input_bucket if cloud_mode else input_path_env)
@@ -163,8 +178,10 @@ def run():
     results_folder = Path(_results_env) if _results_env else Path(os.path.abspath("../results"))
 
     # ── Input/output locations: named flag > positional arg > env var ─────────
-    # Input (raw data) falls back to the output location when not provided.
-    effective_input, effective_output = _resolve_buckets(args, cloud_mode)
+    # Positional order is mode-dependent: split_channels takes <input> [<output>],
+    # other modes take <output> [<input>]. Input (raw data) falls back to the
+    # output location when not provided.
+    effective_input, effective_output = _resolve_buckets(args, cloud_mode, mode)
 
     # ── Notifications ─────────────────────────────────────────────────────────
     alert_bot_link = os.getenv("ALERT_BOT_LINK")

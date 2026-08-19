@@ -104,8 +104,15 @@ python run_capsule.py postprocess-start
 python run_capsule.py postprocess-stop
 ```
 
-Positional form (Nextflow compat): `python run_capsule.py <mode> [<cloud>] [<output_path>] [<input_path>]`.
-The input path (raw data location, used by `split_channels`) defaults to the output path when omitted.
+Positional form (Nextflow compat) — the bucket order is mode-dependent:
+
+```bash
+python run_capsule.py split_channels <cloud> <input_bucket> [<output_bucket>]   # raw data first
+python run_capsule.py <other_mode>   <cloud> <output_bucket> [<input_bucket>]
+```
+
+The input location (raw acquisition data, used by `split_channels`) defaults to the
+output location when omitted, so single-bucket invocations keep working.
 
 Required environment variables:
 

@@ -76,7 +76,9 @@ def test_get_version_http_failure():
 
 class TestResolveBuckets:
     """Precedence for (effective_input, effective_output):
-    named flag > positional arg > env var, input falling back to output."""
+    named flag > positional arg > env var, input falling back to output.
+    Positional order is mode-dependent: split_channels takes <input> [<output>],
+    every other mode takes <output> [<input>]."""
 
     ENV_VARS = ("OUTPUT_BUCKET", "OUTPUT_PATH", "INPUT_BUCKET", "INPUT_PATH")
 
@@ -88,16 +90,46 @@ class TestResolveBuckets:
     def _args(self, **kwargs):
         base = dict(
             output_path=None,
-            output_path_pos=None,
             input_path=None,
-            input_path_pos=None,
+            path_pos_1=None,
+            path_pos_2=None,
         )
         base.update(kwargs)
         return argparse.Namespace(**base)
 
+    def test_split_channels_positional_order_is_input_then_output(self):
+        args = self._args(path_pos_1="raw-bucket", path_pos_2="out-bucket")
+        assert _resolve_buckets(args, cloud_mode=True, mode="split_channels") == (
+            "raw-bucket",
+            "out-bucket",
+        )
+
+    def test_split_channels_legacy_single_positional_is_input(self, monkeypatch):
+        # production call: split_channels true aind-open-data-dev-u5u0i5
+        args = self._args(path_pos_1="aind-open-data-dev-u5u0i5")
+        effective_input, effective_output = _resolve_buckets(
+            args, cloud_mode=True, mode="split_channels"
+        )
+        assert effective_input == "aind-open-data-dev-u5u0i5"
+        assert not effective_output
+
+    def test_dispatch_positional_order_is_output_then_input(self):
+        args = self._args(path_pos_1="out-bucket", path_pos_2="raw-bucket")
+        assert _resolve_buckets(args, cloud_mode=True, mode="dispatch") == (
+            "raw-bucket",
+            "out-bucket",
+        )
+
+    def test_dispatch_single_positional_is_output_input_falls_back(self):
+        args = self._args(path_pos_1="out-bucket")
+        assert _resolve_buckets(args, cloud_mode=True, mode="dispatch") == (
+            "out-bucket",
+            "out-bucket",
+        )
+
     def test_input_falls_back_to_output_cloud(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_BUCKET", "out-bucket")
-        assert _resolve_buckets(self._args(), cloud_mode=True) == (
+        assert _resolve_buckets(self._args(), cloud_mode=True, mode="dispatch") == (
             "out-bucket",
             "out-bucket",
         )
@@ -105,10 +137,9 @@ class TestResolveBuckets:
     def test_separate_input_bucket_cloud(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_BUCKET", "out-bucket")
         monkeypatch.setenv("INPUT_BUCKET", "raw-bucket")
-        assert _resolve_buckets(self._args(), cloud_mode=True) == (
-            "raw-bucket",
-            "out-bucket",
-        )
+        assert _resolve_buckets(
+            self._args(), cloud_mode=True, mode="split_channels"
+        ) == ("raw-bucket", "out-bucket")
 
     def test_local_mode_uses_local_paths(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_PATH", "/scratch/output")
@@ -116,14 +147,13 @@ class TestResolveBuckets:
         # local mode must ignore the bucket env vars entirely
         monkeypatch.setenv("OUTPUT_BUCKET", "ignored")
         monkeypatch.setenv("INPUT_BUCKET", "ignored")
-        assert _resolve_buckets(self._args(), cloud_mode=False) == (
-            "/scratch/raw",
-            "/scratch/output",
-        )
+        assert _resolve_buckets(
+            self._args(), cloud_mode=False, mode="split_channels"
+        ) == ("/scratch/raw", "/scratch/output")
 
     def test_local_input_falls_back_to_output_path(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_PATH", "/scratch/output")
-        assert _resolve_buckets(self._args(), cloud_mode=False) == (
+        assert _resolve_buckets(self._args(), cloud_mode=False, mode="dispatch") == (
             "/scratch/output",
             "/scratch/output",
         )
@@ -133,17 +163,23 @@ class TestResolveBuckets:
         monkeypatch.setenv("OUTPUT_BUCKET", "env-out")
         args = self._args(
             input_path="flag-in",
-            input_path_pos="pos-in",
-            output_path_pos="pos-out",
+            path_pos_1="pos-out",
+            path_pos_2="pos-in",
         )
-        assert _resolve_buckets(args, cloud_mode=True) == ("flag-in", "pos-out")
+        assert _resolve_buckets(args, cloud_mode=True, mode="dispatch") == (
+            "flag-in",
+            "pos-out",
+        )
 
-        args = self._args(input_path_pos="pos-in")
-        assert _resolve_buckets(args, cloud_mode=True) == ("pos-in", "env-out")
+        args = self._args(path_pos_2="pos-in")
+        assert _resolve_buckets(args, cloud_mode=True, mode="dispatch") == (
+            "pos-in",
+            "env-out",
+        )
 
     def test_nothing_set_is_falsy(self):
         effective_input, effective_output = _resolve_buckets(
-            self._args(), cloud_mode=True
+            self._args(), cloud_mode=True, mode="dispatch"
         )
         assert not effective_input
         assert not effective_output
