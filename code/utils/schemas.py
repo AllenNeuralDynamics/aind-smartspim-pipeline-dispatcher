@@ -201,7 +201,7 @@ def copy_available_metadata(
     """
     Copies metadata files that exist in input_path to output_path.
     """
-    print("Files to copy: ", files_to_copy)
+    logger.info("Metadata files to copy: %s", files_to_copy)
     input_path = Path(input_path)
     output_path = Path(output_path)
 
@@ -305,7 +305,7 @@ def compile_processing_jsons(
     data_processes = []
     for processing_path in processing_paths:
         curr_processing = read_json_as_dict(str(processing_path))
-        print(f"Reading processing: {curr_processing}")
+        logger.debug("Reading processing.json from %s", processing_path)
 
         # Skip missing/empty files (read_json_as_dict returns {} when the path
         # does not exist) so an absent processing.json doesn't abort the merge.
@@ -328,11 +328,11 @@ def compile_processing_jsons(
         for data_process in curr_processing_obj.data_processes:
             data_processes.append(data_process)
 
-        msg = (
-            f"Adding {len(curr_processing_obj.data_processes)} "
-            f"processes from {curr_processing}"
+        logger.info(
+            "Adding %d data processes from %s",
+            len(curr_processing_obj.data_processes),
+            processing_path,
         )
-        print(msg)
 
     generate_processing(
         data_processes=data_processes,

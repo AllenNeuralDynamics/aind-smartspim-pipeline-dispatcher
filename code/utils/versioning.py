@@ -2,12 +2,15 @@
 Version-checking utilities for the SmartSPIM pipeline.
 """
 
+import logging
 import re
 from typing import Dict, List, Optional
 
 import requests
 
 from utils.io import read_json_as_dict
+
+logger = logging.getLogger(__name__)
 
 
 def get_version(
@@ -93,8 +96,8 @@ def get_dataset_step_versions(dataset_path):
     if processing_path.exists():
         try:
             processing_data = read_json_as_dict(filepath=str(processing_path))
-        except BaseException as e:
-            print(f"Error reading {processing_path}: {e}")
+        except BaseException:
+            logger.error(f"Error reading {processing_path}", exc_info=True)
             processing_data = {}
 
         processing_pipeline = processing_data.get("processing_pipeline")
@@ -128,10 +131,13 @@ def get_dataset_step_versions(dataset_path):
                 }
 
         else:
-            print(f"No pipeline steps found in {processing_path}: {processing_data}")
+            logger.warning(f"No pipeline steps found in {processing_path}")
+            logger.debug(f"Processing data without steps: {processing_data}")
 
     else:
-        print("PROCESSING PATH DOES NOT EXIST: ", dataset_path.stem, processing_path)
+        logger.warning(
+            f"Processing path does not exist for {dataset_path.stem}: {processing_path}"
+        )
 
     return dataset_step_versions
 

@@ -73,7 +73,7 @@ class AlertBot:
         Sends a message. If url is None, prints instead of posting.
         """
         if self.url is None:
-            print(message) if not extra_text else print(message, extra_text)
+            logger.info(f"Teams alert (webhook unset, not posted): {message}")
             return None
         else:
             contents = self._create_body_text(message, extra_text)
@@ -190,8 +190,8 @@ def send_ses_alerts(
                 token=smartsheet_token,
                 sheet_id=int(smartsheet_id_raw),
             )
-        except Exception as e:
-            print(f"Not able to get smartsheet, error: {e}")
+        except Exception:
+            logger.error("Not able to get the investigators smartsheet", exc_info=True)
             return
 
         email_addresses = email_df.loc[
@@ -199,7 +199,7 @@ def send_ses_alerts(
         ].values.tolist()
 
         if not len(email_addresses):
-            print(f"No email addresses were found for investigators: {investigators}")
+            logger.warning(f"No email addresses were found for investigators: {investigators}")
             return response
 
         invest = clean_investigator_names(investigators)
@@ -256,7 +256,7 @@ def send_ses_alerts(
             subject_data = f"SmartSPIM Notification - Pipeline Completed - {dataset}"
 
         else:
-            print(f"Mode {mode} not implemented")
+            logger.warning(f"Email alerts are not implemented for mode {mode}")
             return response
 
         try:
@@ -269,10 +269,10 @@ def send_ses_alerts(
                 Source=source_email,
             )
         except ClientError as e:
-            print(e.response["Error"]["Message"])
+            logger.error(f"SES send_email failed: {e.response['Error']['Message']}")
 
     else:
-        print("Problem retrieving token from the secret manager")
+        logger.error("Problem retrieving the SES token from the secret manager")
 
     return response
 
@@ -318,7 +318,11 @@ def send_email_alerts(
             source_email=source_email,
         )
         logger.info(
-            f"Email alert response: {response} - Investigators: {investigators}"
+            "Email alert sent",
+            extra={
+                "investigators": investigators,
+                "status_code": getattr(response, "status_code", None),
+            },
         )
     else:
         logger.info("Email not sent: No investigators were provided")

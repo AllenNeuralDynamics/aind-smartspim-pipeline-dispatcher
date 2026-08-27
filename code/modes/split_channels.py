@@ -5,7 +5,7 @@ preprocessing manifests.
 
 import logging
 from pathlib import Path
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 from utils import utils
 from manifests.builder import get_data_config
@@ -13,6 +13,68 @@ from manifests.builder import get_data_config
 logger = logging.getLogger(__name__)
 
 PathLike = Union[str, Path]
+
+
+def _get_section_channels(sections: dict, section_names: List[str]) -> list:
+    """
+    Returns the channel list of the first manifest section found among
+    the given names (legacy manifests use alias keys).
+    """
+    for section_name in section_names:
+        section = sections.get(section_name)
+        if isinstance(section, dict):
+            return section.get("channels") or []
+
+    return []
+
+
+def build_pipeline_plan(pipeline_config: dict) -> List[str]:
+    """
+    Derives the expected pipeline stages from the processing manifest.
+
+    The imaging stages always run; atlas registration, cell segmentation,
+    classification and quantification depend on the channels requested in
+    the manifest. Quantification requires both registration and
+    segmentation channels since it maps detected cells into CCF space.
+
+    Parameters
+    ----------
+    pipeline_config: dict
+        Parsed processing_manifest.json (with or without the
+        top-level "pipeline_processing" key).
+
+    Returns
+    -------
+    List[str]
+        Expected stages in pipeline order.
+    """
+    sections = pipeline_config.get("pipeline_processing", pipeline_config) or {}
+
+    registration_channels = _get_section_channels(
+        sections, ["registration", "ccf_registration"]
+    )
+    segmentation_channels = _get_section_channels(
+        sections, ["segmentation", "cell_segmentation_channels"]
+    )
+
+    expected_stages = [
+        "aind-smartspim-flatfield-estimation",
+        "aind-smartspim-destripe",
+        "aind-smartspim-stitch",
+        "aind-smartspim-fuse",
+    ]
+
+    if len(registration_channels):
+        expected_stages.append("aind-smartspim-ccf-registration")
+
+    if len(segmentation_channels):
+        expected_stages.append("aind-smartspim-segmentation")
+        expected_stages.append("aind-smartspim-classification")
+
+    if len(registration_channels) and len(segmentation_channels):
+        expected_stages.append("aind-smartspim-quantification")
+
+    return expected_stages
 
 
 def handle_split_channels(
@@ -40,6 +102,18 @@ def handle_split_channels(
     pipeline_config, dataset_name, investigators = get_data_config(
         data_folder=data_folder,
         data_description_path="input_aind_metadata/data_description.json",
+    )
+
+    expected_stages = build_pipeline_plan(pipeline_config)
+    logger.info(
+        "Pipeline execution plan",
+        extra={
+            "event_type": "pipeline_plan",
+            "dataset_name": dataset_name,
+            "expected_stages": expected_stages,
+            "expected_stage_count": len(expected_stages),
+            "terminal_stage": expected_stages[-1],
+        },
     )
 
     if not input_path:

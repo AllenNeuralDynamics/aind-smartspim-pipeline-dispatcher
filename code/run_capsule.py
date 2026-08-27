@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from log_schema import setup_logging
 
 from __init__ import __pipeline_name__, __title__, __version__
-from utils import utils
+from utils import metadata_compat, utils
 from utils.io import get_yaml_config
 from utils.notifications import send_email_alerts
 from modes.cleanup import handle_clean
@@ -208,7 +208,7 @@ def run():
             "ng_base_url": ng_base_url,
             "ccf_annotation_s3": ccf_annotation_s3,
             "co_domain": co_domain,
-            "source_email": source_email,
+            "source_email_set": bool(source_email),
             "alert_bot_link_set": bool(alert_bot_link),
         },
     )
@@ -336,7 +336,8 @@ def run():
             extra={
                 "event_type": "stage_failure",
                 "mode": mode,
-                "dataset_name": dataset_name,
+                "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+                "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
                 "duration_seconds": duration_seconds,
             },
         )
@@ -348,10 +349,25 @@ def run():
         extra={
             "event_type": "stage_complete",
             "mode": mode,
-            "dataset_name": dataset_name,
+            "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+            "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
             "duration_seconds": duration_seconds,
         },
     )
+
+    # The clean mode ends the standard pipeline; postprocess-stop ends
+    # the reprocessing pipeline. Emit a single terminal marker to pair
+    # with the pipeline_plan record from split_channels.
+    if ("clean" in mode) or ("postprocess-stop" in mode):
+        logger.info(
+            "Pipeline finished",
+            extra={
+                "event_type": "pipeline_finished",
+                "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+                "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
+                "mode": mode,
+            },
+        )
 
 
 if __name__ == "__main__":

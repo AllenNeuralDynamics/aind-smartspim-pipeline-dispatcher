@@ -2,11 +2,14 @@
 Manifest creation, reading, and conversion helpers.
 """
 
+import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Tuple, Union
 
 from utils import utils
 from utils.io import read_json_as_dict
+
+logger = logging.getLogger(__name__)
 
 PathLike = Union[str, Path]
 
@@ -202,7 +205,7 @@ def create_segmentation_manifests(
     segment_channels = pipeline_config["segmentation"]["channels"]
 
     if len(segment_channels):
-        print(
+        logger.info(
             f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}"
         )
         background_channel = processing_manifest["pipeline_processing"]["registration"][
@@ -231,7 +234,9 @@ def create_segmentation_manifests(
             copy_pipeline_config["quantification"]["channel"] = channel_to_segment
             copy_pipeline_config["quantification"]["save_path"] = "../results/"
 
-            print(copy_pipeline_config, channel_to_segment)
+            logger.debug(
+                f"Segmentation manifest for channel {channel_to_segment}: {copy_pipeline_config}"
+            )
 
             utils.save_dict_as_json(
                 f"{results_folder}/{prefix}_processing_manifest_{channel_to_segment}.json",
