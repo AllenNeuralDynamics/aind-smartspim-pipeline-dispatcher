@@ -328,13 +328,14 @@ def run():
                 source_email=source_email,
             )
 
-    except Exception:
+    except Exception as e:
         duration_seconds = round(time.monotonic() - start_time, 3)
         logger.error(
             "Dispatcher failed",
             exc_info=True,
             extra={
                 "event_type": "stage_failure",
+                "error": f"{type(e).__name__}: {e}",
                 "mode": mode,
                 "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
                 "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
