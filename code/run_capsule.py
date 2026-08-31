@@ -1543,7 +1543,7 @@ def create_neuroglancer_link(
         layers.append(
             {
                 "type": "segmentation",
-                "source": "s3://tissuecyte-visualizations/data/221205/ccf_annotations/|neuroglancer-precomputed:",
+                "source": "s3://aind-scratch-data/SmartSPIM_CCF_precomputed/ccf_precomputed/|neuroglancer-precomputed:",
                 "tab": "segments",
                 "segments": [],
                 "name": "CCF_parcellation",
@@ -1551,7 +1551,7 @@ def create_neuroglancer_link(
         )
 
     crossSectionScale = 15
-    projectionScale = 1024
+    projectionScale = 16384
 
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)

@@ -829,7 +829,7 @@ def generate_ng_link(
         "dimensions": input_configs["dimensions"],
         "crossSectionOrientation": input_configs["crossSectionOrientation"],
         "crossSectionScale": input_configs["crossSectionScale"],
-        "projectionScale": 16384,
+        "projectionScale": input_configs["projectionScale"],
         "layers": input_configs["layers"],
         "gpuMemoryLimit": 1500000000,
         "selectedLayer": {"visible": True, "layer": input_configs["layers"][0]["name"]},
