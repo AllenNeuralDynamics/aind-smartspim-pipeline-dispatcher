@@ -5,7 +5,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 ARG GIT_ASKPASS
 ARG GIT_ACCESS_TOKEN
-COPY git-askpass /
+COPY git-ask-pass /
 
 # Creating a new conda environment for argschema python bug
 RUN conda create -n dispatcher python=3.8
@@ -22,6 +22,4 @@ RUN pip install -U --no-cache-dir \
     smartsheet-dataframe==0.3.4 \
     PyYAML==6.0.2 \
     pyOpenSSL==24.2.1 \
-    boto3
-
-RUN conda install conda-forge::awscli
+    awscli==1.37.14
