@@ -630,6 +630,52 @@ def wavelength_to_hex_alternate(wavelength: int) -> int:
     return hex_val  # hex_val is set to the last color in for loop
 
 
+def get_acquisition_axes(acquisition_params: dict) -> list:
+    """
+    Pulls the axis definitions out of an acquisition regardless of schema
+    version
+
+    v1 (schema <= 1.x) stores them at the top level under "axes", ordered by an
+    explicit "dimension" key. v2 (schema >= 2.x) stores them under a
+    "coordinate_system", either at the top level or on an acquisition
+    configuration, listed in XYZ order with no "dimension" key.
+
+    Parameters
+    ----------
+    acquisition_params : dict
+        acquisition metadata
+
+    Raises
+    ------
+    ValueError
+        if no axis information can be located
+
+    Returns
+    -------
+    list
+        list of axis dicts, each with at least "name" and "direction"
+
+    """
+
+    if "axes" in acquisition_params:
+        return acquisition_params["axes"]
+
+    coordinate_system = acquisition_params.get("coordinate_system")
+    if coordinate_system is None:
+        for stream in acquisition_params.get("data_streams", []):
+            for config in stream.get("configurations", []):
+                if config.get("coordinate_system"):
+                    coordinate_system = config["coordinate_system"]
+                    break
+            if coordinate_system is not None:
+                break
+
+    if coordinate_system is None:
+        raise ValueError("Could not find axes in the provided acquisition metadata")
+
+    return coordinate_system["axes"]
+
+
 def volume_orientation(acquisition_params: dict):
     """
     Uses the acquisition orientation to set the cross-section
@@ -652,12 +698,15 @@ def volume_orientation(acquisition_params: dict):
 
     """
 
-    acquired = ["", "", ""]
+    # v1 lists the axes in an arbitrary order and encodes the array ordering in
+    # "dimension" (0 -> Z, 1 -> Y, 2 -> X), while v2 drops "dimension" and lists
+    # them XYZ. Key off the axis name so both resolve to the same ZYX string.
+    directions = {
+        axis["name"].upper(): axis["direction"][0]
+        for axis in get_acquisition_axes(acquisition_params)
+    }
 
-    for axis in acquisition_params["axes"]:
-        acquired[axis["dimension"]] = axis["direction"][0]
-
-    acquired = "".join(acquired)
+    acquired = "".join(directions[name] for name in ("Z", "Y", "X"))
 
     if acquired in ["SPR", "SPL"]:
         orientation = [0.5, 0.5, 0.5, -0.5]
