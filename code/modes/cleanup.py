@@ -40,13 +40,17 @@ def clean_up(
     alert_bot_link:
         MS Teams webhook URL for pipeline notifications.
     """
-    logger.info(f"Data folder: {os.listdir(data_folder)}")
+    logger.debug(f"Data folder: {os.listdir(data_folder)}")
 
     cell_folders = glob(f"{data_folder}/cell_*")
     quantification_folders = glob(f"{data_folder}/quant_*")
 
-    logger.info(f"Cell folders: {cell_folders}")
-    logger.info(f"Quantification folders: {quantification_folders}")
+    logger.info(
+        f"Found {len(cell_folders)} cell segmentation and "
+        f"{len(quantification_folders)} quantification folders to move"
+    )
+    logger.debug(f"Cell folders: {cell_folders}")
+    logger.debug(f"Quantification folders: {quantification_folders}")
 
     proposals_processing = []
     for cell_folder in cell_folders:
@@ -85,7 +89,8 @@ def clean_up(
     for sub_list in combined_processing_list:
         processing_paths += sub_list
 
-    logger.info(f"Compiling processing paths: {processing_paths}")
+    logger.info(f"Compiling {len(processing_paths)} processing.json files")
+    logger.debug(f"Processing paths to compile: {processing_paths}")
 
     if len(processing_paths) > 1:
         output_filename = utils.compile_processing_jsons(
@@ -106,45 +111,59 @@ def clean_up(
         regex_channels = r"Ex_(\d{3})_Em_(\d{3})$"
 
         if cloud_mode:
-            for out in utils.execute_command_helper(
-                f"aws s3 cp {output_filename}/processing.json {s3_path}/processing.json"
-            ):
-                print(out)
+            utils.run_s3_transfer(
+                f"aws s3 cp {output_filename}/processing.json {s3_path}/processing.json",
+                logger,
+                f"compiled processing.json -> {s3_path}/processing.json",
+            )
 
             for cell_folder in cell_folders:
                 channel_name = re.search(regex_channels, cell_folder).group()
-                for out in utils.execute_command_helper(
-                    f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
-                ):
-                    print(out)
+                utils.run_s3_transfer(
+                    f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}",
+                    logger,
+                    f"cell segmentation {channel_name} -> {cell_s3_output}/{channel_name}",
+                    extra={"channel": channel_name},
+                )
 
             for quantification_folder in quantification_folders:
                 channel_name = re.search(regex_channels, quantification_folder).group()
-                for out in utils.execute_command_helper(
-                    f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
-                ):
-                    print(out)
+                utils.run_s3_transfer(
+                    f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}",
+                    logger,
+                    f"quantification {channel_name} -> {quantification_s3_output}/{channel_name}",
+                    extra={"channel": channel_name},
+                )
 
         else:
             utils.create_folder(s3_path)
-            for out in utils.execute_command_helper(
-                f"cp {output_filename}/processing.json {s3_path}/processing.json"
-            ):
-                print(out)
+            utils.run_s3_transfer(
+                f"cp {output_filename}/processing.json {s3_path}/processing.json",
+                logger,
+                f"compiled processing.json -> {s3_path}/processing.json",
+            )
 
             for cell_folder in cell_folders:
                 channel_name = re.search(regex_channels, cell_folder).group()
                 dest = f"{cell_s3_output}/{channel_name}"
                 utils.create_folder(dest)
-                for out in utils.execute_command_helper(f"mv {cell_folder}/* {dest}/"):
-                    print(out)
+                utils.run_s3_transfer(
+                    f"mv {cell_folder}/* {dest}/",
+                    logger,
+                    f"cell segmentation {channel_name} -> {dest}",
+                    extra={"channel": channel_name},
+                )
 
             for quantification_folder in quantification_folders:
                 channel_name = re.search(regex_channels, quantification_folder).group()
                 dest = f"{quantification_s3_output}/{channel_name}"
                 utils.create_folder(dest)
-                for out in utils.execute_command_helper(f"mv {quantification_folder}/* {dest}/"):
-                    print(out)
+                utils.run_s3_transfer(
+                    f"mv {quantification_folder}/* {dest}/",
+                    logger,
+                    f"quantification {channel_name} -> {dest}",
+                    extra={"channel": channel_name},
+                )
 
         utils.save_string_to_txt(
             f"Results of cell segmentation saved in: {cell_s3_output}",
@@ -157,7 +176,7 @@ def clean_up(
         )
 
     else:
-        print("No segmentation data to copy!")
+        logger.warning("No segmentation data to copy")
         utils.save_dict_as_json(
             filename=f"{results_folder}/processing_manifest_no_cell_detection.json",
             dictionary=processing_manifest,

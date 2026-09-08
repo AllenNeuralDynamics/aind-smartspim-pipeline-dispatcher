@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple, Union
 from aind_data_schema.core.processing import Processing, ProcessName
 from pydantic import TypeAdapter
 
-from utils import utils
+from utils import metadata_compat, utils
 from utils.io import read_json_as_dict
 from utils.versioning import (
     check_dataset_latest_version,
@@ -180,78 +180,104 @@ def copy_postprocessed_data(
     output_dispatch_metadata = Path(output_dispatch_metadata)
 
     if cloud_mode:
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}"
-        ):
-            logger.info(out)
+        utils.run_s3_transfer(
+            f"aws s3 cp --recursive {output_dispatch_metadata} {s3_path}",
+            logger,
+            f"postprocess metadata -> {s3_path}",
+        )
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp {new_processing_path} {s3_path}/processing.json"
-        ):
-            logger.info(out)
+        utils.run_s3_transfer(
+            f"aws s3 cp {new_processing_path} {s3_path}/processing.json",
+            logger,
+            f"final processing.json -> {s3_path}/processing.json",
+        )
 
         for ccf_folder in ccf_folders:
             channel_name = re.search(regex_channels, str(ccf_folder)).group()
-            for out in utils.execute_command_helper(
-                f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}"
-            ):
-                logger.info(out)
+            utils.run_s3_transfer(
+                f"aws s3 mv --recursive {ccf_folder} {ccf_s3_output}/{channel_name}",
+                logger,
+                f"CCF registration {channel_name} -> {ccf_s3_output}/{channel_name}",
+                extra={"channel": channel_name},
+            )
 
         for cell_folder in cell_folders:
             channel_name = re.search(regex_channels, str(cell_folder)).group()
-            for out in utils.execute_command_helper(
-                f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}"
-            ):
-                print(out)
+            utils.run_s3_transfer(
+                f"aws s3 mv --recursive {cell_folder} {cell_s3_output}/{channel_name}",
+                logger,
+                f"cell segmentation {channel_name} -> {cell_s3_output}/{channel_name}",
+                extra={"channel": channel_name},
+            )
 
         for quantification_folder in quantification_folders:
             channel_name = re.search(regex_channels, str(quantification_folder)).group()
-            for out in utils.execute_command_helper(
-                f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}"
-            ):
-                print(out)
+            utils.run_s3_transfer(
+                f"aws s3 mv --recursive {quantification_folder} {quantification_s3_output}/{channel_name}",
+                logger,
+                f"quantification {channel_name} -> {quantification_s3_output}/{channel_name}",
+                extra={"channel": channel_name},
+            )
 
-        for out in utils.execute_command_helper(
-            f"aws s3 cp --recursive {post_fuse_folder} {fusion_s3_output}"
-        ):
-            logger.info(out)
+        utils.run_s3_transfer(
+            f"aws s3 cp --recursive {post_fuse_folder} {fusion_s3_output}",
+            logger,
+            f"post-fusion data -> {fusion_s3_output}",
+        )
 
     else:
         utils.create_folder(s3_path)
-        for out in utils.execute_command_helper(
-            f"cp -r {output_dispatch_metadata}/. {s3_path}/"
-        ):
-            logger.info(out)
+        utils.run_s3_transfer(
+            f"cp -r {output_dispatch_metadata}/. {s3_path}/",
+            logger,
+            f"postprocess metadata -> {s3_path}",
+        )
 
-        for out in utils.execute_command_helper(
-            f"cp {new_processing_path} {s3_path}/processing.json"
-        ):
-            logger.info(out)
+        utils.run_s3_transfer(
+            f"cp {new_processing_path} {s3_path}/processing.json",
+            logger,
+            f"final processing.json -> {s3_path}/processing.json",
+        )
 
         for ccf_folder in ccf_folders:
             channel_name = re.search(regex_channels, str(ccf_folder)).group()
             dest = f"{ccf_s3_output}/{channel_name}"
             utils.create_folder(dest)
-            for out in utils.execute_command_helper(f"mv {ccf_folder}/* {dest}/"):
-                logger.info(out)
+            utils.run_s3_transfer(
+                f"mv {ccf_folder}/* {dest}/",
+                logger,
+                f"CCF registration {channel_name} -> {dest}",
+                extra={"channel": channel_name},
+            )
 
         for cell_folder in cell_folders:
             channel_name = re.search(regex_channels, str(cell_folder)).group()
             dest = f"{cell_s3_output}/{channel_name}"
             utils.create_folder(dest)
-            for out in utils.execute_command_helper(f"mv {cell_folder}/* {dest}/"):
-                print(out)
+            utils.run_s3_transfer(
+                f"mv {cell_folder}/* {dest}/",
+                logger,
+                f"cell segmentation {channel_name} -> {dest}",
+                extra={"channel": channel_name},
+            )
 
         for quantification_folder in quantification_folders:
             channel_name = re.search(regex_channels, str(quantification_folder)).group()
             dest = f"{quantification_s3_output}/{channel_name}"
             utils.create_folder(dest)
-            for out in utils.execute_command_helper(f"mv {quantification_folder}/* {dest}/"):
-                print(out)
+            utils.run_s3_transfer(
+                f"mv {quantification_folder}/* {dest}/",
+                logger,
+                f"quantification {channel_name} -> {dest}",
+                extra={"channel": channel_name},
+            )
 
         utils.create_folder(fusion_s3_output)
-        for out in utils.execute_command_helper(f"cp -r {post_fuse_folder}/. {fusion_s3_output}/"):
-            logger.info(out)
+        utils.run_s3_transfer(
+            f"cp -r {post_fuse_folder}/. {fusion_s3_output}/",
+            logger,
+            f"post-fusion data -> {fusion_s3_output}",
+        )
 
     utils.save_string_to_txt(
         f"Results of cell segmentation saved in: {cell_s3_output}",
@@ -387,8 +413,13 @@ def get_dataset_post_processing_config(
             final_config["need_quantification"] = {"process": True}
 
     else:
-        print(
-            f"[!!!] Problem getting the process versions: {processed_step_versions} - manifest: {pipeline_processing}"
+        logger.warning(
+            "Problem getting the processed step versions from the stitched "
+            "dataset's processing.json; scheduling all steps for reprocessing"
+        )
+        logger.debug(
+            f"Processed step versions: {processed_step_versions} - "
+            f"manifest: {pipeline_processing}"
         )
 
     return final_config
@@ -423,9 +454,9 @@ def handle_postprocess_start(
     investigators = []
 
     if processing_manifest_path is None:
-        print(f"[-] ERROR GETTING {processing_manifest_path.stem}")
+        logger.error(f"No processing manifest found in {raw_path}")
     else:
-        print(f"[+] Processing {raw_path.stem} - {processing_manifest_path}")
+        logger.info(f"Processing {raw_path.stem} with manifest {processing_manifest_path}")
 
         data_description_dict = utils.read_json_as_dict(
             str(raw_path / "data_description.json")
@@ -442,8 +473,13 @@ def handle_postprocess_start(
 
         investigators = data_description_dict.get("investigators")
         dataset_name = data_description_dict.get("name")
-        print(
-            f"Postprocessing dataset: {dataset_name} - New asset name: {new_dataset_name}"
+        logger.info(
+            f"Derived stitched asset created: {new_dataset_name}",
+            extra={
+                "event_type": "dataset_resolved",
+                "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+                "asset_name": new_dataset_name,
+            },
         )
 
         processing_manifest_data = read_json_as_dict(processing_manifest_path)
@@ -469,7 +505,16 @@ def handle_postprocess_start(
         atlas_alignment_path = stitched_path / "image_atlas_alignment"
         cell_seg_path = stitched_path / "image_cell_segmentation"
 
-        print(f"Final config: {final_config}, {omezarr_folder}")
+        logger.info(
+            "Reprocessing decisions computed",
+            extra={
+                "need_registration": final_config.get("need_registration", {}).get("process", False),
+                "need_proposals": final_config.get("need_proposals", {}).get("process", False),
+                "need_classification": final_config.get("need_classification", {}).get("process", False),
+                "need_quantification": final_config.get("need_quantification", {}).get("process", False),
+            },
+        )
+        logger.debug(f"Final config: {final_config}, omezarr folder: {omezarr_folder}")
 
         need_reg = final_config.get("need_registration", {}).get("process", False)
         need_prop = final_config.get("need_proposals", {}).get("process", False)
@@ -536,7 +581,7 @@ def handle_postprocess_start(
         processing_json_path = stitched_path.joinpath("processing.json")
         if processing_json_path.exists():
             output_proc_json = results_folder.joinpath("processing.json")
-            print(f"Copying {processing_json_path} to {output_proc_json}")
+            logger.info(f"Copying {processing_json_path} to {output_proc_json}")
             utils.copy_file(str(processing_json_path), str(output_proc_json))
 
     return dataset_name, investigators or [], {}
@@ -615,6 +660,7 @@ def handle_postprocess_stop(
             raise ValueError("New dataset name is None! Please, provide it.")
 
         dataset_name = new_dataset_name
+        subject_id = data_description_dict.get("subject_id")
 
         bucket_path = output_path if cloud_mode else ""
         if not output_path:
@@ -662,6 +708,7 @@ def handle_postprocess_stop(
             segmentation=False,
             ccf=False,
             ccf_annotation_s3=ccf_annotation_s3,
+            subject_id=subject_id,
         )
 
         # TODO Add the function to make segmentation layer for reverse transforms
@@ -768,16 +815,20 @@ def handle_postprocess_stop(
         )
 
         if cloud_mode:
-            for out in utils.execute_command_helper(
-                f"aws s3 cp {output_json} {s3_path}/{output_json.name}"
-            ):
-                logger.info(out)
+            utils.run_s3_transfer(
+                f"aws s3 cp {output_json} {s3_path}/{output_json.name}",
+                logger,
+                f"neuroglancer config -> {s3_path}/{output_json.name}",
+            )
         else:
             utils.create_folder(s3_path)
-            for out in utils.execute_command_helper(f"cp {output_json} {s3_path}/{output_json.name}"):
-                logger.info(out)
+            utils.run_s3_transfer(
+                f"cp {output_json} {s3_path}/{output_json.name}",
+                logger,
+                f"neuroglancer config -> {s3_path}/{output_json.name}",
+            )
 
     else:
-        print("Avoiding copying data since there was nothing to copy.")
+        logger.warning("Nothing to copy: no registration, classification or quantification results found")
 
     return dataset_name, investigators, email_message_params

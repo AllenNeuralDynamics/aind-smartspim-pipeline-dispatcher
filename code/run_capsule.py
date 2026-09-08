@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from log_schema import setup_logging
 
 from __init__ import __pipeline_name__, __title__, __version__
-from utils import utils
+from utils import metadata_compat, utils
 from utils.io import get_yaml_config
 from utils.notifications import send_email_alerts
 from modes.cleanup import handle_clean
@@ -58,20 +58,79 @@ def _parse_args() -> argparse.Namespace:
         help="true|false (positional; Nextflow compat). Overridden by --cloud-mode.",
     )
     ap.add_argument(
-        "output_path_pos",
+        "path_pos_1",
         nargs="?",
         default=None,
-        metavar="OUTPUT_PATH",
-        help="S3 bucket or local path (positional; Nextflow compat). Overridden by --output-path.",
+        metavar="PATH_1",
+        help=(
+            "S3 bucket or local path (positional; Nextflow compat). "
+            "For split_channels this is the INPUT (raw data) location; "
+            "for every other mode it is the OUTPUT location. "
+            "Overridden by --input-path / --output-path."
+        ),
+    )
+    ap.add_argument(
+        "path_pos_2",
+        nargs="?",
+        default=None,
+        metavar="PATH_2",
+        help=(
+            "S3 bucket or local path (positional; Nextflow compat). "
+            "For split_channels this is the OUTPUT location; "
+            "for every other mode it is the INPUT (raw data) location. "
+            "Overridden by --input-path / --output-path."
+        ),
     )
     ap.add_argument("--cloud-mode",        default=None, help="Overrides CLOUD_MODE env var")
     ap.add_argument("--output-path",       default=None, help="Overrides OUTPUT_BUCKET / OUTPUT_PATH env vars")
+    ap.add_argument("--input-path",        default=None, help="Overrides INPUT_BUCKET / INPUT_PATH env vars")
     ap.add_argument("--data-folder",       default=None, help="Overrides DATA_FOLDER env var")
     ap.add_argument("--results-folder",    default=None, help="Overrides RESULTS_FOLDER env var")
     ap.add_argument("--ng-base-url",       default=None, help="Overrides NG_BASE_URL env var")
     ap.add_argument("--ccf-annotation-s3", default=None, help="Overrides CCF_ANNOTATION_S3 env var")
     ap.add_argument("--co-domain",         default=None, help="Overrides CODEOCEAN_DOMAIN env var")
     return ap.parse_args()
+
+
+def _resolve_buckets(args: argparse.Namespace, cloud_mode: bool, mode: str = ""):
+    """
+    Resolves the effective input and output locations with the
+    precedence: named flag > positional arg > env var.
+
+    The output location is the bucket (cloud) or root directory (local)
+    where derived results are copied. The input location is where the raw
+    acquisition data is read from (used by split_channels); it falls back
+    to the output location so single-bucket setups keep working.
+
+    Positional meaning is mode-dependent (Nextflow compat):
+    - split_channels:  <mode> <cloud> <input> [<output>]
+    - every other mode: <mode> <cloud> <output> [<input>]
+
+    Returns
+    -------
+    Tuple[str, str]
+        (effective_input, effective_output)
+    """
+    if "split_channels" in mode:
+        input_pos, output_pos = args.path_pos_1, args.path_pos_2
+    else:
+        output_pos, input_pos = args.path_pos_1, args.path_pos_2
+
+    output_bucket    = os.getenv("OUTPUT_BUCKET")
+    output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
+    _output_explicit = args.output_path or output_pos
+    effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
+
+    input_bucket    = os.getenv("INPUT_BUCKET")
+    input_path_env  = os.getenv("INPUT_PATH", "").strip()
+    _input_explicit = args.input_path or input_pos
+    effective_input = (
+        _input_explicit
+        or (input_bucket if cloud_mode else input_path_env)
+        or effective_output
+    )
+
+    return effective_input, effective_output
 
 
 def run():
@@ -118,11 +177,11 @@ def run():
     data_folder    = Path(_data_env)    if _data_env    else Path(os.path.abspath("../data"))
     results_folder = Path(_results_env) if _results_env else Path(os.path.abspath("../results"))
 
-    # ── Output destination: named flag > positional arg > env var ─────────────
-    output_bucket    = os.getenv("OUTPUT_BUCKET")
-    output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
-    _output_explicit = args.output_path or args.output_path_pos
-    effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
+    # ── Input/output locations: named flag > positional arg > env var ─────────
+    # Positional order is mode-dependent: split_channels takes <input> [<output>],
+    # other modes take <output> [<input>]. Input (raw data) falls back to the
+    # output location when not provided.
+    effective_input, effective_output = _resolve_buckets(args, cloud_mode, mode)
 
     # ── Notifications ─────────────────────────────────────────────────────────
     alert_bot_link = os.getenv("ALERT_BOT_LINK")
@@ -144,11 +203,12 @@ def run():
             "cloud_mode": cloud_mode,
             "data_folder": str(data_folder),
             "results_folder": str(results_folder),
+            "effective_input": effective_input,
             "effective_output": effective_output,
             "ng_base_url": ng_base_url,
             "ccf_annotation_s3": ccf_annotation_s3,
             "co_domain": co_domain,
-            "source_email": source_email,
+            "source_email_set": bool(source_email),
             "alert_bot_link_set": bool(alert_bot_link),
         },
     )
@@ -206,7 +266,7 @@ def run():
             dataset_name, investigators, email_message_params = handle_split_channels(
                 data_folder=data_folder,
                 results_folder=results_folder,
-                output_path=effective_output,
+                input_path=effective_input,
                 cloud_mode=cloud_mode,
                 logger=logger,
             )
@@ -268,15 +328,17 @@ def run():
                 source_email=source_email,
             )
 
-    except Exception:
+    except Exception as e:
         duration_seconds = round(time.monotonic() - start_time, 3)
         logger.error(
             "Dispatcher failed",
             exc_info=True,
             extra={
                 "event_type": "stage_failure",
+                "error": f"{type(e).__name__}: {e}",
                 "mode": mode,
-                "dataset_name": dataset_name,
+                "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+                "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
                 "duration_seconds": duration_seconds,
             },
         )
@@ -288,10 +350,25 @@ def run():
         extra={
             "event_type": "stage_complete",
             "mode": mode,
-            "dataset_name": dataset_name,
+            "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+            "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
             "duration_seconds": duration_seconds,
         },
     )
+
+    # The clean mode ends the standard pipeline; postprocess-stop ends
+    # the reprocessing pipeline. Emit a single terminal marker to pair
+    # with the pipeline_plan record from split_channels.
+    if ("clean" in mode) or ("postprocess-stop" in mode):
+        logger.info(
+            "Pipeline finished",
+            extra={
+                "event_type": "pipeline_finished",
+                "dataset_name": metadata_compat.get_raw_dataset_name(dataset_name),
+                "asset_name": dataset_name if "_stitched_" in (dataset_name or "") else None,
+                "mode": mode,
+            },
+        )
 
 
 if __name__ == "__main__":

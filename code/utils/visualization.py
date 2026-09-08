@@ -11,6 +11,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import dask.array as da
 import numpy as np
 
+from utils import metadata_compat
+
 PathLike = Union[str, Path]
 
 
@@ -91,7 +93,9 @@ def volume_orientation(acquisition_params: dict) -> List[float]:
     """
     acquired = ["", "", ""]
 
-    for axis in acquisition_params["axes"]:
+    # Normalizes v1/v2 acquisition or manifest orientation blobs to
+    # the v1 axes shape
+    for axis in metadata_compat.get_acquisition_axes(acquisition_params):
         acquired[axis["dimension"]] = axis["direction"][0]
 
     acquired = "".join(acquired)
@@ -184,6 +188,7 @@ def create_neuroglancer_link(
     segmentation: bool,
     ccf: bool,
     ccf_annotation_s3: Optional[str] = None,
+    subject_id: Optional[str] = None,
 ) -> Tuple:
     """
     Creates the neuroglancer link for the processed dataset.
@@ -298,7 +303,10 @@ def create_neuroglancer_link(
     else:
         crossSectionOrientation = [np.cos(np.pi / 4), 0.0, 0.0, np.cos(np.pi / 4)]
 
-    subject_id = Path(s3_dataset_path).name.split("_")[1]
+    if subject_id is None:
+        # Fallback for callers without metadata access. Assumes the v1
+        # naming convention SmartSPIM_<subject_id>_<date>_<time>
+        subject_id = Path(s3_dataset_path).name.split("_")[1]
 
     input_configs = {
         "title": subject_id,

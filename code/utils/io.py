@@ -3,9 +3,12 @@ File I/O, path helpers, and shell-execution utilities.
 """
 
 import json
+import logging
 import os
+import re
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -13,6 +16,11 @@ from typing import Any, Dict, List, Optional, Union
 import yaml
 
 PathLike = Union[str, Path]
+
+# aws-cli transfer progress / per-file lines — pure noise for structured logs
+_TRANSFER_PROGRESS_REGEX = re.compile(
+    r"^(Completed\s|upload:\s|copy:\s|move:\s|download:\s|delete:\s|\(dryrun\))"
+)
 
 
 def copy_file(input_filename: PathLike, output_filename: PathLike):
@@ -54,8 +62,10 @@ def delete_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
             shutil.rmtree(dest_dir)
             if verbose:
                 print(f"Folder {dest_dir} was removed!")
-        except shutil.Error as e:
-            print(f"Folder could not be removed! Error {e}")
+        except shutil.Error:
+            logging.getLogger(__name__).error(
+                f"Folder {dest_dir} could not be removed", exc_info=True
+            )
 
 
 def execute_command_helper(
@@ -81,6 +91,63 @@ def execute_command_helper(
     return_code = popen.wait()
     if return_code:
         raise subprocess.CalledProcessError(return_code, command)
+
+
+def run_s3_transfer(
+    command: str,
+    logger: logging.Logger,
+    description: str,
+    extra: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    Runs a data-transfer shell command (aws s3 cp/mv/sync or local cp/mv)
+    logging only a structured summary instead of every progress line.
+
+    Emits one INFO ``transfer_start`` and one INFO ``transfer_end`` record.
+    Progress/per-file lines are not logged; any other command output is
+    logged at DEBUG. Drains ``execute_command_helper`` exactly like the
+    previous call sites did, so failures still raise CalledProcessError.
+
+    Parameters
+    ----------
+    command: str
+        Shell command to execute.
+    logger: logging.Logger
+        Logger for the summary records.
+    description: str
+        Human-readable description of what is being transferred.
+    extra: Optional[Dict[str, Any]]
+        Additional structured fields (e.g. dataset_name, channel).
+    """
+    # Resolve through the utils.utils namespace at call time — the same
+    # attribute lookup the previous call sites used (and what tests patch).
+    from utils import utils as _utils
+
+    base_extra = dict(extra or {})
+    logger.info(
+        f"Transfer started: {description}",
+        extra={**base_extra, "event_type": "transfer_start", "command": command},
+    )
+
+    start_time = time.monotonic()
+    status = "success"
+    try:
+        for out in _utils.execute_command_helper(command):
+            if out and not _TRANSFER_PROGRESS_REGEX.match(out):
+                logger.debug(out)
+    except subprocess.CalledProcessError:
+        status = "failed"
+        raise
+    finally:
+        logger.info(
+            f"Transfer {'completed' if status == 'success' else 'failed'}: {description}",
+            extra={
+                **base_extra,
+                "event_type": "transfer_end",
+                "status": status,
+                "duration_seconds": round(time.monotonic() - start_time, 3),
+            },
+        )
 
 
 def execute_command(config: dict) -> None:

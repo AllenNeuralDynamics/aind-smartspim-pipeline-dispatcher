@@ -15,7 +15,7 @@ results.
 | `clean` | End of the pipeline | Moves all segmentation and quantification outputs to the `destination bucket` S3 bucket and sends a completion notification. |
 | `postprocess-start` | Start of a re-processing run | Detects which downstream steps (registration, segmentation, classification, quantification) need to be re-run and prepares the corresponding manifests. |
 | `postprocess-stop` | End of a re-processing run | Collects updated CCF, cell segmentation, and quantification outputs, compiles a new `processing.json`, and copies everything back to S3. |
-| `split_channels` | Pre-processing | Lists available S3 channels and writes per-channel preprocessing manifests. |
+| `split_channels` | Pre-processing | Lists the channels of the raw acquisition data in the input bucket (or local input path) and writes per-channel preprocessing manifests. |
 
 ---
 
@@ -78,6 +78,7 @@ capsule environment variables instead.
 | `API_SECRET` | Yes (dispatch) | Code Ocean API token | Runtime error |
 | `CODEOCEAN_DOMAIN` | No | Code Ocean organisation URL | Data-asset registration skipped |
 | `OUTPUT_BUCKET` | No | S3 bucket for processed data | S3 copy and dispatch skipped |
+| `INPUT_BUCKET` | No | S3 bucket with the raw acquisition data (used by `split_channels`) | Defaults to `OUTPUT_BUCKET` |
 | `SES_TOKEN_PATH` | No | AWS Secrets Manager path to SES/Smartsheet token | Email alerts skipped |
 | `SMARTSHEET_ID` | No | Smartsheet sheet ID for investigator lookup | Email alerts skipped |
 | `SOURCE_EMAIL` | No | SES-verified source email address | Email alerts skipped |
@@ -96,11 +97,22 @@ The capsule entry-point is the `code/run` bash script, which calls `python run_c
 ```bash
 # From the repository root
 cd code
+python run_capsule.py split_channels
 python run_capsule.py dispatch
 python run_capsule.py clean
 python run_capsule.py postprocess-start
 python run_capsule.py postprocess-stop
 ```
+
+Positional form (Nextflow compat) — the bucket order is mode-dependent:
+
+```bash
+python run_capsule.py split_channels <cloud> <input_bucket> [<output_bucket>]   # raw data first
+python run_capsule.py <other_mode>   <cloud> <output_bucket> [<input_bucket>]
+```
+
+The input location (raw acquisition data, used by `split_channels`) defaults to the
+output location when omitted, so single-bucket invocations keep working.
 
 Required environment variables:
 

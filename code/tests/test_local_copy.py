@@ -554,7 +554,7 @@ class TestHandleSplitChannelsLocal:
         data = tmp_path / "data"
         data.mkdir()
         return dict(
-            output_path=str(tmp_path / "output"),
+            input_path=str(tmp_path / "output"),
             dataset_name=dataset_name,
             results=results,
             data=data,
@@ -568,7 +568,7 @@ class TestHandleSplitChannelsLocal:
             handle_split_channels(
                 data_folder=spim_tree["data"],
                 results_folder=spim_tree["results"],
-                output_path=spim_tree["output_path"],
+                input_path=spim_tree["input_path"],
                 logger=LOG,
                 cloud_mode=False,
             )
@@ -585,7 +585,7 @@ class TestHandleSplitChannelsLocal:
             handle_split_channels(
                 data_folder=spim_tree["data"],
                 results_folder=spim_tree["results"],
-                output_path=spim_tree["output_path"],
+                input_path=spim_tree["input_path"],
                 logger=LOG,
                 cloud_mode=False,
             )
@@ -595,7 +595,7 @@ class TestHandleSplitChannelsLocal:
             assert "s3://" not in data["input_data"], (
                 "Local mode must not produce S3 paths; got {}".format(data["input_data"])
             )
-            assert spim_tree["output_path"] in data["input_data"]
+            assert spim_tree["input_path"] in data["input_data"]
 
     def test_excludes_non_channel_dirs(self, spim_tree):
         with patch(
@@ -605,7 +605,7 @@ class TestHandleSplitChannelsLocal:
             handle_split_channels(
                 data_folder=spim_tree["data"],
                 results_folder=spim_tree["results"],
-                output_path=spim_tree["output_path"],
+                input_path=spim_tree["input_path"],
                 logger=LOG,
                 cloud_mode=False,
             )
@@ -624,7 +624,7 @@ class TestHandleSplitChannelsLocal:
             handle_split_channels(
                 data_folder=tmp_path / "data",
                 results_folder=results,
-                output_path=str(tmp_path / "output"),
+                input_path=str(tmp_path / "output"),
                 logger=LOG,
                 cloud_mode=False,
             )
@@ -647,7 +647,7 @@ class TestHandleSplitChannelsLocal:
             handle_split_channels(
                 data_folder=spim_tree["data"],
                 results_folder=spim_tree["results"],
-                output_path="my-bucket",
+                input_path="my-bucket",
                 logger=LOG,
                 cloud_mode=True,
             )

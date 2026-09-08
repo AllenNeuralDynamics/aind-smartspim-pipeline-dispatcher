@@ -23,7 +23,7 @@ SHELL ["conda", "run", "-n", "dispatcher", "/bin/bash", "-c"]
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -U \
-    numpy==1.26.4 \
+    "numpy>=2.0,<3" \
     aind-codeocean-api==0.4.2 \
     aind-data-schema==2.8.0 \
     "aind-data-schema-models>=5.7.1,<6" \
@@ -32,11 +32,10 @@ RUN pip install --no-cache-dir -U \
     PyYAML==6.0.2 \
     pyOpenSSL==24.2.1 \
     dask[distributed]==2026.6.0 \
-    zarr==3.2.1 \
-    numcodecs==0.16.5 \
+    zarr==3.1.6 \
+    numcodecs==0.15.1 \
     boto3 \
     log-schema==0.2.10.dev1
-
 # Clean conda/pip caches
 RUN conda clean -afy
 

@@ -3,6 +3,7 @@ AWS S3 and Secrets Manager utilities.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
@@ -22,8 +23,8 @@ def get_messenger_credentails(secret_id: str) -> Dict:
     client = boto3.client("secretsmanager", region_name="us-west-2")
 
     try:
+        # NEVER log the response: it contains the secret value
         response = client.get_secret_value(SecretId=secret_id)
-        print("response ", response)
         secret_string = response.get("SecretString")
 
         if secret_string:
@@ -32,8 +33,11 @@ def get_messenger_credentails(secret_id: str) -> Dict:
         else:
             return json.loads(response.get("SecretBinary"))
 
-    except Exception as e:
-        print(f"Error retrieving secret: {e}")
+    except Exception:
+        logging.getLogger(__name__).error(
+            f"Error retrieving secret {secret_id} from Secrets Manager",
+            exc_info=True,
+        )
         return None
 
     return secret_dict  # noqa: F821 — unreachable
