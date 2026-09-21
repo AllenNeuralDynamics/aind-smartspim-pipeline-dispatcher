@@ -106,7 +106,7 @@ def volume_orientation(acquisition_params: dict) -> List[float]:
         orientation = [0.5, 0.5, -0.5, 0.5]
     elif acquired == "IAR":
         orientation = [0.5, -0.5, 0.5, 0.5]
-    elif acquired == "RAS":
+    elif acquired in ["RAS", "LAS"]:
         orientation = [np.cos(np.pi / 4), 0.0, 0.0, np.cos(np.pi / 4)]
     elif acquired == "RPI":
         orientation = [np.cos(np.pi / 4), 0.0, 0.0, -np.cos(np.pi / 4)]
