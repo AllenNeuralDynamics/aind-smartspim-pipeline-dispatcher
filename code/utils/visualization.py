@@ -112,6 +112,8 @@ def volume_orientation(acquisition_params: dict) -> List[float]:
         orientation = [np.cos(np.pi / 4), 0.0, 0.0, -np.cos(np.pi / 4)]
     elif acquired == "LAI":
         orientation = [0.0, np.cos(np.pi / 4), -np.cos(np.pi / 4), 0.0]
+    elif acquired == "LPS":
+        orientation = [0.0, np.cos(np.pi / 4), np.cos(np.pi / 4), 0.0]
     else:
         raise ValueError(
             f"Acquisition orientation: {acquired} has unknown NG parameters"
@@ -166,7 +168,7 @@ def generate_ng_link(
         "dimensions": input_configs["dimensions"],
         "crossSectionOrientation": input_configs["crossSectionOrientation"],
         "crossSectionScale": input_configs["crossSectionScale"],
-        "projectionScale": 16384,
+        "projectionScale": input_configs["projectionScale"],
         "layers": input_configs["layers"],
         "gpuMemoryLimit": 1500000000,
         "selectedLayer": {
@@ -292,7 +294,7 @@ def create_neuroglancer_link(
         )
 
     crossSectionScale = 15
-    projectionScale = 1024
+    projectionScale = 16384
 
     if isinstance(orientation, dict):
         crossSectionOrientation = volume_orientation(orientation)
