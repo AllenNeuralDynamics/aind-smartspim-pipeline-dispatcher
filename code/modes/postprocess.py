@@ -12,20 +12,19 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 from aind_data_schema.core.processing import Processing, ProcessName
+from manifests.builder import (
+    create_segmentation_manifests,
+    get_omezarr_path,
+    get_processing_manifest_path,
+    get_standard_manifest_config,
+)
 from pydantic import TypeAdapter
-
 from utils import metadata_compat, utils
 from utils.io import read_json_as_dict
 from utils.versioning import (
     check_dataset_latest_version,
     get_dataset_step_versions,
     get_pipeline_versions,
-)
-from manifests.builder import (
-    create_segmentation_manifests,
-    get_omezarr_path,
-    get_processing_manifest_path,
-    get_standard_manifest_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,10 +53,7 @@ def remove_positions(lst: List, positions: List[int]) -> List:
     min_index = min(positions)
 
     if min_index < 0 or max_index > len_objs:
-        msg = (
-            "Error in removal of positions"
-            f"Positions: {positions} - Len list: {len_objs}"
-        )
+        msg = f"Error in removal of positionsPositions: {positions} - Len list: {len_objs}"
         raise ValueError(msg)
 
     return [obj for idx, obj in enumerate(lst) if idx not in set(positions)]
@@ -87,9 +83,7 @@ def get_filtered_proc_metadata(
     from utils.io import read_json_as_dict
 
     if not input_proc_json.exists():
-        raise FileNotFoundError(
-            f"Processing.json was not provided in {input_proc_json}"
-        )
+        raise FileNotFoundError(f"Processing.json was not provided in {input_proc_json}")
 
     input_proc_json_data = read_json_as_dict(input_proc_json)
     processing_adapter = TypeAdapter(Processing)
@@ -121,9 +115,7 @@ def get_filtered_proc_metadata(
         if remove_reg or remove_cell or remove_quant:
             delete_pos.append(i)
 
-    input_proc_json_data_obj_copy.data_processes = remove_positions(
-        data_processes, delete_pos
-    )
+    input_proc_json_data_obj_copy.data_processes = remove_positions(data_processes, delete_pos)
     return input_proc_json_data_obj_copy, delete_pos
 
 
@@ -159,11 +151,7 @@ def copy_postprocessed_data(
     logger:
         Logger instance.
     """
-    if (
-        not len(ccf_folders)
-        and not len(cell_folders)
-        and not len(quantification_folders)
-    ):
+    if not len(ccf_folders) and not len(cell_folders) and not len(quantification_folders):
         msg = (
             f"Avoiding copy. CCF: {ccf_folders} - CELL: {cell_folders}"
             f" - QUANT: {quantification_folders}"
@@ -362,9 +350,7 @@ def get_dataset_post_processing_config(
         ]["process"]
 
         if len(manifest_reg) and version_control_reg:
-            need_reg = process_versions[
-                "aind-smartspim-ccf-registration - Image atlas alignment"
-            ]
+            need_reg = process_versions["aind-smartspim-ccf-registration - Image atlas alignment"]
 
         if len(manifest_seg):
             # Might need segmentation, classification or quantification
@@ -418,8 +404,7 @@ def get_dataset_post_processing_config(
             "dataset's processing.json; scheduling all steps for reprocessing"
         )
         logger.debug(
-            f"Processed step versions: {processed_step_versions} - "
-            f"manifest: {pipeline_processing}"
+            f"Processed step versions: {processed_step_versions} - manifest: {pipeline_processing}"
         )
 
     return final_config
@@ -458,9 +443,7 @@ def handle_postprocess_start(
     else:
         logger.info(f"Processing {raw_path.stem} with manifest {processing_manifest_path}")
 
-        data_description_dict = utils.read_json_as_dict(
-            str(raw_path / "data_description.json")
-        )
+        data_description_dict = utils.read_json_as_dict(str(raw_path / "data_description.json"))
 
         (
             output_dispatch_metadata,
@@ -485,9 +468,7 @@ def handle_postprocess_start(
         processing_manifest_data = read_json_as_dict(processing_manifest_path)
         latest_step_versions = get_pipeline_versions(pipeline_repos)
 
-        processing_manifest_data[
-            "pipeline_processing"
-        ] = get_standard_manifest_config(
+        processing_manifest_data["pipeline_processing"] = get_standard_manifest_config(
             pipeline_processing=processing_manifest_data.get("pipeline_processing"),
             hashmap_stepnames=manifest_step_names,
         )
@@ -508,10 +489,16 @@ def handle_postprocess_start(
         logger.info(
             "Reprocessing decisions computed",
             extra={
-                "need_registration": final_config.get("need_registration", {}).get("process", False),
+                "need_registration": final_config.get("need_registration", {}).get(
+                    "process", False
+                ),
                 "need_proposals": final_config.get("need_proposals", {}).get("process", False),
-                "need_classification": final_config.get("need_classification", {}).get("process", False),
-                "need_quantification": final_config.get("need_quantification", {}).get("process", False),
+                "need_classification": final_config.get("need_classification", {}).get(
+                    "process", False
+                ),
+                "need_quantification": final_config.get("need_quantification", {}).get(
+                    "process", False
+                ),
             },
         )
         logger.debug(f"Final config: {final_config}, omezarr folder: {omezarr_folder}")
@@ -526,9 +513,7 @@ def handle_postprocess_start(
             empty_pmd["pipeline_processing"]["registration"]["channels"] = []
             empty_pmd["pipeline_processing"]["segmentation"]["channels"] = []
 
-            utils.save_dict_as_json(
-                results_folder / "processing_manifest.json", empty_pmd
-            )
+            utils.save_dict_as_json(results_folder / "processing_manifest.json", empty_pmd)
             utils.save_dict_as_json(
                 results_folder / "segmentation_processing_manifest_empty.json",
                 empty_pmd["pipeline_processing"],
@@ -548,9 +533,7 @@ def handle_postprocess_start(
             utils.create_folder(atlas_alignment_dest)
 
             for ccf_folder in atlas_alignment_path.glob("Ex_*_Em_*"):
-                shutil.copytree(
-                    ccf_folder, atlas_alignment_dest / f"ccf_{ccf_folder.stem}"
-                )
+                shutil.copytree(ccf_folder, atlas_alignment_dest / f"ccf_{ccf_folder.stem}")
 
         if need_prop:
             create_segmentation_manifests(
@@ -561,18 +544,14 @@ def handle_postprocess_start(
         else:
             copy_manifests = processing_manifest_data.copy()
             copy_manifests["pipeline_processing"]["segmentation"]["channels"] = []
-            create_segmentation_manifests(
-                copy_manifests, results_folder, prefix="segmentation"
-            )
+            create_segmentation_manifests(copy_manifests, results_folder, prefix="segmentation")
 
         if need_class or need_quant:
             cell_seg_dest = results_folder / "image_cell_segmentation"
             utils.create_folder(cell_seg_dest)
 
             for cell_folder in cell_seg_path.glob("Ex_*_Em_*"):
-                shutil.copytree(
-                    cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}"
-                )
+                shutil.copytree(cell_folder, cell_seg_dest / f"cell_{cell_folder.stem}")
 
             create_segmentation_manifests(
                 processing_manifest_data, results_folder, prefix="classification"
@@ -628,9 +607,7 @@ def handle_postprocess_stop(
     copy_quantification = False
 
     if ccf_folder.exists():
-        copy_ccf = bool(
-            len([a for a in list(ccf_folder.glob("ccf_*")) if a.is_dir()])
-        )
+        copy_ccf = bool(len([a for a in list(ccf_folder.glob("ccf_*")) if a.is_dir()]))
 
     if classification_folder.exists():
         copy_classification = bool(
@@ -639,9 +616,7 @@ def handle_postprocess_stop(
 
     if quantification_folder.exists():
         copy_quantification = bool(
-            len(
-                [a for a in list(quantification_folder.glob("quant_*")) if a.is_dir()]
-            )
+            len([a for a in list(quantification_folder.glob("quant_*")) if a.is_dir()])
         )
 
     dataset_name = ""
@@ -666,7 +641,8 @@ def handle_postprocess_stop(
         if not output_path:
             logger.warning("Output path not set; copy steps will be skipped.")
         dest_root = (
-            f"s3://{output_path}/{new_dataset_name}" if cloud_mode
+            f"s3://{output_path}/{new_dataset_name}"
+            if cloud_mode
             else f"{output_path}/{new_dataset_name}"
         )
         s3_path = dest_root
@@ -674,9 +650,7 @@ def handle_postprocess_stop(
 
         s3_paths_for_channels = [
             f"{dest_zarr_path}/{fused_zarr.name}"
-            for fused_zarr in stitched_data.glob(
-                "image_tile_fusing/OMEZarr/*.zarr"
-            )
+            for fused_zarr in stitched_data.glob("image_tile_fusing/OMEZarr/*.zarr")
         ]
 
         if not len(s3_paths_for_channels):
@@ -767,19 +741,13 @@ def handle_postprocess_stop(
         if copy_classification:
             for cell_folder in cell_folders:
                 class_proc = cell_folder.joinpath("metadata/processing.json")
-                proposals_proc = cell_folder.joinpath(
-                    "proposals/metadata/processing.json"
-                )
+                proposals_proc = cell_folder.joinpath("proposals/metadata/processing.json")
 
                 curr_cell_processing = read_json_as_dict(str(class_proc))
                 curr_prop_processing = read_json_as_dict(str(proposals_proc))
 
-                curr_cell_processing_obj = processing_adapter.validate_python(
-                    curr_cell_processing
-                )
-                curr_prop_processing_obj = processing_adapter.validate_python(
-                    curr_prop_processing
-                )
+                curr_cell_processing_obj = processing_adapter.validate_python(curr_cell_processing)
+                curr_prop_processing_obj = processing_adapter.validate_python(curr_prop_processing)
 
                 for data_process in curr_cell_processing_obj.data_processes:
                     new_data_procs.append(data_process)
@@ -829,6 +797,8 @@ def handle_postprocess_stop(
             )
 
     else:
-        logger.warning("Nothing to copy: no registration, classification or quantification results found")
+        logger.warning(
+            "Nothing to copy: no registration, classification or quantification results found"
+        )
 
     return dataset_name, investigators, email_message_params

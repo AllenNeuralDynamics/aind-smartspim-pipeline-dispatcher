@@ -29,7 +29,6 @@ for _mod in _STUBS:
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest  # noqa: E402
-
 from utils.io import run_s3_transfer  # noqa: E402
 from utils.metadata_compat import get_raw_dataset_name  # noqa: E402
 

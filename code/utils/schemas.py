@@ -19,7 +19,6 @@ from aind_data_schema.core.procedures import Procedures
 from aind_data_schema.core.processing import (
     DataProcess,
     Processing,
-    ProcessStage,
     ResourceTimestamped,
     ResourceUsage,
 )
@@ -36,7 +35,6 @@ from aind_data_schema_models.modalities import Modality
 from aind_data_schema_models.organizations import Organization
 from aind_data_schema_models.units import MemoryUnit
 from pydantic import ValidationError
-
 from utils import metadata_compat
 from utils.io import copy_file, read_json_as_dict
 
@@ -112,9 +110,7 @@ def _build_raw_dd_from_v1(data: dict) -> DataDescription:
 
     # investigators: v1 PIDName dicts -> v2 Person (name only)
     investigators = [
-        Person(name=inv["name"])
-        for inv in data.get("investigators", [])
-        if inv.get("name")
+        Person(name=inv["name"]) for inv in data.get("investigators", []) if inv.get("name")
     ]
     if not investigators:
         investigators = [Person(name="Unknown")]
@@ -177,9 +173,7 @@ def generate_data_description(
     try:
         raw_dd = DataDescription.model_validate(data)
     except ValidationError:
-        logger.warning(
-            "Raw data_description is not valid v2; reconstructing from v1 fields"
-        )
+        logger.warning("Raw data_description is not valid v2; reconstructing from v1 fields")
         raw_dd = _build_raw_dd_from_v1(data)
 
     # Enforce SPIM — this is the SmartSPIM pipeline (applies to both paths)

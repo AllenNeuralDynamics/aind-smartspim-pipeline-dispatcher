@@ -6,17 +6,16 @@ import os
 import time
 from pathlib import Path
 
+from __init__ import __pipeline_name__, __title__, __version__
 from dotenv import load_dotenv
 from log_schema import setup_logging
-
-from __init__ import __pipeline_name__, __title__, __version__
-from utils import metadata_compat, utils
-from utils.io import get_yaml_config
-from utils.notifications import send_email_alerts
 from modes.cleanup import handle_clean
 from modes.dispatch import handle_dispatch
 from modes.postprocess import handle_postprocess_start, handle_postprocess_stop
 from modes.split_channels import handle_split_channels
+from utils import metadata_compat, utils
+from utils.io import get_yaml_config
+from utils.notifications import send_email_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -81,14 +80,18 @@ def _parse_args() -> argparse.Namespace:
             "Overridden by --input-path / --output-path."
         ),
     )
-    ap.add_argument("--cloud-mode",        default=None, help="Overrides CLOUD_MODE env var")
-    ap.add_argument("--output-path",       default=None, help="Overrides OUTPUT_BUCKET / OUTPUT_PATH env vars")
-    ap.add_argument("--input-path",        default=None, help="Overrides INPUT_BUCKET / INPUT_PATH env vars")
-    ap.add_argument("--data-folder",       default=None, help="Overrides DATA_FOLDER env var")
-    ap.add_argument("--results-folder",    default=None, help="Overrides RESULTS_FOLDER env var")
-    ap.add_argument("--ng-base-url",       default=None, help="Overrides NG_BASE_URL env var")
+    ap.add_argument("--cloud-mode", default=None, help="Overrides CLOUD_MODE env var")
+    ap.add_argument(
+        "--output-path", default=None, help="Overrides OUTPUT_BUCKET / OUTPUT_PATH env vars"
+    )
+    ap.add_argument(
+        "--input-path", default=None, help="Overrides INPUT_BUCKET / INPUT_PATH env vars"
+    )
+    ap.add_argument("--data-folder", default=None, help="Overrides DATA_FOLDER env var")
+    ap.add_argument("--results-folder", default=None, help="Overrides RESULTS_FOLDER env var")
+    ap.add_argument("--ng-base-url", default=None, help="Overrides NG_BASE_URL env var")
     ap.add_argument("--ccf-annotation-s3", default=None, help="Overrides CCF_ANNOTATION_S3 env var")
-    ap.add_argument("--co-domain",         default=None, help="Overrides CODEOCEAN_DOMAIN env var")
+    ap.add_argument("--co-domain", default=None, help="Overrides CODEOCEAN_DOMAIN env var")
     return ap.parse_args()
 
 
@@ -116,18 +119,16 @@ def _resolve_buckets(args: argparse.Namespace, cloud_mode: bool, mode: str = "")
     else:
         output_pos, input_pos = args.path_pos_1, args.path_pos_2
 
-    output_bucket    = os.getenv("OUTPUT_BUCKET")
-    output_path_env  = os.getenv("OUTPUT_PATH", "").strip()
+    output_bucket = os.getenv("OUTPUT_BUCKET")
+    output_path_env = os.getenv("OUTPUT_PATH", "").strip()
     _output_explicit = args.output_path or output_pos
     effective_output = _output_explicit or (output_bucket if cloud_mode else output_path_env)
 
-    input_bucket    = os.getenv("INPUT_BUCKET")
-    input_path_env  = os.getenv("INPUT_PATH", "").strip()
+    input_bucket = os.getenv("INPUT_BUCKET")
+    input_path_env = os.getenv("INPUT_PATH", "").strip()
     _input_explicit = args.input_path or input_pos
     effective_input = (
-        _input_explicit
-        or (input_bucket if cloud_mode else input_path_env)
-        or effective_output
+        _input_explicit or (input_bucket if cloud_mode else input_path_env) or effective_output
     )
 
     return effective_input, effective_output
@@ -158,23 +159,27 @@ def run():
 
     process_name = f"{__title__}-{mode}"
 
-    setup_logging(model={
-        "pipeline_name": __pipeline_name__,
-        "process_name": process_name,
-        "software_name": __title__,
-        "software_version": __version__,
-    })
+    setup_logging(
+        model={
+            "pipeline_name": __pipeline_name__,
+            "process_name": process_name,
+            "software_name": __title__,
+            "software_version": __version__,
+        }
+    )
 
     start_time = time.monotonic()
 
     # ── Execution mode: named flag > positional arg > env var > default ───────
-    _cloud_raw = (args.cloud_mode or args.cloud_mode_pos or os.getenv("CLOUD_MODE", "true")).strip().lower()
+    _cloud_raw = (
+        (args.cloud_mode or args.cloud_mode_pos or os.getenv("CLOUD_MODE", "true")).strip().lower()
+    )
     cloud_mode = _cloud_raw == "true"
 
     # ── Paths: named flag > env var > Code Ocean default ─────────────────────
-    _data_env    = (args.data_folder    or os.getenv("DATA_FOLDER",    "")).strip()
+    _data_env = (args.data_folder or os.getenv("DATA_FOLDER", "")).strip()
     _results_env = (args.results_folder or os.getenv("RESULTS_FOLDER", "")).strip()
-    data_folder    = Path(_data_env)    if _data_env    else Path(os.path.abspath("../data"))
+    data_folder = Path(_data_env) if _data_env else Path(os.path.abspath("../data"))
     results_folder = Path(_results_env) if _results_env else Path(os.path.abspath("../results"))
 
     # ── Input/output locations: named flag > positional arg > env var ─────────
@@ -187,13 +192,15 @@ def run():
     alert_bot_link = os.getenv("ALERT_BOT_LINK")
     if not alert_bot_link:
         logger.warning("ALERT_BOT_LINK not set; Teams alerts will be skipped.")
-    alert_configs  = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
+    alert_configs = get_yaml_config(SCRIPT_DIR.joinpath("utils/alert_configs.yml"))
 
     # ── Visualisation / CO: named flag > env var ──────────────────────────────
-    ng_base_url       = args.ng_base_url       or os.getenv("NG_BASE_URL", "https://neuroglancer-demo.appspot.com/")
+    ng_base_url = args.ng_base_url or os.getenv(
+        "NG_BASE_URL", "https://neuroglancer-demo.appspot.com/"
+    )
     ccf_annotation_s3 = args.ccf_annotation_s3 or os.getenv("CCF_ANNOTATION_S3")
-    source_email      = os.getenv("SOURCE_EMAIL")
-    co_domain         = args.co_domain         or os.getenv("CODEOCEAN_DOMAIN")
+    source_email = os.getenv("SOURCE_EMAIL")
+    co_domain = args.co_domain or os.getenv("CODEOCEAN_DOMAIN")
 
     logger.info(
         "Dispatcher started",
@@ -247,9 +254,7 @@ def run():
         missing_files = utils.validate_capsule_inputs(required_input_elements)
 
         if len(missing_files):
-            raise ValueError(
-                f"We miss the following files in the capsule input: {missing_files}"
-            )
+            raise ValueError(f"We miss the following files in the capsule input: {missing_files}")
 
         logger.info(f"Data in data folder: {os.listdir(data_folder)}")
 

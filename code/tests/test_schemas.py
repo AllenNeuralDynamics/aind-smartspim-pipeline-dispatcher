@@ -32,14 +32,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json  # noqa: E402
 
-import pytest  # noqa: E402
-
 from utils.schemas import (  # noqa: E402
     ResourceMonitor,
     generate_data_description,
     validate_metadata_v2,
 )
-
 
 # A legacy v1-format data_description.json (platform/modality/label/related_data,
 # registry dicts, string fundee, PIDName investigators) — the shape that crashed
@@ -68,8 +65,18 @@ V1_DATA_DESCRIPTION = {
         "registry_identifier": "00dcv1019",
     },
     "investigators": [
-        {"abbreviation": None, "name": "Avery Hunker", "registry": None, "registry_identifier": None},
-        {"abbreviation": None, "name": "Jack Waters", "registry": None, "registry_identifier": None},
+        {
+            "abbreviation": None,
+            "name": "Avery Hunker",
+            "registry": None,
+            "registry_identifier": None,
+        },
+        {
+            "abbreviation": None,
+            "name": "Jack Waters",
+            "registry": None,
+            "registry_identifier": None,
+        },
     ],
     "label": None,
     "license": "CC-BY-4.0",

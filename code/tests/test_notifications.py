@@ -1,7 +1,6 @@
 """Tests for utils/notifications.py"""
 
 import pytest
-
 from utils.notifications import clean_investigator_names
 
 

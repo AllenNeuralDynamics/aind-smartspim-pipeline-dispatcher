@@ -1,10 +1,6 @@
 """Tests for utils/io.py"""
 
-import json
 import re
-from pathlib import Path
-
-import pytest
 
 from utils.io import (
     check_type_helper,

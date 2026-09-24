@@ -5,7 +5,7 @@ AWS S3 and Secrets Manager utilities.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 from urllib.parse import urlparse
 
 import boto3

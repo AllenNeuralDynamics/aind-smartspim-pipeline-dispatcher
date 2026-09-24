@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import dask.array as da
 import numpy as np
-
 from utils import metadata_compat
 
 PathLike = Union[str, Path]
@@ -115,9 +114,7 @@ def volume_orientation(acquisition_params: dict) -> List[float]:
     elif acquired == "LPS":
         orientation = [0.0, np.cos(np.pi / 4), np.cos(np.pi / 4), 0.0]
     else:
-        raise ValueError(
-            f"Acquisition orientation: {acquired} has unknown NG parameters"
-        )
+        raise ValueError(f"Acquisition orientation: {acquired} has unknown NG parameters")
 
     return orientation
 

@@ -12,7 +12,6 @@ import json
 import logging
 import sys
 from contextlib import ExitStack
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -47,6 +46,7 @@ LOG = logging.getLogger("test")
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _capture_commands():
     """Return (side_effect, issued_commands_list) for execute_command_helper."""
     issued = []
@@ -64,6 +64,7 @@ def _is_aws_cmd(cmd: str) -> bool:
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def dispatch_inputs(tmp_path):
@@ -179,32 +180,33 @@ def postprocess_inputs(tmp_path):
 
 # ── Fixtures with real file content (for folder-structure tests) ───────────────
 
+
 @pytest.fixture
 def dispatch_inputs_real(tmp_path):
     """Like dispatch_inputs but with real files so cp/mv shell globs expand."""
     meta = tmp_path / "output_metadata"
     meta.mkdir()
-    (meta / "data_description.json").write_text("{}")   # cp *.json {dest}/
+    (meta / "data_description.json").write_text("{}")  # cp *.json {dest}/
 
     flatfield = tmp_path / "flatfield"
     (flatfield / "metadata").mkdir(parents=True)
-    (flatfield / "flat_data.tif").write_bytes(b"tif")   # carried by cp -r
+    (flatfield / "flat_data.tif").write_bytes(b"tif")  # carried by cp -r
 
     stitch = tmp_path / "stitched"
     (stitch / "metadata").mkdir(parents=True)
-    (stitch / "stitch_params.json").write_text("{}")    # carried by cp -r
+    (stitch / "stitch_params.json").write_text("{}")  # carried by cp -r
 
     fuse = tmp_path / "fused"
     fuse.mkdir()
     zarr = fuse / "Ex_561_Em_600.zarr"
     zarr.mkdir()
-    (zarr / "chunk.bin").write_bytes(b"zarr")           # carried by cp -r zarr
-    (fuse / "fuse_processing.json").write_text("{}")    # carried by cp *.json
+    (zarr / "chunk.bin").write_bytes(b"zarr")  # carried by cp -r zarr
+    (fuse / "fuse_processing.json").write_text("{}")  # carried by cp *.json
 
     ccf = tmp_path / "ccf_Ex_561_Em_600"
     ccf_meta = ccf / "metadata"
     ccf_meta.mkdir(parents=True)
-    (ccf_meta / "ccf_proc.json").write_text("{}")       # moved by mv ccf/*
+    (ccf_meta / "ccf_proc.json").write_text("{}")  # moved by mv ccf/*
 
     results = tmp_path / "results"
     results.mkdir()
@@ -236,16 +238,16 @@ def cleanup_inputs_real(tmp_path):
     (cell / "metadata" / "processing.json").write_text("{}")
     (cell / "proposals" / "metadata").mkdir(parents=True)
     (cell / "proposals" / "metadata" / "processing.json").write_text("{}")
-    (cell / "cells.csv").write_text("id,x,y,z")         # moved by mv cell/*
+    (cell / "cells.csv").write_text("id,x,y,z")  # moved by mv cell/*
 
     quant = tmp_path / "quant_Ex_561_Em_600"
     (quant / "metadata").mkdir(parents=True)
     (quant / "metadata" / "processing.json").write_text("{}")
-    (quant / "quant.csv").write_text("id,count")        # moved by mv quant/*
+    (quant / "quant.csv").write_text("id,count")  # moved by mv quant/*
 
     results = tmp_path / "results"
     results.mkdir()
-    (results / "processing.json").write_text("{}")      # cp {results}/processing.json {dest}/
+    (results / "processing.json").write_text("{}")  # cp {results}/processing.json {dest}/
 
     dest = tmp_path / "dest"
 
@@ -266,23 +268,23 @@ def postprocess_inputs_real(tmp_path):
     """Like postprocess_inputs but with real files so mv globs expand."""
     meta = tmp_path / "output_metadata"
     meta.mkdir()
-    (meta / "data_description.json").write_text("{}")   # carried by cp -r
+    (meta / "data_description.json").write_text("{}")  # carried by cp -r
 
     fuse = tmp_path / "image_tile_fusing"
     fuse.mkdir()
-    (fuse / "fuse_data.bin").write_bytes(b"fuse")       # carried by cp -r
+    (fuse / "fuse_data.bin").write_bytes(b"fuse")  # carried by cp -r
 
     ccf = tmp_path / "ccf_Ex_561_Em_600"
     (ccf / "metadata").mkdir(parents=True)
-    (ccf / "ccf_result.json").write_text("{}")          # moved by mv ccf/*
+    (ccf / "ccf_result.json").write_text("{}")  # moved by mv ccf/*
 
     cell = tmp_path / "cell_Ex_561_Em_600"
     cell.mkdir()
-    (cell / "cell_result.csv").write_text("id,x")      # moved by mv cell/*
+    (cell / "cell_result.csv").write_text("id,x")  # moved by mv cell/*
 
     quant = tmp_path / "quant_Ex_561_Em_600"
     quant.mkdir()
-    (quant / "quant_result.csv").write_text("id,n")    # moved by mv quant/*
+    (quant / "quant_result.csv").write_text("id,n")  # moved by mv quant/*
 
     results = tmp_path / "results"
     results.mkdir()
@@ -306,6 +308,7 @@ def postprocess_inputs_real(tmp_path):
 
 # ── copy_intermediate_data ─────────────────────────────────────────────────────
 
+
 class TestCopyIntermediateDataLocal:
     def _run(self, dispatch_inputs, cloud_mode=False):
         side_effect, issued = _capture_commands()
@@ -313,9 +316,7 @@ class TestCopyIntermediateDataLocal:
             stack.enter_context(
                 patch("utils.utils.execute_command_helper", side_effect=side_effect)
             )
-            stack.enter_context(
-                patch("utils.utils.compile_processing_jsons", return_value=None)
-            )
+            stack.enter_context(patch("utils.utils.compile_processing_jsons", return_value=None))
             stack.enter_context(patch("utils.utils.save_string_to_txt"))
             copy_intermediate_data(**dispatch_inputs, cloud_mode=cloud_mode)
         return issued
@@ -353,27 +354,36 @@ class TestCopyIntermediateDataLocal:
     def test_output_folder_structure(self, dispatch_inputs_real, tmp_path):
         """Verify the exact output directory tree produced by the local branch."""
         with ExitStack() as stack:
-            stack.enter_context(
-                patch("utils.utils.compile_processing_jsons", return_value=None)
-            )
+            stack.enter_context(patch("utils.utils.compile_processing_jsons", return_value=None))
             copy_intermediate_data(**dispatch_inputs_real, cloud_mode=False)
 
         dest = tmp_path / "dest"
         # top-level metadata JSON copied from output_dispatch_metadata
         assert (dest / "data_description.json").is_file()
         # flatfield carried into fusion metadata tree
-        assert (dest / "image_tile_fusing" / "metadata" / "flatfield_correction" / "flat_data.tif").is_file()
+        assert (
+            dest / "image_tile_fusing" / "metadata" / "flatfield_correction" / "flat_data.tif"
+        ).is_file()
         # fused per-zarr-channel directory
-        assert (dest / "image_tile_fusing" / "OMEZarr" / "Ex_561_Em_600.zarr" / "chunk.bin").is_file()
+        assert (
+            dest / "image_tile_fusing" / "OMEZarr" / "Ex_561_Em_600.zarr" / "chunk.bin"
+        ).is_file()
         # fused JSON metadata (*.json from fuse_folder)
-        assert (dest / "image_tile_fusing" / "metadata" / "fusion" / "fuse_processing.json").is_file()
+        assert (
+            dest / "image_tile_fusing" / "metadata" / "fusion" / "fuse_processing.json"
+        ).is_file()
         # stitch metadata
-        assert (dest / "image_tile_fusing" / "metadata" / "stitching" / "stitch_params.json").is_file()
+        assert (
+            dest / "image_tile_fusing" / "metadata" / "stitching" / "stitch_params.json"
+        ).is_file()
         # CCF registration folder moved (not copied) to image_atlas_alignment
-        assert (dest / "image_atlas_alignment" / "Ex_561_Em_600" / "metadata" / "ccf_proc.json").is_file()
+        assert (
+            dest / "image_atlas_alignment" / "Ex_561_Em_600" / "metadata" / "ccf_proc.json"
+        ).is_file()
 
 
 # ── clean_up ───────────────────────────────────────────────────────────────────
+
 
 class TestCleanUpLocal:
     def _run(self, cleanup_inputs, cloud_mode=False):
@@ -466,6 +476,7 @@ class TestCleanUpLocal:
 
 # ── copy_postprocessed_data ────────────────────────────────────────────────────
 
+
 class TestCopyPostprocessedDataLocal:
     def _run(self, postprocess_inputs, cloud_mode=False):
         side_effect, issued = _capture_commands()
@@ -540,6 +551,7 @@ class TestCopyPostprocessedDataLocal:
 
 
 # ── handle_split_channels ─────────────────────────────────────────────────────
+
 
 class TestHandleSplitChannelsLocal:
     @pytest.fixture

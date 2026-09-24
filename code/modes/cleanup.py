@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Tuple, Union
 
 from __init__ import __pipeline_name__, __pipeline_version__, __url__
-from utils import utils
 from manifests.builder import get_data_config
+from utils import utils
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +64,7 @@ def clean_up(
     segmentation_processing = []
     for cell_folder in cell_folders:
         processing_jsons = [
-            p
-            for p in glob(f"{cell_folder}/metadata/*processing*.json")
-            if "manifest" not in str(p)
+            p for p in glob(f"{cell_folder}/metadata/*processing*.json") if "manifest" not in str(p)
         ]
         segmentation_processing.append(processing_jsons)
 
@@ -183,9 +181,7 @@ def clean_up(
         )
 
     alert_bot = utils.AlertBot(url=alert_bot_link)
-    alert_bot.send_message(
-        f"Finished processing dataset: {processing_manifest['name']}"
-    )
+    alert_bot.send_message(f"Finished processing dataset: {processing_manifest['name']}")
 
 
 def handle_clean(

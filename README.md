@@ -1,5 +1,7 @@
 # aind-smartspim-pipeline-dispatcher
 
+![support](https://img.shields.io/badge/support-supported-brightgreen)
+
 Code Ocean capsule that orchestrates parallel image-processing steps in the SmartSPIM pipeline.
 It exploits the Code Ocean "flatten connection" feature to fan out per-channel workloads to
 downstream capsules (segmentation, CCF registration, quantification) and later collects their

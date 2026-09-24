@@ -49,14 +49,10 @@ def get_data_config(
     data_description_path = Path(f"{data_folder}/{data_description_path}")
 
     if not processing_manifest_path.exists():
-        raise ValueError(
-            f"Please, check processing manifest path: {processing_manifest_path}"
-        )
+        raise ValueError(f"Please, check processing manifest path: {processing_manifest_path}")
 
     if not data_description_path.exists():
-        raise ValueError(
-            f"Please, check data description path: {data_description_path}"
-        )
+        raise ValueError(f"Please, check data description path: {data_description_path}")
 
     derivatives_dict = read_json_as_dict(str(processing_manifest_path))
     data_description_dict = read_json_as_dict(str(data_description_path))
@@ -100,9 +96,7 @@ def get_processing_manifest_path(raw_data_folder: PathLike) -> Path:
     return processing_manifest_path
 
 
-def get_standard_manifest_config(
-    pipeline_processing: Dict, hashmap_stepnames: Dict
-) -> Dict:
+def get_standard_manifest_config(pipeline_processing: Dict, hashmap_stepnames: Dict) -> Dict:
     """
     Converts a legacy processing manifest format to the current standard.
 
@@ -205,12 +199,8 @@ def create_segmentation_manifests(
     segment_channels = pipeline_config["segmentation"]["channels"]
 
     if len(segment_channels):
-        logger.info(
-            f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}"
-        )
-        background_channel = processing_manifest["pipeline_processing"]["registration"][
-            "channels"
-        ]
+        logger.info(f"Preparing segmentation configs for {segment_channels} with prefix: {prefix}")
+        background_channel = processing_manifest["pipeline_processing"]["registration"]["channels"]
 
         background_channel = background_channel[0] if len(background_channel) else None
 
@@ -221,13 +211,9 @@ def create_segmentation_manifests(
             copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
 
             if background_channel is None:
-                copy_pipeline_config["segmentation"][
-                    "background_channel"
-                ] = channel_to_segment
+                copy_pipeline_config["segmentation"]["background_channel"] = channel_to_segment
             else:
-                copy_pipeline_config["segmentation"][
-                    "background_channel"
-                ] = background_channel
+                copy_pipeline_config["segmentation"]["background_channel"] = background_channel
 
             copy_pipeline_config["quantification"] = {}
             copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"

@@ -30,7 +30,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import json  # noqa: E402
 
 import pytest  # noqa: E402
-
 from utils.metadata_compat import (  # noqa: E402
     get_acquisition_axes,
     get_voxel_resolution,
@@ -73,8 +72,16 @@ V2_ACQUISITION = {
                         "name": "SPIM_LPI",
                         "axes": [
                             {"direction": "Right_to_left", "name": "Z", "object_type": "Axis"},
-                            {"direction": "Anterior_to_posterior", "name": "Y", "object_type": "Axis"},
-                            {"direction": "Superior_to_inferior", "name": "X", "object_type": "Axis"},
+                            {
+                                "direction": "Anterior_to_posterior",
+                                "name": "Y",
+                                "object_type": "Axis",
+                            },
+                            {
+                                "direction": "Superior_to_inferior",
+                                "name": "X",
+                                "object_type": "Axis",
+                            },
                         ],
                     },
                     "images": [
@@ -83,7 +90,10 @@ V2_ACQUISITION = {
                             "channel_name": "Ex_488_Em_525_left",
                             "image_to_acquisition_transform": [
                                 {"object_type": "Scale", "scale": [2.0, 1.8, 1.8]},
-                                {"object_type": "Translation", "translation": [-109.9, 14026.0, 36903.0]},
+                                {
+                                    "object_type": "Translation",
+                                    "translation": [-109.9, 14026.0, 36903.0],
+                                },
                             ],
                         }
                     ],
@@ -208,9 +218,7 @@ class TestGetDatasetStepVersions:
 
     def test_v1_processing(self, tmp_path):
         versions = self._run(tmp_path, self.V1_PROCESSING)
-        assert versions == {
-            "aind-smartspim-stitch - Image importing": {"version": "1.2.9"}
-        }
+        assert versions == {"aind-smartspim-stitch - Image importing": {"version": "1.2.9"}}
 
     def test_v2_processing(self, tmp_path):
         versions = self._run(tmp_path, self.V2_PROCESSING)

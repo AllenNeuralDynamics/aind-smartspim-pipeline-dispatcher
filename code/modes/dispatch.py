@@ -12,16 +12,15 @@ from glob import glob
 from pathlib import Path
 from typing import List, Tuple, Union
 
+from __init__ import __pipeline_name__, __pipeline_version__, __url__
 from aind_codeocean_api.codeocean import CodeOceanClient
 from aind_codeocean_api.models.data_assets_requests import (
     CreateDataAssetRequest,
     Source,
     Sources,
 )
-
-from __init__ import __pipeline_name__, __pipeline_version__, __url__
-from utils import metadata_compat, utils
 from manifests.builder import get_data_config
+from utils import metadata_compat, utils
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +57,13 @@ def wait_for_data_availability(
     time.sleep(pause_interval)
     response = co_client.get_data_asset(data_asset_id)
 
-    if ((pause_interval * num_of_checks) > timeout_seconds) or (
-        response.status_code == 200
-    ):
+    if ((pause_interval * num_of_checks) > timeout_seconds) or (response.status_code == 200):
         break_flag = True
     while not break_flag:
         time.sleep(pause_interval)
         response = co_client.get_data_asset(data_asset_id)
         num_of_checks += 1
-        if ((pause_interval * num_of_checks) > timeout_seconds) or (
-            response.status_code == 200
-        ):
+        if ((pause_interval * num_of_checks) > timeout_seconds) or (response.status_code == 200):
             break_flag = True
     return response
 
@@ -129,9 +124,7 @@ def dispatch(
 
     co_domain = co_domain or os.getenv("CODEOCEAN_DOMAIN")
 
-    dataset_to_register = processing_manifest["pipeline_processing"]["stitching"][
-        "s3_path"
-    ]
+    dataset_to_register = processing_manifest["pipeline_processing"]["stitching"]["s3_path"]
 
     if co_domain:
         # The SmartSPIM_ prefix is optional: v2 asset names drop it
@@ -168,9 +161,7 @@ def dispatch(
             input_json_data = json.loads(create_data_asset_request.json_string)
 
             try:
-                data_asset_reg_response = co_client.create_data_asset(
-                    request=input_json_data
-                )
+                data_asset_reg_response = co_client.create_data_asset(request=input_json_data)
 
                 response_contents = data_asset_reg_response.json()
                 logger.info(
@@ -199,9 +190,9 @@ def dispatch(
     if pipeline_config:
         logger.info("Creating segmentation and quantification parameters")
         segment_channels = pipeline_config["segmentation"]["channels"]
-        background_channel = processing_manifest["pipeline_processing"]["registration"][
-            "channels"
-        ][0]
+        background_channel = processing_manifest["pipeline_processing"]["registration"]["channels"][
+            0
+        ]
 
         if len(segment_channels):
             logger.info(f"Preparing segmentation configs for channels: {segment_channels}")
@@ -211,9 +202,7 @@ def dispatch(
 
                 copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
                 copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
-                copy_pipeline_config["segmentation"][
-                    "background_channel"
-                ] = background_channel
+                copy_pipeline_config["segmentation"]["background_channel"] = background_channel
 
                 copy_pipeline_config["quantification"] = {}
                 copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
@@ -297,9 +286,7 @@ def copy_intermediate_data(
 
     for ccf_folder in ccf_folders:
         processing_jsons = [
-            p
-            for p in glob(f"{ccf_folder}/metadata/*processing*.json")
-            if "manifest" not in str(p)
+            p for p in glob(f"{ccf_folder}/metadata/*processing*.json") if "manifest" not in str(p)
         ]
         ccf_processings.append(processing_jsons)
 
@@ -506,9 +493,7 @@ def create_derived_stitched_metadata(
     )
 
     logger.info(f"Copied metadata from {raw_metadata_path}: {found_metadata}")
-    logger.debug(
-        f"Metadata in raw folder {raw_metadata_path}: {os.listdir(raw_metadata_path)}"
-    )
+    logger.debug(f"Metadata in raw folder {raw_metadata_path}: {os.listdir(raw_metadata_path)}")
     logger.debug(
         f"Metadata in folder {output_dispatch_metadata}: {os.listdir(output_dispatch_metadata)}"
     )
@@ -567,15 +552,15 @@ def handle_dispatch(
     if not output_path:
         logger.warning("Output path not set; copy and dispatch steps will be skipped.")
     dest_root = (
-        f"s3://{output_path}/{new_dataset_name}" if cloud_mode
+        f"s3://{output_path}/{new_dataset_name}"
+        if cloud_mode
         else f"{output_path}/{new_dataset_name}"
     )
     dest_zarr_path = f"{dest_root}/image_tile_fusing/OMEZarr"
     dest_reg_path = f"{dest_root}/image_atlas_alignment"
 
     s3_paths_for_channels = [
-        f"{dest_zarr_path}/{fused_zarr.name}"
-        for fused_zarr in fuse_folder.glob("*.zarr")
+        f"{dest_zarr_path}/{fused_zarr.name}" for fused_zarr in fuse_folder.glob("*.zarr")
     ]
 
     channel_dynamic_ranges = utils.calculate_dynamic_range(

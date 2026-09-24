@@ -10,8 +10,7 @@ import boto3
 import requests
 from botocore.exceptions import ClientError
 from smartsheet_dataframe import get_sheet_as_df
-
-from utils.aws import get_messenger_credentails, get_messanger_credentails
+from utils.aws import get_messanger_credentails, get_messenger_credentails
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +42,7 @@ class AlertBot:
 
     @staticmethod
     def _create_body_text(message: str, extra_text: Optional[str]) -> dict:
-        body: list = [
-            {"type": "TextBlock", "size": "Medium", "weight": "Bolder", "text": message}
-        ]
+        body: list = [{"type": "TextBlock", "size": "Medium", "weight": "Bolder", "text": message}]
         if extra_text is not None:
             body.append({"type": "TextBlock", "text": extra_text})
         contents = {
@@ -56,9 +53,7 @@ class AlertBot:
                     "content": {
                         "type": "AdaptiveCard",
                         "body": body,
-                        "$schema": (
-                            "http://adaptivecards.io/schemas/adaptive-card.json"
-                        ),
+                        "$schema": ("http://adaptivecards.io/schemas/adaptive-card.json"),
                         "version": "1.0",
                     },
                 }
@@ -109,9 +104,7 @@ def send_alerts(
         sheet_id=int(smartsheet_id),
     )
 
-    email_addresses = email_df.loc[
-        email_df["Name"].isin(investigators), "Email"
-    ].values.tolist()
+    email_addresses = email_df.loc[email_df["Name"].isin(investigators), "Email"].values.tolist()
 
     if len(investigators) > 1:
         invest = ", ".join(investigators)
@@ -203,9 +196,7 @@ def send_ses_alerts(
             return response
 
         invest = clean_investigator_names(investigators)
-        aind_image_logo = (
-            "https://allenneuraldynamics.github.io/assets/img/AIND_logo.png"
-        )
+        aind_image_logo = "https://allenneuraldynamics.github.io/assets/img/AIND_logo.png"
 
         if "split_channels" in mode:
             message_data = f"""
@@ -306,9 +297,7 @@ def send_email_alerts(
         Alerts are skipped when neither is provided.
     """
     if len(investigators) and len(investigators[0]):
-        investigators = [
-            inv["name"] if isinstance(inv, dict) else inv for inv in investigators
-        ]
+        investigators = [inv["name"] if isinstance(inv, dict) else inv for inv in investigators]
         response = send_ses_alerts(
             mode=mode,
             alert_configs=alert_configs,

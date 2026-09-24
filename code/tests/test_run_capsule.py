@@ -137,9 +137,10 @@ class TestResolveBuckets:
     def test_separate_input_bucket_cloud(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_BUCKET", "out-bucket")
         monkeypatch.setenv("INPUT_BUCKET", "raw-bucket")
-        assert _resolve_buckets(
-            self._args(), cloud_mode=True, mode="split_channels"
-        ) == ("raw-bucket", "out-bucket")
+        assert _resolve_buckets(self._args(), cloud_mode=True, mode="split_channels") == (
+            "raw-bucket",
+            "out-bucket",
+        )
 
     def test_local_mode_uses_local_paths(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_PATH", "/scratch/output")
@@ -147,9 +148,10 @@ class TestResolveBuckets:
         # local mode must ignore the bucket env vars entirely
         monkeypatch.setenv("OUTPUT_BUCKET", "ignored")
         monkeypatch.setenv("INPUT_BUCKET", "ignored")
-        assert _resolve_buckets(
-            self._args(), cloud_mode=False, mode="split_channels"
-        ) == ("/scratch/raw", "/scratch/output")
+        assert _resolve_buckets(self._args(), cloud_mode=False, mode="split_channels") == (
+            "/scratch/raw",
+            "/scratch/output",
+        )
 
     def test_local_input_falls_back_to_output_path(self, monkeypatch):
         monkeypatch.setenv("OUTPUT_PATH", "/scratch/output")

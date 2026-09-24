@@ -7,15 +7,12 @@ import re
 from typing import Dict, List, Optional
 
 import requests
-
 from utils.io import read_json_as_dict
 
 logger = logging.getLogger(__name__)
 
 
-def get_version(
-    owner: str, repo: str, path: str, branch: Optional[str] = "main"
-) -> str:
+def get_version(owner: str, repo: str, path: str, branch: Optional[str] = "main") -> str:
     """
     Gets the version of a repository,
 
@@ -105,9 +102,7 @@ def get_dataset_step_versions(dataset_path):
 
         if pipeline_steps is None:
             pipeline_steps = (
-                processing_pipeline.get("data_processes")
-                if processing_pipeline
-                else None
+                processing_pipeline.get("data_processes") if processing_pipeline else None
             )
 
         if pipeline_steps:
@@ -120,24 +115,18 @@ def get_dataset_step_versions(dataset_path):
                 code_url = step.get("code_url") or code.get("url")
                 step_name = step.get("name") or step.get("process_type")
                 code_version = (
-                    step.get("software_version")
-                    or step.get("version")
-                    or code.get("version")
+                    step.get("software_version") or step.get("version") or code.get("version")
                 )
 
                 package_name = code_url.split("/")[-1] if code_url else "unknown"
-                dataset_step_versions[f"{package_name} - {step_name}"] = {
-                    "version": code_version
-                }
+                dataset_step_versions[f"{package_name} - {step_name}"] = {"version": code_version}
 
         else:
             logger.warning(f"No pipeline steps found in {processing_path}")
             logger.debug(f"Processing data without steps: {processing_data}")
 
     else:
-        logger.warning(
-            f"Processing path does not exist for {dataset_path.stem}: {processing_path}"
-        )
+        logger.warning(f"Processing path does not exist for {dataset_path.stem}: {processing_path}")
 
     return dataset_step_versions
 
@@ -180,17 +169,11 @@ def check_dataset_latest_version(
             curr_key = None
             if "tile alignment" in step:
                 curr_key = [
-                    d
-                    for d in list(dataset_versions.keys())
-                    if "tile alignment" in d.lower()
+                    d for d in list(dataset_versions.keys()) if "tile alignment" in d.lower()
                 ]
 
             elif "tile fusing" in step:
-                curr_key = [
-                    d
-                    for d in list(dataset_versions.keys())
-                    if "tile fusing" in d.lower()
-                ]
+                curr_key = [d for d in list(dataset_versions.keys()) if "tile fusing" in d.lower()]
 
             elif "atlas alignment" in step:
                 curr_key = [

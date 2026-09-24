@@ -1,10 +1,8 @@
 """Tests for manifests/builder.py"""
 
 import json
-from pathlib import Path
 
 import pytest
-
 from manifests.builder import get_processing_manifest_path
 
 

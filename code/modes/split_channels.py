@@ -7,8 +7,8 @@ import logging
 from pathlib import Path
 from typing import List, Tuple, Union
 
-from utils import utils
 from manifests.builder import get_data_config
+from utils import utils
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +50,7 @@ def build_pipeline_plan(pipeline_config: dict) -> List[str]:
     """
     sections = pipeline_config.get("pipeline_processing", pipeline_config) or {}
 
-    registration_channels = _get_section_channels(
-        sections, ["registration", "ccf_registration"]
-    )
+    registration_channels = _get_section_channels(sections, ["registration", "ccf_registration"])
     segmentation_channels = _get_section_channels(
         sections, ["segmentation", "cell_segmentation_channels"]
     )
@@ -123,9 +121,7 @@ def handle_split_channels(
         BASE_PATH = f"s3://{bucket_name}/{dataset_name}/SPIM"
         prefix = f"{dataset_name}/SPIM"
         channels = [
-            i
-            for i in utils.list_s3_folders(bucket=bucket_name, prefix=prefix)
-            if "Ex" in i
+            i for i in utils.list_s3_folders(bucket=bucket_name, prefix=prefix) if "Ex" in i
         ]
 
         logger.info(f"[Cloud mode] Base path: {BASE_PATH} - channels: {channels}")

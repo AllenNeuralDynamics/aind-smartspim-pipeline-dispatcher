@@ -82,9 +82,7 @@ def execute_command_helper(
     if stdout_log_file and len(str(stdout_log_file)):
         save_string_to_txt("$ " + command, stdout_log_file, "a")
 
-    popen = subprocess.Popen(
-        command, stdout=subprocess.PIPE, universal_newlines=True, shell=True
-    )
+    popen = subprocess.Popen(command, stdout=subprocess.PIPE, universal_newlines=True, shell=True)
     for stdout_line in iter(popen.stdout.readline, ""):
         yield str(stdout_line).strip()
     popen.stdout.close()
@@ -177,9 +175,7 @@ def check_path_instance(obj: object) -> bool:
     return False
 
 
-def save_dict_as_json(
-    filename: str, dictionary: dict, verbose: Optional[bool] = False
-) -> None:
+def save_dict_as_json(filename: str, dictionary: dict, verbose: Optional[bool] = False) -> None:
     """
     Saves a dictionary as a json file.
     """

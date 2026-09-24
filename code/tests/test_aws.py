@@ -3,9 +3,7 @@
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 # Stub optional deps not installed in lightweight test environments
 _STUBS = [
