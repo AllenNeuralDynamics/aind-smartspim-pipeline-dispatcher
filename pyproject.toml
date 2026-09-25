@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aind-smartspim-pipeline-dispatcher"
+version = "2.0.0"
+description = "Orchestrates parallel image-processing steps in the SmartSPIM Code Ocean pipeline."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Camilo Laiton", email = "camilo.laiton@alleninstitute.org"},
+    {name = "Nicholas Lusk", email = "nicholas.lusk@alleninstitute.org"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3"
+]
+dependencies = [
+    "aind-codeocean-api",
+    "aind-data-schema==2.8.0",
+    "aind-data-schema-models>=5.7.1,<6",
+    "boto3",
+    "dask",
+    "log-schema==0.2.10.dev1",
+    "numpy",
+    "psutil",
+    "python-dotenv",
+    "pydantic>=2",
+    "pyyaml",
+    "requests",
+    "smartsheet-dataframe",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "coverage",
+    "pytest",
+    "pytest-cov",
+    "moto[s3,ses,secretsmanager]",
+]
+
+[tool.setuptools.packages.find]
+where = ["code"]
+
+[tool.pytest.ini_options]
+testpaths = ["code/tests"]
+pythonpath = ["code"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+omit = ["*__init__*"]
+source = ["code"]
+
+[tool.coverage.report]
+exclude_lines = ["if __name__ == .__main__.:"]
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["*.ipynb", ".venv", "*.egg-info", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+# ruff format enforces line-length structurally; E501 only fires on tokens it
+# cannot split (URLs, long string literals), so the two rules conflict.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]

@@ -1,4 +1,9 @@
-# Parameters for accessing investigator list
+# SmartSPIM dispatcher alert configuration
+#
+# Prefer setting the corresponding environment variables (see .env.example).
+# Values here are only used when the env vars are absent.
+# Leave blank to disable the feature.
 
-smartsheet_id: 0
-ses_token_path: "***REMOVED***"
+smartsheet_id: ""
+ses_token_path: ""
+source_email: ""

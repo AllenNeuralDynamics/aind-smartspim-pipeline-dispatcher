@@ -2,7 +2,7 @@
 Module init file
 """
 
-__version__ = "1.0.4"
+__version__ = "2.0.0"
 __authors__ = ["Camilo Laiton", "Nicholas Lusk"]
 __author_emails__ = [
     "camilo.laiton@alleninstitute.org",
@@ -21,8 +21,9 @@ __maintainer_emails__ = [
     "nicholas.lusk@alleninstitute.org",
 ]
 __title__ = "aind-smartspim-pipeline-dispatcher"
+__pipeline_name__ = "SmartSPIM Pipeline"
 __status__ = "Production"  # 'Production', 'Beta'
-__pipeline_version__ = "5.0.0"
+__pipeline_version__ = "6.0.0"
 __pipeline_notes__ = (
     "New folder structure in cell detection creating "
     "a proposals folder and visualization of proposals"
