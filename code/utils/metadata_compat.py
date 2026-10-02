@@ -49,7 +49,19 @@ def get_acquisition_axes(acquisition_config: Dict) -> List[Dict]:
     axes = acquisition_config.get("axes")
 
     if axes:
-        return axes
+        if all("dimension" in axis for axis in axes):
+            return axes
+
+        # v2 manifests store axes without "dimension"; the list order
+        # is the image array axis order
+        return [
+            {
+                "name": axis["name"],
+                "dimension": dimension,
+                "direction": axis["direction"],
+            }
+            for dimension, axis in enumerate(axes)
+        ]
 
     coordinate_system = None
     imaging_config = _get_imaging_config(acquisition_config)
