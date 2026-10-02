@@ -146,6 +146,20 @@ class TestGetAcquisitionAxes:
         blob = {"axes": [{"name": "Z", "dimension": 0, "direction": "Left_to_right"}]}
         assert get_acquisition_axes(blob) == blob["axes"]
 
+    def test_v2_manifest_axes_without_dimension(self):
+        blob = {
+            "axes": [
+                {"object_type": "Axis", "name": "Z", "direction": "Superior_to_inferior"},
+                {"object_type": "Axis", "name": "Y", "direction": "Posterior_to_anterior"},
+                {"object_type": "Axis", "name": "X", "direction": "Right_to_left"},
+            ]
+        }
+        assert [(a["name"], a["dimension"]) for a in get_acquisition_axes(blob)] == [
+            ("Z", 0),
+            ("Y", 1),
+            ("X", 2),
+        ]
+
     def test_missing_axes_raises(self):
         with pytest.raises(ValueError):
             get_acquisition_axes({"schema_version": "2.4.0"})
