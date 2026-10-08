@@ -193,6 +193,7 @@ def dispatch(
         background_channel = processing_manifest["pipeline_processing"]["registration"]["channels"][
             0
         ]
+        model = pipeline_config["segmentation"].get("model") or None
 
         if len(segment_channels):
             logger.info(f"Preparing segmentation configs for channels: {segment_channels}")
@@ -203,6 +204,7 @@ def dispatch(
                 copy_pipeline_config["segmentation"]["input_data"] = "../data/fused"
                 copy_pipeline_config["segmentation"]["channel"] = channel_to_segment
                 copy_pipeline_config["segmentation"]["background_channel"] = background_channel
+                copy_pipeline_config["segmentation"]["model"] = model
 
                 copy_pipeline_config["quantification"] = {}
                 copy_pipeline_config["quantification"]["fused_folder"] = "../data/fused"
