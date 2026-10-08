@@ -136,7 +136,7 @@ def handle_split_channels(
             )
 
         if not len(channels):
-            raise ValueError(f"No channels were identified in {BASE_PATH}/{prefix}")
+            raise ValueError(f"No channels were identified in {BASE_PATH}")
 
     else:
         spim_path = Path(input_path) / dataset_name / "SPIM"
