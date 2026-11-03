@@ -1,0 +1,158 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image importing",
+      "name": "Image importing - /tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-SmartSPIM-segmentation",
+        "name": "aind-smartspim-segmentation",
+        "version": "1.0.4",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Nicholas Lusk",
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T05:02:47.236301Z",
+      "end_date_time": "2026-10-18T05:02:47.282460Z",
+      "output_path": "/tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr"
+      },
+      "notes": "Importing fused data for cell proposal detection.",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 62.11,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "Image spot detection",
+      "name": "Image spot detection - /tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-SmartSPIM-segmentation",
+        "name": "aind-smartspim-segmentation",
+        "version": "1.0.4",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Nicholas Lusk",
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T05:02:52.393106Z",
+      "end_date_time": "2026-10-18T09:25:11.939826Z",
+      "output_path": "/tmp/nxf.8ZVsGejbZA/capsule/results/cell_Ex_488_Em_525",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr",
+        "multiscale": "0",
+        "spot_parameters": {
+          "sigma_zyx": [
+            2.0,
+            1.8,
+            1.8
+          ],
+          "background_percentage": 25,
+          "min_zyx": [
+            3,
+            3,
+            3
+          ],
+          "filt_thresh": -1,
+          "raw_thresh": -1,
+          "context_radius": 7,
+          "radius_confidence": 0.5
+        },
+        "segmentation_mask_path": null,
+        "scheduler_params": {
+          "prediction_chunksize": [
+            128,
+            128,
+            128
+          ],
+          "target_size_mb": 3048,
+          "n_workers": 0,
+          "axis_pad": 16,
+          "batch_size": 1
+        },
+        "output_folder": "/tmp/nxf.8ZVsGejbZA/capsule/results/cell_Ex_488_Em_525",
+        "duration_seconds": 15739.54672
+      },
+      "notes": "Detecting cell proposals in path: /tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 62.11,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": [],
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-SmartSPIM-segmentation",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "Cell proposal detection step metadata.",
+  "dependency_graph": {
+    "Image importing - /tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr": [],
+    "Image spot detection - /tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr": [
+      "Image importing - /tmp/nxf.8ZVsGejbZA/capsule/data/fused/Ex_488_Em_525.zarr"
+    ]
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image tile alignment",
+      "name": "BigStitcher phase correlation + global optimization - Ex_639_Em_667",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-stitch",
+        "name": "aind-smartspim-stitch",
+        "version": "1.2.9",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-17T16:11:30.761977Z",
+      "end_date_time": "2026-10-17T16:12:24.040390Z",
+      "output_path": "/tmp/nxf.Ky5aI2cF1Z/capsule/results/863973_2026-10-16_00-56-31_stitch_channel_Ex_639_Em_667_params.json",
+      "output_parameters": {
+        "input_location": "863973_2026-10-16_00-56-31",
+        "output_file": "/tmp/nxf.Ky5aI2cF1Z/capsule/results/863973_2026-10-16_00-56-31_stitch_channel_Ex_639_Em_667_params.json",
+        "stitching": [
+          "bash",
+          "./bigstitcher_spark_scripts/run_classes.sh",
+          "--xml",
+          "/tmp/nxf.Ky5aI2cF1Z/capsule/results/bigstitcher.xml",
+          "--downsampling",
+          "4,4,4",
+          "--maxShiftZ",
+          "20",
+          "--maxShiftY",
+          "30",
+          "--maxShiftX",
+          "35"
+        ],
+        "global_optimization": [
+          "bash",
+          "./bigstitcher_spark_scripts/run_classes.sh",
+          "--xml",
+          "/tmp/nxf.Ky5aI2cF1Z/capsule/results/bigstitcher.xml",
+          "--sourcePoints",
+          "STITCHING"
+        ],
+        "duration_seconds": 53.278413
+      },
+      "notes": "Running stitching and global optimization separately",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "This processing only contains metadata about stitching             and needs to be compiled with other steps at the end",
+  "dependency_graph": {
+    "BigStitcher phase correlation + global optimization - Ex_639_Em_667": []
+  }
+}

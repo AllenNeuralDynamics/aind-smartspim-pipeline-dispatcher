@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Tuple, Union
 
 from __init__ import __pipeline_name__, __pipeline_version__, __url__
+from aind_data_schema_models.process_names import ProcessName
 from manifests.builder import get_data_config
 from utils import utils
 
@@ -77,22 +78,32 @@ def clean_up(
         ]
         quantification_processing.append(processing_jsons)
 
-    processing_paths = list()
-    combined_processing_list = (
-        [[f"{data_folder}/input_aind_metadata/processing.json"]]
-        + proposals_processing
-        + segmentation_processing
-        + quantification_processing
-    )
-    for sub_list in combined_processing_list:
-        processing_paths += sub_list
+    # The root processing.json compiled at dispatch is required: it holds the
+    # flatfield, stitching, fusion and registration provenance
+    stages = [
+        utils.ProcessingStage([f"{data_folder}/input_aind_metadata/processing.json"]),
+        utils.ProcessingStage(
+            sorted(p for paths in proposals_processing for p in paths),
+            upstream_process_types=[ProcessName.IMAGE_TILE_FUSING],
+        ),
+        utils.ProcessingStage(sorted(p for paths in segmentation_processing for p in paths)),
+        # Adding upstream stages since it's now in the metadata
+        utils.ProcessingStage(
+            sorted(p for paths in quantification_processing for p in paths),
+            upstream_process_types=[
+                ProcessName.IMAGE_CELL_CLASSIFICATION,
+                ProcessName.IMAGE_ATLAS_ALIGNMENT,
+            ],
+        ),
+    ]
+    processing_paths = [p for stage in stages for p in stage.paths]
 
     logger.info(f"Compiling {len(processing_paths)} processing.json files")
-    logger.debug(f"Processing paths to compile: {processing_paths}")
+    logger.debug(f"Processing stages to compile: {stages}")
 
     if len(processing_paths) > 1:
         output_filename = utils.compile_processing_jsons(
-            processing_paths=processing_paths,
+            stages=stages,
             output_general_processing=results_folder,
             pipeline_name=__pipeline_name__,
             pipeline_version=__pipeline_version__,

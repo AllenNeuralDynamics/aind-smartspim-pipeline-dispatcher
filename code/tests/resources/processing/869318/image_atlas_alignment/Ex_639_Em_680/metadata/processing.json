@@ -1,0 +1,481 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image importing",
+      "name": "Image importing - Ex_639_Em_680",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-ccf-registration",
+        "name": "aind-smartspim-ccf-registration",
+        "version": "0.0.37",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Di Wang",
+        "Nicholas Lusk",
+        "Yoni Browning"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T02:52:32.089269Z",
+      "end_date_time": "2026-10-18T02:52:33.989077Z",
+      "output_path": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_639_Em_680.zarr/3",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_639_Em_680.zarr/3",
+        "duration_seconds": 1.899808
+      },
+      "notes": "Importing fused data for alignment",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "Image atlas alignment",
+      "name": "Atlas alignment (LS -> template -> CCF) - Ex_639_Em_680",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/ANTsX/ANTs",
+        "name": "ANTs",
+        "version": "0.6.3",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Di Wang",
+        "Nicholas Lusk",
+        "Yoni Browning"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T02:52:33.989666Z",
+      "end_date_time": "2026-10-18T03:12:19.424249Z",
+      "output_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_639_Em_680.zarr/3",
+        "parameters": {
+          "spacing": [
+            0.016,
+            0.0144,
+            0.0144
+          ],
+          "unit": "millimetre",
+          "template_orientations": {
+            "anterior_to_posterior": 1,
+            "superior_to_inferior": 2,
+            "right_to_left": 0
+          },
+          "rigid_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_rigid.nii.gz",
+          "affine_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_affine.nii.gz",
+          "moved_to_template_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_ls_to_template.nii.gz",
+          "moved_to_ccf_path": "../results/ccf_Ex_639_Em_680/moved_ls_to_ccf.nii.gz",
+          "ccf_anno_to_brain_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_ccf_anno_to_ls.nii.gz",
+          "new_spacing": [
+            25,
+            25,
+            25
+          ]
+        },
+        "duration_seconds": 1185.434583
+      },
+      "notes": "Template based registration: LS -> template -> Allen CCFv3 Atlas",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "File format conversion",
+      "name": "OMEZarr conversion - Ex_639_Em_680",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-ccf-registration",
+        "name": "aind-smartspim-ccf-registration",
+        "version": "0.0.37",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Di Wang",
+        "Nicholas Lusk",
+        "Yoni Browning"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T03:12:19.424759Z",
+      "end_date_time": "2026-10-18T03:12:21.390246Z",
+      "output_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/OMEZarr/image.zarr",
+      "output_parameters": {
+        "input_location": "In memory array",
+        "parameters": {
+          "pixel_sizes": [
+            25,
+            25,
+            25
+          ],
+          "OMEZarr_params": {
+            "clevel": 1,
+            "compressor": "zstd",
+            "chunks": [
+              64,
+              64,
+              64
+            ],
+            "n_lvls": 4,
+            "shard_size": [
+              512,
+              512,
+              512
+            ],
+            "chunk_size": [
+              128,
+              128,
+              128
+            ],
+            "scale_factor": [
+              2,
+              2,
+              2
+            ]
+          }
+        },
+        "duration_seconds": 1.965487
+      },
+      "notes": "Converting registered image to OMEZarr",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "Image atlas alignment",
+      "name": "Reverse annotation alignment (CCF -> LS) - Ex_639_Em_680",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/ANTsX/ANTs",
+        "name": "ANTs",
+        "version": "0.6.3",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Di Wang",
+        "Nicholas Lusk",
+        "Yoni Browning"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T03:12:21.390687Z",
+      "end_date_time": "2026-10-18T03:16:59.061351Z",
+      "output_path": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_639_Em_680.zarr/3",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_639_Em_680.zarr/3",
+        "parameters": {
+          "spacing": [
+            0.016,
+            0.0144,
+            0.0144
+          ],
+          "unit": "millimetre",
+          "template_orientations": {
+            "anterior_to_posterior": 1,
+            "superior_to_inferior": 2,
+            "right_to_left": 0
+          },
+          "rigid_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_rigid.nii.gz",
+          "affine_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_affine.nii.gz",
+          "moved_to_template_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_ls_to_template.nii.gz",
+          "moved_to_ccf_path": "../results/ccf_Ex_639_Em_680/moved_ls_to_ccf.nii.gz",
+          "ccf_anno_to_brain_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_ccf_anno_to_ls.nii.gz",
+          "new_spacing": [
+            25,
+            25,
+            25
+          ]
+        },
+        "duration_seconds": 277.670664
+      },
+      "notes": "Template based reversed registration: annotations in template space -> LS",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "Image atlas alignment",
+      "name": "Atlas alignment using transforms - Ex_488_Em_525",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/ANTsX/ANTs",
+        "name": "ANTs",
+        "version": "0.6.3",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Di Wang",
+        "Nicholas Lusk",
+        "Yoni Browning"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T03:16:59.061962Z",
+      "end_date_time": "2026-10-18T03:17:35.936145Z",
+      "output_path": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_488_Em_525.zarr/3",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.pAYKx9saZt/capsule/data/fused/Ex_488_Em_525.zarr/3",
+        "parameters": {
+          "spacing": [
+            0.016,
+            0.0144,
+            0.0144
+          ],
+          "unit": "millimetre",
+          "template_orientations": {
+            "anterior_to_posterior": 1,
+            "superior_to_inferior": 2,
+            "right_to_left": 0
+          },
+          "rigid_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_rigid.nii.gz",
+          "affine_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_affine.nii.gz",
+          "moved_to_template_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_ls_to_template.nii.gz",
+          "moved_to_ccf_path": "../results/ccf_Ex_639_Em_680/moved_ls_to_ccf.nii.gz",
+          "ccf_anno_to_brain_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_639_Em_680/metadata/registration_metadata/moved_ccf_anno_to_ls.nii.gz",
+          "new_spacing": [
+            25,
+            25,
+            25
+          ]
+        },
+        "duration_seconds": 36.874183
+      },
+      "notes": "Template based registration using transforms: Ex_488_Em_525",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "File format conversion",
+      "name": "OMEZarr conversion - Ex_488_Em_525",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-ccf-registration",
+        "name": "aind-smartspim-ccf-registration",
+        "version": "0.0.37",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Di Wang",
+        "Nicholas Lusk",
+        "Yoni Browning"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T03:17:35.936601Z",
+      "end_date_time": "2026-10-18T03:17:38.213493Z",
+      "output_path": "/tmp/nxf.pAYKx9saZt/capsule/results/ccf_Ex_488_Em_525/OMEZarr/image.zarr",
+      "output_parameters": {
+        "input_location": "In memory array",
+        "parameters": {
+          "pixel_sizes": [
+            25,
+            25,
+            25
+          ],
+          "OMEZarr_params": {
+            "clevel": 1,
+            "compressor": "zstd",
+            "chunks": [
+              64,
+              64,
+              64
+            ],
+            "n_lvls": 4,
+            "shard_size": [
+              512,
+              512,
+              512
+            ],
+            "chunk_size": [
+              128,
+              128,
+              128
+            ],
+            "scale_factor": [
+              2,
+              2,
+              2
+            ]
+          }
+        },
+        "duration_seconds": 2.276892
+      },
+      "notes": "Converting registered image for channel Ex_488_Em_525 to OMEZarr",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 371.76,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-ccf-registration",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "Metadata for the CCF Atlas Registration step. This processing only contains metadata of ccf registration and needs to be compiled with other steps at the end.",
+  "dependency_graph": {
+    "Image importing - Ex_639_Em_680": [],
+    "Atlas alignment (LS -> template -> CCF) - Ex_639_Em_680": [
+      "Image importing - Ex_639_Em_680"
+    ],
+    "OMEZarr conversion - Ex_639_Em_680": [
+      "Atlas alignment (LS -> template -> CCF) - Ex_639_Em_680"
+    ],
+    "Reverse annotation alignment (CCF -> LS) - Ex_639_Em_680": [
+      "OMEZarr conversion - Ex_639_Em_680"
+    ],
+    "Atlas alignment using transforms - Ex_488_Em_525": [
+      "Reverse annotation alignment (CCF -> LS) - Ex_639_Em_680"
+    ],
+    "OMEZarr conversion - Ex_488_Em_525": [
+      "Atlas alignment using transforms - Ex_488_Em_525"
+    ]
+  }
+}

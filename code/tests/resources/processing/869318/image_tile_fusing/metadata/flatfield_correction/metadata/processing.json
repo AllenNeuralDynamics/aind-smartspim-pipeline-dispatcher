@@ -1,0 +1,216 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image flat-field correction",
+      "name": "Flatfield estimation - Ex_488_Em_525",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-flatfield-estimation",
+        "name": "aind-smartspim-flatfield-estimation",
+        "version": "0.0.4",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-17T18:33:56.387291Z",
+      "end_date_time": "2026-10-17T19:18:06.443545Z",
+      "output_path": "/tmp/nxf.pcmyv9iYtU/capsule/results",
+      "output_parameters": {
+        "flatfield_paths": [
+          "/tmp/nxf.pcmyv9iYtU/capsule/results/estimated_flat_laser_Ex_488_Em_525_side_0.tif",
+          "/tmp/nxf.pcmyv9iYtU/capsule/results/estimated_flat_laser_Ex_488_Em_525_side_1.tif"
+        ],
+        "input_location": "s3://aind-open-data/869318_2026-10-09_04-09-10/SPIM/Ex_488_Em_525",
+        "shading_parameters": {
+          "get_darkfield": false,
+          "smoothness_flatfield": 1.0,
+          "smoothness_darkfield": 20,
+          "sort_intensity": true,
+          "max_reweight_iterations": 35,
+          "resize_mode": "skimage_dask",
+          "max_workers": 4
+        },
+        "duration_seconds": 2650.056254
+      },
+      "notes": "Flatfield estimation for channel Ex_488_Em_525",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 4,
+        "gpu": null,
+        "system_memory": 495.78,
+        "system_memory_unit": "Gigabyte",
+        "ram": 495.78,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "Image flat-field correction",
+      "name": "Flatfield estimation - Ex_561_Em_600",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-flatfield-estimation",
+        "name": "aind-smartspim-flatfield-estimation",
+        "version": "0.0.4",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-17T19:18:06.460376Z",
+      "end_date_time": "2026-10-17T20:05:11.630703Z",
+      "output_path": "/tmp/nxf.pcmyv9iYtU/capsule/results",
+      "output_parameters": {
+        "flatfield_paths": [
+          "/tmp/nxf.pcmyv9iYtU/capsule/results/estimated_flat_laser_Ex_561_Em_600_side_0.tif",
+          "/tmp/nxf.pcmyv9iYtU/capsule/results/estimated_flat_laser_Ex_561_Em_600_side_1.tif"
+        ],
+        "input_location": "s3://aind-open-data/869318_2026-10-09_04-09-10/SPIM/Ex_561_Em_600",
+        "shading_parameters": {
+          "get_darkfield": false,
+          "smoothness_flatfield": 1.0,
+          "smoothness_darkfield": 20,
+          "sort_intensity": true,
+          "max_reweight_iterations": 35,
+          "resize_mode": "skimage_dask",
+          "max_workers": 4
+        },
+        "duration_seconds": 2825.170327
+      },
+      "notes": "Flatfield estimation for channel Ex_561_Em_600",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 4,
+        "gpu": null,
+        "system_memory": 495.78,
+        "system_memory_unit": "Gigabyte",
+        "ram": 495.78,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    },
+    {
+      "object_type": "Data process",
+      "process_type": "Image flat-field correction",
+      "name": "Flatfield estimation - Ex_639_Em_680",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-flatfield-estimation",
+        "name": "aind-smartspim-flatfield-estimation",
+        "version": "0.0.4",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-17T20:05:11.658632Z",
+      "end_date_time": "2026-10-17T20:46:33.531814Z",
+      "output_path": "/tmp/nxf.pcmyv9iYtU/capsule/results",
+      "output_parameters": {
+        "flatfield_paths": [
+          "/tmp/nxf.pcmyv9iYtU/capsule/results/estimated_flat_laser_Ex_639_Em_680_side_0.tif",
+          "/tmp/nxf.pcmyv9iYtU/capsule/results/estimated_flat_laser_Ex_639_Em_680_side_1.tif"
+        ],
+        "input_location": "s3://aind-open-data/869318_2026-10-09_04-09-10/SPIM/Ex_639_Em_680",
+        "shading_parameters": {
+          "get_darkfield": false,
+          "smoothness_flatfield": 1.0,
+          "smoothness_darkfield": 20,
+          "sort_intensity": true,
+          "max_reweight_iterations": 35,
+          "resize_mode": "skimage_dask",
+          "max_workers": 4
+        },
+        "duration_seconds": 2481.873182
+      },
+      "notes": "Flatfield estimation for channel Ex_639_Em_680",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 4,
+        "gpu": null,
+        "system_memory": 495.78,
+        "system_memory_unit": "Gigabyte",
+        "ram": 495.78,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "This processing only contains metadata about flatfields             and needs to be compiled with other steps at the end",
+  "dependency_graph": {
+    "Flatfield estimation - Ex_488_Em_525": [],
+    "Flatfield estimation - Ex_561_Em_600": [
+      "Flatfield estimation - Ex_488_Em_525"
+    ],
+    "Flatfield estimation - Ex_639_Em_680": [
+      "Flatfield estimation - Ex_561_Em_600"
+    ]
+  }
+}

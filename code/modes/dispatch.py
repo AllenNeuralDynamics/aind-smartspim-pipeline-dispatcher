@@ -227,6 +227,89 @@ def dispatch(
         raise BaseException("Stopping pipeline, pipeline configuration.")
 
 
+def compile_dispatch_processing(
+    output_dispatch_metadata: PathLike,
+    flatfield_folder: PathLike,
+    destripe_files: List[PathLike],
+    stitch_folder: PathLike,
+    fuse_folder: PathLike,
+    ccf_folders: List[PathLike],
+    logger: logging.Logger,
+) -> str:
+    """
+    Compiles the root processing.json of the stitched asset from the
+    per-step processing records. Must run before anything is published.
+
+    Parameters
+    ----------
+    output_dispatch_metadata: PathLike
+        Folder where the compiled processing.json is written.
+
+    flatfield_folder: PathLike
+        Flatfield correction folder; its metadata folder holds the
+        flatfield (and destripe) processing record.
+
+    destripe_files: List[PathLike]
+        Processing records from the parallel destriping step, if any.
+
+    stitch_folder: PathLike
+        Stitch folder generated in the stitch step.
+
+    fuse_folder: PathLike
+        Fuse folder with one <channel>_processing.json per channel.
+
+    ccf_folders: List[PathLike]
+        CCF registration folders generated in the pipeline.
+
+    logger: logging.Logger
+        Logging object
+
+    Returns
+    -------
+    str
+        Folder containing the compiled processing.json.
+
+    Raises
+    ------
+    ProcessingCompilationError
+        If any processing record is missing or invalid.
+    """
+    ccf_processings = []
+    for ccf_folder in ccf_folders:
+        ccf_processings += [
+            p for p in glob(f"{ccf_folder}/metadata/*processing*.json") if "manifest" not in str(p)
+        ]
+
+    # Ordered stages, records inside a stage ran in parallel per channel
+    # This ordering ensures that the processing records are compiled in the
+    # correct sequence of pipeline steps. It's always the same unless we change
+    # the pipeline steps themselves.
+    stages = [
+        utils.ProcessingStage([str(Path(flatfield_folder).joinpath("metadata/processing.json"))]),
+        utils.ProcessingStage([str(p) for p in destripe_files]),
+        utils.ProcessingStage([str(Path(stitch_folder).joinpath("metadata/processing.json"))]),
+        utils.ProcessingStage(sorted(str(p) for p in Path(fuse_folder).glob("*_processing.json"))),
+        utils.ProcessingStage(sorted(ccf_processings)),
+    ]
+    logger.info(
+        "Compiling processing.json from stage records: "
+        f"{[len(stage.paths) for stage in stages]} "
+        "(flatfield, destripe, stitching, fusion, registration)"
+    )
+    logger.debug(f"Processing stages: {stages}")
+
+    output_filename = utils.compile_processing_jsons(
+        stages=stages,
+        output_general_processing=str(output_dispatch_metadata),
+        pipeline_name=__pipeline_name__,
+        pipeline_version=__pipeline_version__,
+        pipeline_url=__url__,
+    )
+    logger.info(f"Compiled processing.json in path {output_filename}")
+
+    return output_filename
+
+
 def copy_intermediate_data(
     output_dispatch_metadata: PathLike,
     flatfield_folder: List[PathLike],
@@ -279,52 +362,6 @@ def copy_intermediate_data(
         Logging object
 
     """
-    flatfield_processings = [str(flatfield_folder.joinpath("metadata/processing.json"))]
-    stitch_processings = [str(stitch_folder.joinpath("metadata/processing.json"))]
-    fuse_processings = [str(p) for p in list(fuse_folder.glob("*_processing.json"))]
-    ccf_processings = []
-
-    for ccf_folder in ccf_folders:
-        processing_jsons = [
-            p for p in glob(f"{ccf_folder}/metadata/*processing*.json") if "manifest" not in str(p)
-        ]
-        ccf_processings.append(processing_jsons)
-
-    # Flattening list
-    processing_paths = list()
-    combined_processing_list = ccf_processings
-    for sub_list in combined_processing_list:
-        processing_paths += sub_list
-
-    processing_paths = (
-        flatfield_processings
-        + destripe_files
-        + stitch_processings
-        + fuse_processings
-        + processing_paths
-    )
-    logger.info(f"Compiling {len(processing_paths)} processing.json files")
-    logger.debug(f"Processing paths: {processing_paths}")
-
-    try:
-        output_filename = utils.compile_processing_jsons(
-            processing_paths=processing_paths,
-            output_general_processing=output_dispatch_metadata,
-            pipeline_name=__pipeline_name__,
-            pipeline_version=__pipeline_version__,
-            pipeline_url=__url__,
-        )
-
-    except Exception:
-        logger.error(
-            "Error while compiling processing manifests; continuing without a "
-            "compiled processing.json",
-            exc_info=True,
-        )
-        output_filename = None
-
-    logger.info(f"Compiled processing.json in path {output_filename}")
-
     output_dispatch_metadata = Path(output_dispatch_metadata)
     output_fusion = "image_tile_fusing"
     dest_metadata_path = f"{s3_path}/{output_fusion}/metadata"
@@ -542,10 +579,21 @@ def handle_dispatch(
     )
 
     flatfield_folder = data_folder.joinpath("flatfield_estimation")
-    destripe_files = [str(p) for p in list(data_folder.glob("image_destriping_*"))]
+    destripe_files = [str(p) for p in data_folder.glob("image_destriping_*processing*.json")]
     stitch_folder = data_folder.joinpath("stitched")
     fuse_folder = data_folder.joinpath("fused")
     ccf_folders = glob(f"{data_folder}/ccf_registration_results/ccf_*")
+
+    # Fails the run before anything is published if provenance is incomplete
+    compile_dispatch_processing(
+        output_dispatch_metadata=output_dispatch_metadata,
+        flatfield_folder=flatfield_folder,
+        destripe_files=destripe_files,
+        stitch_folder=stitch_folder,
+        fuse_folder=fuse_folder,
+        ccf_folders=ccf_folders,
+        logger=logger,
+    )
 
     # bucket_path is used for Code Ocean registration and NG links (cloud only)
     bucket_path = output_path if cloud_mode else ""

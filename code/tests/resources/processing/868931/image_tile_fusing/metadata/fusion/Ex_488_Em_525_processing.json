@@ -1,0 +1,114 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image tile fusing",
+      "name": "Image tile fusing",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-fuse",
+        "name": "aind-smartspim-fuse",
+        "version": "0.0.6",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-31T04:00:52.928927Z",
+      "end_date_time": "2026-10-31T04:52:01.494688Z",
+      "output_path": "/tmp/nxf.i7gsSS1A1S/capsule/results/Ex_488_Em_525.zarr",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.i7gsSS1A1S/capsule/data/bigstitcher.xml",
+        "container_params": {
+          "parameters": [
+            "-x",
+            "/tmp/nxf.i7gsSS1A1S/capsule/scratch/bigstitcher.xml",
+            "-o",
+            "/tmp/nxf.i7gsSS1A1S/capsule/results/Ex_488_Em_525.zarr",
+            "-d",
+            "UINT16",
+            "-ds",
+            "1,1,1",
+            "-ds",
+            "2,2,2",
+            "-ds",
+            "4,4,4",
+            "-ds",
+            "8,8,8",
+            "-ds",
+            "16,16,16",
+            "-ds",
+            "32,32,32",
+            "-ds",
+            "64,64,64",
+            "-ds",
+            "128,128,128",
+            "-ds",
+            "256,256,256",
+            "--anisotropyFactor",
+            "1"
+          ]
+        },
+        "affine_fusion_params": {
+          "parameters": [
+            "/home/BigStitcher-Spark/affine-fusion",
+            "-o",
+            "/tmp/nxf.i7gsSS1A1S/capsule/results/Ex_488_Em_525.zarr",
+            "-s",
+            "ZARR",
+            "--prefetch"
+          ]
+        }
+      },
+      "notes": "Fusing channel with BigStitcher",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 744.0,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "This processing only contains metadata about fusion             and needs to be compiled with other steps at the end",
+  "dependency_graph": {
+    "Image tile fusing": []
+  }
+}

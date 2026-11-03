@@ -1,0 +1,139 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image cell classification",
+      "name": "Image cell classification - Ex_488_Em_525.zarr",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-classification",
+        "name": "aind-smartspim-classification",
+        "version": "0.1.3",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Camilo Laiton",
+        "Nicholas Lusk"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T10:01:05.196845Z",
+      "end_date_time": "2026-10-18T10:58:05.947184Z",
+      "output_path": "/tmp/nxf.EXfaXIYiFh/capsule/results/cell_Ex_488_Em_525/metadata",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.EXfaXIYiFh/capsule/data/fused/Ex_488_Em_525.zarr",
+        "parameters": {
+          "image_path": "/tmp/nxf.EXfaXIYiFh/capsule/data/fused/Ex_488_Em_525.zarr",
+          "background_path": "/tmp/nxf.EXfaXIYiFh/capsule/data/fused/Ex_639_Em_680.zarr",
+          "mask_path": "/tmp/nxf.EXfaXIYiFh/capsule/data/fused/Ex_488_Em_525.zarr/3",
+          "smartspim_cell_config": {
+            "model_config": {
+              "default_model": "/tmp/nxf.EXfaXIYiFh/capsule/data/smartspim_production_models/model_5_01112026/model.keras",
+              "parameters": {
+                "mask_scale": 3,
+                "downsample": 1,
+                "cube_width": 14,
+                "cube_height": 14,
+                "cube_depth": 26
+              },
+              "metadata": {
+                "model_location": "s3://aind-benchmark-data/mesoscale-anatomy-cell-detection/models/model_5_01112026/model.h5",
+                "backbone": "ResNet",
+                "layers": 18,
+                "training_data_asset": "SmartSPIM_training_sets",
+                "training_sets": [
+                  "2026_01_09_outsource_training_set",
+                  "2025_10_20_stripe_training_set",
+                  "2025_02_01_dim_training_set",
+                  "SmartSPIM_training_sets/2024_01_22_general_training_set",
+                  "SmartSPIM_training_sets/2024_11_22_rabies_training_set"
+                ],
+                "threshold": 0.5,
+                "normalization": {
+                  "type": "percentile",
+                  "range": [
+                    1,
+                    99
+                  ],
+                  "means": [],
+                  "standard_deviations": []
+                },
+                "Notes": "Updated model architecture and training sets"
+              }
+            },
+            "input_data": "/tmp/nxf.EXfaXIYiFh/capsule/data/fused",
+            "save_path": "/tmp/nxf.EXfaXIYiFh/capsule/results/cell_Ex_488_Em_525",
+            "metadata_path": "/tmp/nxf.EXfaXIYiFh/capsule/results/cell_Ex_488_Em_525/metadata",
+            "input_channel": "Ex_488_Em_525.zarr",
+            "background_channel": "Ex_639_Em_680.zarr",
+            "channel": "Ex_488_Em_525",
+            "input_scale": "0",
+            "chunk_size": 128,
+            "name": "869318_2026-10-09_04-09-10_stitched_2026-10-18_03-42-54"
+          },
+          "target_size_mb": 3048,
+          "prediction_chunksize": [
+            2,
+            128,
+            128,
+            128
+          ],
+          "overlap_prediction_chunksize": [
+            0,
+            6,
+            6,
+            6
+          ]
+        },
+        "duration_seconds": 3420.750339
+      },
+      "notes": "Classifying channel in path: /tmp/nxf.EXfaXIYiFh/capsule/data/fused/Ex_488_Em_525.zarr",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 62.11,
+        "system_memory_unit": "Gigabyte",
+        "ram": null,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": [],
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-classification",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "Classification metadata for SmartSPIM cell proposals",
+  "dependency_graph": {
+    "Image cell classification - Ex_488_Em_525.zarr": []
+  }
+}
