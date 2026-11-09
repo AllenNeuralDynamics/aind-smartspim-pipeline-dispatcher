@@ -316,7 +316,6 @@ class TestCopyIntermediateDataLocal:
             stack.enter_context(
                 patch("utils.utils.execute_command_helper", side_effect=side_effect)
             )
-            stack.enter_context(patch("utils.utils.compile_processing_jsons", return_value=None))
             stack.enter_context(patch("utils.utils.save_string_to_txt"))
             copy_intermediate_data(**dispatch_inputs, cloud_mode=cloud_mode)
         return issued
@@ -353,9 +352,7 @@ class TestCopyIntermediateDataLocal:
 
     def test_output_folder_structure(self, dispatch_inputs_real, tmp_path):
         """Verify the exact output directory tree produced by the local branch."""
-        with ExitStack() as stack:
-            stack.enter_context(patch("utils.utils.compile_processing_jsons", return_value=None))
-            copy_intermediate_data(**dispatch_inputs_real, cloud_mode=False)
+        copy_intermediate_data(**dispatch_inputs_real, cloud_mode=False)
 
         dest = tmp_path / "dest"
         # top-level metadata JSON copied from output_dispatch_metadata
@@ -380,6 +377,54 @@ class TestCopyIntermediateDataLocal:
         assert (
             dest / "image_atlas_alignment" / "Ex_561_Em_600" / "metadata" / "ccf_proc.json"
         ).is_file()
+
+
+# ── handle_dispatch publication gate ──────────────────────────────────────────
+
+
+class TestHandleDispatchProcessingGate:
+    def test_failed_compilation_publishes_nothing(self, tmp_path):
+        """Regression for dispatcher#40: no transfer or link when processing is invalid."""
+        from modes.dispatch import handle_dispatch
+        from utils.schemas import ProcessingCompilationError
+
+        data_folder = tmp_path / "data"
+        (data_folder / "fused").mkdir(parents=True)
+        (data_folder / "fused" / "Ex_488_Em_525_processing.json").write_text("{}")
+        results = tmp_path / "results"
+        results.mkdir()
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    "modes.dispatch.get_data_config",
+                    return_value=({"prelim_acquisition": {}}, "dataset", []),
+                )
+            )
+            stack.enter_context(
+                patch(
+                    "modes.dispatch.create_derived_stitched_metadata",
+                    return_value=(str(results / "output_aind_metadata"), "dataset_stitched"),
+                )
+            )
+            transfer = stack.enter_context(patch("utils.utils.run_s3_transfer"))
+            ng_link = stack.enter_context(patch("utils.visualization.create_neuroglancer_link"))
+
+            with pytest.raises(ProcessingCompilationError, match="Missing or empty"):
+                handle_dispatch(
+                    data_folder=data_folder,
+                    results_folder=results,
+                    output_path="bucket",
+                    ng_base_url="",
+                    ccf_annotation_s3="",
+                    co_domain="",
+                    axes_resolution_xyz=[1.8, 1.8, 2.0],
+                    logger=LOG,
+                    cloud_mode=True,
+                )
+
+        transfer.assert_not_called()
+        ng_link.assert_not_called()
 
 
 # ── clean_up ───────────────────────────────────────────────────────────────────
