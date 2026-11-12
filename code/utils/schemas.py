@@ -5,10 +5,12 @@ AIND data-schema generation and processing metadata utilities.
 import json
 import logging
 import platform
+import re
 import threading
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import psutil
 from aind_data_schema.components.identifiers import Code, Person
@@ -286,58 +288,329 @@ def generate_processing(
     processing.write_standard_file(output_directory=dest_processing)
 
 
+CHANNEL_PATTERN = re.compile(r"Ex_\d{3}_Em_\d{3}")
+
+
+class ProcessingCompilationError(RuntimeError):
+    """Raised when stage processing records cannot be compiled into a valid processing.json."""
+
+
+@dataclass
+class ProcessingStage:
+    """
+    A group of processing.json records that ran in parallel, e.g. one
+    fusion record per channel.
+
+    Parameters
+    ----------
+    paths: List[str]
+        Processing records of this stage. The channel of each record is
+        taken from its path (e.g. ``Ex_488_Em_525_processing.json``).
+    upstream_process_types: Optional[Sequence[str]]
+        Process types this stage depends on, matched per channel against
+        every process merged so far (e.g. cell proposals depend on the
+        "Image tile fusing" process of their channel). When None, each
+        record depends on the same-channel record of the previous stage,
+        or on every terminal process of the previous stage.
+    """
+
+    paths: List[str]
+    upstream_process_types: Optional[Sequence[str]] = field(default=None)
+
+
+@dataclass
+class _MergedRecord:
+    """Bookkeeping for a record already added to the merged graph."""
+
+    channel: Optional[str]
+    terminals: List[str]
+
+
+def get_channel_name(text: str) -> Optional[str]:
+    """Returns the last Ex_XXX_Em_XXX channel found in text, if any."""
+    matches = CHANNEL_PATTERN.findall(str(text))
+    return matches[-1] if matches else None
+
+
+def _process_type_value(process: DataProcess) -> str:
+    """Process type as a plain string (enum value or raw string)."""
+    return getattr(process.process_type, "value", process.process_type)
+
+
+def _rename_in_record(
+    processes: List[DataProcess], graph: Dict[str, List[str]], old_name: str, new_name: str
+) -> None:
+    """Renames a process and every reference to it inside one record."""
+    for process in processes:
+        if process.name == old_name:
+            process.name = new_name
+
+    graph[new_name] = graph.pop(old_name, [])
+    for dependencies in graph.values():
+        dependencies[:] = [new_name if dep == old_name else dep for dep in dependencies]
+
+
+def _unique_name(name: str, taken: set) -> str:
+    """Appends the first free _N suffix, following Processing.__add__."""
+    base_name = re.sub(r"_\d+$", "", name)
+    new_name = name
+    suffix = 1
+    while new_name in taken:
+        new_name = f"{base_name}_{suffix}"
+        suffix += 1
+    return new_name
+
+
+def _resolve_upstream(
+    channel: Optional[str],
+    upstream_process_types: Optional[Sequence[str]],
+    previous_stage: List[_MergedRecord],
+    merged_processes: List[DataProcess],
+    process_channels: Dict[str, Optional[str]],
+) -> List[str]:
+    """
+    Returns the process names a record's root processes depend on.
+    """
+    if upstream_process_types:
+        dependencies = []
+        for process_type in upstream_process_types:
+            process_type = getattr(process_type, "value", process_type)
+            candidates = [p for p in merged_processes if _process_type_value(p) == process_type]
+            same_channel = [p for p in candidates if process_channels[p.name] == channel]
+            pool = same_channel or candidates
+
+            if pool:
+                latest = max(pool, key=lambda p: p.start_date_time)
+                dependencies.append(latest.name)
+
+        if dependencies:
+            return dependencies
+
+        logger.warning(
+            "No upstream processes of types %s for channel %s; "
+            "linking to the previous stage instead",
+            list(upstream_process_types),
+            channel,
+        )
+
+    same_channel = [r for r in previous_stage if channel and r.channel == channel]
+    pool = same_channel or previous_stage
+    return [name for record in pool for name in record.terminals]
+
+
+def merge_processing_stages(
+    stages: List[List[Tuple[Processing, Optional[str]]]],
+    upstream_process_types: Optional[List[Optional[Sequence[str]]]] = None,
+    pipelines: Optional[List[Code]] = None,
+    notes: Optional[str] = None,
+) -> Processing:
+    """
+    Merges stage processing records into one Processing object.
+
+    Each record keeps its own dependency graph. Processes repeated across the
+    records of a stage get their channel appended (e.g. "Image tile fusing -
+    Ex_488_Em_525"); any other repeated name gets a _N suffix. The root
+    processes of each record are linked to the previous stage (see
+    ProcessingStage for the linking policy).
+
+    Parameters
+    ----------
+    stages: List[List[Tuple[Processing, Optional[str]]]]
+        Ordered stages, each a list of (record, channel) pairs.
+    upstream_process_types: Optional[List[Optional[Sequence[str]]]]
+        Per-stage process types to depend on. None links to the previous stage.
+    pipelines: Optional[List[Code]]
+        Pipelines that take precedence over the records' pipelines with the
+        same name.
+    notes: Optional[str]
+        Notes for the merged record.
+
+    Returns
+    -------
+    Processing
+        The merged and validated processing record.
+
+    Raises
+    ------
+    ProcessingCompilationError
+        If the merged record does not validate.
+    """
+    merged_processes: List[DataProcess] = []
+    merged_graph: Dict[str, List[str]] = {}
+    process_channels: Dict[str, Optional[str]] = {}
+    merged_pipelines: List[Code] = list(pipelines or [])
+    previous_stage: List[_MergedRecord] = []
+
+    for stage_index, stage in enumerate(stages):
+        stage_upstream = upstream_process_types[stage_index] if upstream_process_types else None
+
+        # Work on copies so the input records are never modified
+        records = []
+        for record, channel in stage:
+            processes = [p.model_copy(deep=True) for p in record.data_processes]
+            if record.dependency_graph is not None:
+                graph = {name: list(deps) for name, deps in record.dependency_graph.items()}
+            else:
+                graph = {
+                    p.name: ([processes[i - 1].name] if i else []) for i, p in enumerate(processes)
+                }
+            records.append((processes, graph, channel))
+
+            for pipeline in record.pipelines or []:
+                if pipeline.name not in {p.name for p in merged_pipelines}:
+                    merged_pipelines.append(pipeline)
+
+        name_counts: Dict[str, int] = {}
+        for processes, _, _ in records:
+            for process in processes:
+                name_counts[process.name] = name_counts.get(process.name, 0) + 1
+
+        current_stage: List[_MergedRecord] = []
+        for processes, graph, channel in records:
+            for name in [p.name for p in processes]:
+                new_name = name
+                if name_counts[name] > 1 and channel and channel not in name:
+                    new_name = f"{name} - {channel}"
+                new_name = _unique_name(new_name, set(merged_graph))
+                if new_name != name:
+                    _rename_in_record(processes, graph, name, new_name)
+
+            names = [p.name for p in processes]
+            dependents = {dep for deps in graph.values() for dep in deps}
+            roots = [name for name in names if not graph.get(name)]
+            terminals = [name for name in names if name not in dependents]
+
+            upstream = _resolve_upstream(
+                channel=channel,
+                upstream_process_types=stage_upstream,
+                previous_stage=previous_stage,
+                merged_processes=merged_processes,
+                process_channels=process_channels,
+            )
+
+            for name in names:
+                merged_graph[name] = list(graph.get(name, []))
+            for name in roots:
+                merged_graph[name] = list(upstream)
+            for process in processes:
+                process_channels[process.name] = get_channel_name(process.name) or channel
+
+            merged_processes.extend(processes)
+            current_stage.append(_MergedRecord(channel=channel, terminals=terminals))
+
+        previous_stage = current_stage
+
+    try:
+        return Processing(
+            data_processes=merged_processes,
+            dependency_graph=merged_graph,
+            pipelines=merged_pipelines,
+            notes=notes,
+        )
+    except ValidationError as err:
+        raise ProcessingCompilationError(f"Merged processing record is invalid: {err}") from err
+
+
+def load_processing_record(processing_path: PathLike) -> Processing:
+    """
+    Reads and validates one stage processing.json.
+
+    Raises
+    ------
+    ProcessingCompilationError
+        If the file is missing, empty or fails v2 Processing validation.
+    """
+    # read_json_as_dict returns {} when the path does not exist
+    curr_processing = read_json_as_dict(str(processing_path))
+    if not curr_processing:
+        raise ProcessingCompilationError(f"Missing or empty processing.json: {processing_path}")
+
+    try:
+        return Processing.model_validate(curr_processing)
+    except ValidationError as err:
+        raise ProcessingCompilationError(
+            f"{processing_path} failed v2 Processing validation: {err}"
+        ) from err
+
+
 def compile_processing_jsons(
-    processing_paths: List[str],
+    stages: Sequence[ProcessingStage],
     output_general_processing: str,
     pipeline_name: str,
     pipeline_version: str,
     pipeline_url: str,
 ) -> str:
     """
-    Merges multiple processing.json files into one and writes the result.
+    Merges the stage processing.json files into one and writes the result.
+
+    Parameters
+    ----------
+    stages: Sequence[ProcessingStage]
+        Ordered stages; empty stages are skipped.
+    output_general_processing: str
+        Folder where the compiled processing.json is written.
+    pipeline_name: str
+        Pipeline name.
+    pipeline_version: str
+        Pipeline version.
+    pipeline_url: str
+        Pipeline repository URL.
+
+    Returns
+    -------
+    str
+        Folder containing the compiled processing.json.
+
+    Raises
+    ------
+    ProcessingCompilationError
+        If any record is missing, empty or invalid, or the compiled
+        processing.json does not validate. All rejected paths are listed.
     """
-    data_processes = []
-    for processing_path in processing_paths:
-        curr_processing = read_json_as_dict(str(processing_path))
-        logger.debug("Reading processing.json from %s", processing_path)
+    stages = [stage for stage in stages if stage.paths]
+    errors = []
+    loaded_stages = []
 
-        # Skip missing/empty files (read_json_as_dict returns {} when the path
-        # does not exist) so an absent processing.json doesn't abort the merge.
-        if not curr_processing:
-            logger.warning("Skipping missing/empty processing.json: %s", processing_path)
-            continue
+    for stage in stages:
+        records = []
+        for processing_path in stage.paths:
+            try:
+                record = load_processing_record(processing_path)
+            except ProcessingCompilationError as err:
+                errors.append(str(err))
+                continue
 
-        # Warn-and-skip: a single malformed upstream processing.json should not
-        # abort the whole merge.
-        try:
-            curr_processing_obj = Processing.model_validate(curr_processing)
-        except ValidationError as err:
-            logger.error(
-                "Skipping %s; failed v2 Processing validation: %s",
+            records.append((record, get_channel_name(processing_path)))
+            logger.info(
+                "Adding %d data processes from %s",
+                len(record.data_processes),
                 processing_path,
-                err,
             )
-            continue
+        loaded_stages.append(records)
 
-        for data_process in curr_processing_obj.data_processes:
-            data_processes.append(data_process)
-
-        logger.info(
-            "Adding %d data processes from %s",
-            len(curr_processing_obj.data_processes),
-            processing_path,
+    if errors:
+        raise ProcessingCompilationError(
+            "Cannot compile processing.json; rejected records:\n - " + "\n - ".join(errors)
         )
 
-    generate_processing(
-        data_processes=data_processes,
-        dest_processing=str(output_general_processing),
-        pipeline_name=pipeline_name,
-        pipeline_version=pipeline_version,
-        pipeline_url=pipeline_url,
+    processing = merge_processing_stages(
+        stages=loaded_stages,
+        upstream_process_types=[stage.upstream_process_types for stage in stages],
+        pipelines=[Code(url=pipeline_url, name=pipeline_name, version=pipeline_version)],
+        notes="SmartSPIM light-sheet microscopy image processing pipeline",
     )
+    processing.write_standard_file(output_directory=output_general_processing)
 
-    # Validate the generated processing.json for parity with other metadata.
-    validate_metadata_v2(Path(output_general_processing).joinpath("processing.json"))
+    output_file = Path(output_general_processing).joinpath("processing.json")
+    if not validate_metadata_v2(output_file):
+        raise ProcessingCompilationError(f"Compiled {output_file} failed v2 validation")
+
+    logger.info(
+        "Compiled %d data processes from %d stages into %s",
+        len(processing.data_processes),
+        len(stages),
+        output_file,
+    )
 
     return str(output_general_processing)
 

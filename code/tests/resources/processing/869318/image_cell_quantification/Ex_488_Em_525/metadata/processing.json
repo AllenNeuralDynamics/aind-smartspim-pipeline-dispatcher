@@ -1,0 +1,77 @@
+{
+  "object_type": "Processing",
+  "describedBy": "https://raw.githubusercontent.com/AllenNeuralDynamics/aind-data-schema/main/src/aind_data_schema/core/processing.py",
+  "schema_version": "2.3.0",
+  "data_processes": [
+    {
+      "object_type": "Data process",
+      "process_type": "Image cell quantification",
+      "name": "Image cell quantification - Ex_488_Em_525",
+      "stage": "Processing",
+      "code": {
+        "object_type": "Code",
+        "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-quantification",
+        "name": "aind-smartspim-quantification",
+        "version": "1.7.1",
+        "commit_hash": null,
+        "container": null,
+        "run_script": null,
+        "language": null,
+        "language_version": null,
+        "input_data": null,
+        "parameters": null,
+        "core_dependency": null
+      },
+      "experimenters": [
+        "Nicholas Lusk",
+        "Camilo Laiton"
+      ],
+      "pipeline_name": "SmartSPIM Pipeline",
+      "start_date_time": "2026-10-18T11:30:03.909338Z",
+      "end_date_time": "2026-10-18T11:45:02.457966Z",
+      "output_path": "/tmp/nxf.wlkg9p8Ah2/capsule/results",
+      "output_parameters": {
+        "input_location": "/tmp/nxf.wlkg9p8Ah2/capsule/data/fused/Ex_488_Em_525.zarr/0",
+        "output_folder": "/tmp/nxf.wlkg9p8Ah2/capsule/results",
+        "duration_seconds": 898.548628
+      },
+      "notes": "Maps detected cells to Allen CCF V3 Atlas regions.",
+      "resources": {
+        "object_type": "Resource usage",
+        "os": "Linux",
+        "architecture": "x86_64",
+        "cpu": null,
+        "cpu_cores": 16,
+        "gpu": null,
+        "system_memory": 247.73,
+        "system_memory_unit": "Gigabyte",
+        "ram": 247.73,
+        "ram_unit": "Gigabyte",
+        "cpu_usage": [],
+        "gpu_usage": null,
+        "ram_usage": [],
+        "usage_unit": "percent"
+      }
+    }
+  ],
+  "pipelines": [
+    {
+      "object_type": "Code",
+      "url": "https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
+      "name": "SmartSPIM Pipeline",
+      "version": "6.0.0",
+      "commit_hash": null,
+      "container": null,
+      "run_script": null,
+      "language": null,
+      "language_version": null,
+      "input_data": null,
+      "parameters": null,
+      "core_dependency": null
+    }
+  ],
+  "notes": "SmartSPIM cell quantification: maps detected cells to Allen CCF V3 Atlas regions.",
+  "dependency_graph": {
+    "Image cell quantification - Ex_488_Em_525": []
+  }
+}
